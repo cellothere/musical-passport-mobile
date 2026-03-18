@@ -448,14 +448,14 @@ function TimeMachineTrack({ track, index }: { track: Track; index: number }) {
             ) : (
               <Ionicons
                 name={isThisTrack && isPlaying ? 'pause' : 'play'}
-                size={14}
+                size={18}
                 color={isThisTrack ? Colors.gold : Colors.text2}
               />
             )}
           </TouchableOpacity>
         )}
         <TouchableOpacity style={styles.openBtn} onPress={openTrack}>
-          <Ionicons name="open-outline" size={14} color={Colors.blue} />
+          <Ionicons name="open-outline" size={18} color={Colors.blue} />
         </TouchableOpacity>
       </View>
     </View>
@@ -605,19 +605,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 12, borderTopWidth: 1, borderTopColor: Colors.border, gap: 12,
   },
-  trackNumber: { color: Colors.text3, fontSize: 13, fontWeight: '700', width: 20, textAlign: 'center' },
+  trackNumber: { color: Colors.text3, fontSize: 14, fontWeight: '700', width: 24, textAlign: 'center' },
   trackInfo: { flex: 1 },
-  trackTitle: { color: Colors.text, fontSize: 14, fontWeight: '600' },
-  trackArtist: { color: Colors.text2, fontSize: 12, marginTop: 2 },
-  trackActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  trackTitle: { color: Colors.text, fontSize: 15, fontWeight: '600' },
+  trackArtist: { color: Colors.text2, fontSize: 14, marginTop: 3 },
+  trackActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   playBtn: {
-    width: 34, height: 34, borderRadius: 17,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.border2,
     alignItems: 'center', justifyContent: 'center',
   },
   playBtnActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
   openBtn: {
-    width: 34, height: 34, borderRadius: 17,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: Colors.blueBg, borderWidth: 1, borderColor: Colors.blueBorder,
     alignItems: 'center', justifyContent: 'center',
   },
