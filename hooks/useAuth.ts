@@ -84,7 +84,7 @@ export function useAuth() {
 
   async function exchangeSpotifyCode(code: string, codeVerifier: string) {
     try {
-      const token = await fetchSpotifyToken(code, codeVerifier);
+      const token = await fetchSpotifyToken(code, codeVerifier, redirectUri);
       await validateSpotifyToken(token);
     } catch (err) {
       console.error('Token exchange failed:', err);

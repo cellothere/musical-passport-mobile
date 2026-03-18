@@ -121,10 +121,10 @@ export async function fetchMe(accessToken: string): Promise<MeResponse> {
   return res.json();
 }
 
-export async function fetchSpotifyToken(code: string, codeVerifier: string): Promise<string> {
+export async function fetchSpotifyToken(code: string, codeVerifier: string, redirectUri: string): Promise<string> {
   const res = await apiFetch('/auth/mobile-callback', {
     method: 'POST',
-    body: JSON.stringify({ code, codeVerifier }),
+    body: JSON.stringify({ code, codeVerifier, redirectUri }),
   });
   if (!res.ok) throw new Error('Token exchange failed');
   const data: any = await res.json();
