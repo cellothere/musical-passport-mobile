@@ -1,20 +1,138 @@
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { HomeScreen } from './screens/HomeScreen';
+import { RecommendationScreen } from './screens/RecommendationScreen';
+import { TimeMachineScreen } from './screens/TimeMachineScreen';
+import { Colors } from './constants/colors';
+import { useAuth } from './hooks/useAuth';
+import { useStamps } from './hooks/useStamps';
+import { AudioPlayerProvider, useAudioPlayer } from './contexts/AudioPlayerContext';
 
-export default function App() {
+const Stack = createStackNavigator();
+
+function MiniPlayer() {
+  const { currentTrackTitle, currentTrackArtist, isPlaying, isLoading, togglePlay, stop } = useAudioPlayer();
+  const insets = useSafeAreaInsets();
+
+  if (!currentTrackTitle) return null;
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
+    <View style={[styles.miniPlayer, { paddingBottom: insets.bottom + 8 }]}>
+      <View style={styles.miniPlayerInfo}>
+        <Text style={styles.miniPlayerTitle} numberOfLines={1}>{currentTrackTitle}</Text>
+        {currentTrackArtist && (
+          <Text style={styles.miniPlayerArtist} numberOfLines={1}>{currentTrackArtist}</Text>
+        )}
+      </View>
+      {isLoading ? (
+        <ActivityIndicator size="small" color={Colors.gold} style={styles.miniPlayerBtn} />
+      ) : (
+        <TouchableOpacity onPress={togglePlay} style={styles.miniPlayerBtn}>
+          <Text style={styles.miniPlayerBtnText}>{isPlaying ? '⏸' : '▶'}</Text>
+        </TouchableOpacity>
+      )}
+      <TouchableOpacity onPress={stop} style={styles.miniPlayerBtn}>
+        <Text style={styles.miniPlayerBtnText}>✕</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
+function AppNavigator() {
+  const auth = useAuth();
+  const stampsHook = useStamps();
+
+  return (
+    <NavigationContainer
+      theme={{
+        dark: true,
+        colors: {
+          primary: Colors.gold,
+          background: Colors.bg,
+          card: Colors.surface,
+          text: Colors.text,
+          border: Colors.border,
+          notification: Colors.gold,
+        },
+        fonts: {
+          regular: { fontFamily: 'System', fontWeight: '400' },
+          medium: { fontFamily: 'System', fontWeight: '500' },
+          bold: { fontFamily: 'System', fontWeight: '700' },
+          heavy: { fontFamily: 'System', fontWeight: '800' },
+        },
+      }}
+    >
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Home">
+          {props => <HomeScreen {...props} auth={auth} stampsHook={stampsHook} />}
+        </Stack.Screen>
+        <Stack.Screen name="Recommendations">
+          {props => (
+            <RecommendationScreen
+              navigation={props.navigation}
+              route={props.route as any}
+              auth={auth}
+              stampsHook={stampsHook}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="TimeMachine" options={{ presentation: 'modal' }}>
+          {props => (
+            <TimeMachineScreen
+              {...props}
+              accessToken={auth.accessToken}
+              service={auth.service}
+            />
+          )}
+        </Stack.Screen>
+      </Stack.Navigator>
+      <MiniPlayer />
+    </NavigationContainer>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <StatusBar style="light" />
+      <AudioPlayerProvider>
+        <AppNavigator />
+      </AudioPlayerProvider>
+    </SafeAreaProvider>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
+  miniPlayer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface2,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border2,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 10,
+  },
+  miniPlayerInfo: { flex: 1 },
+  miniPlayerTitle: { color: Colors.text, fontSize: 14, fontWeight: '600' },
+  miniPlayerArtist: { color: Colors.text2, fontSize: 12, marginTop: 2 },
+  miniPlayerBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border2,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  miniPlayerBtnText: { color: Colors.gold, fontSize: 14 },
 });
