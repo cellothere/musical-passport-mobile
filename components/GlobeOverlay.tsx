@@ -2,6 +2,66 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, ClipPath, Defs, G, Path, RadialGradient, Stop } from 'react-native-svg';
 
+// Simplified continent outlines as [longitude, latitude] arrays
+const LAND_POLYGONS: [number, number][][] = [
+  // Africa
+  [
+    [-17,15],[-12,8],[-8,5],[-3,5],[2,5],[9,4],[14,4],[18,4],
+    [24,0],[30,-2],[38,-11],[40,-11],[50,-27],[44,-30],[38,-34],
+    [27,-34],[19,-35],[14,-17],[12,-6],[9,4],[2,7],[-4,5],
+    [-8,5],[-13,8],[-17,15],
+  ],
+  // Europe
+  [
+    [-10,36],[0,38],[3,43],[7,44],[14,46],[18,42],[22,38],[28,36],
+    [35,36],[36,42],[32,46],[28,52],[20,56],[14,57],[10,58],[5,58],
+    [0,56],[-4,52],[-5,48],[-3,44],[-8,44],[-10,38],[-10,36],
+  ],
+  // Asia (main landmass)
+  [
+    [26,38],[32,46],[38,44],[44,42],[50,42],[58,44],[68,52],[80,55],
+    [90,52],[100,52],[110,55],[118,52],[126,48],[135,38],[132,34],
+    [120,24],[110,22],[104,10],[100,2],[102,-2],[108,-8],[115,-8],
+    [120,-5],[124,0],[130,0],[142,-5],[146,-18],[140,-36],[130,-32],
+    [120,-34],[114,-22],[104,-2],[100,4],[96,16],[90,22],[80,28],
+    [74,34],[68,38],[60,38],[50,40],[44,42],[38,44],[32,46],[26,38],
+  ],
+  // Australia
+  [
+    [114,-22],[116,-20],[120,-14],[122,-12],[126,-14],[130,-12],
+    [136,-12],[138,-14],[142,-10],[145,-14],[148,-20],[152,-28],
+    [153,-32],[152,-38],[148,-40],[140,-38],[135,-35],[130,-34],
+    [122,-34],[116,-32],[114,-28],[112,-26],[114,-22],
+  ],
+  // North America
+  [
+    [-168,64],[-165,68],[-158,70],[-140,68],[-130,58],[-126,50],
+    [-122,46],[-120,42],[-116,32],[-110,28],[-104,24],[-96,18],
+    [-90,16],[-84,12],[-80,9],[-80,24],[-82,28],[-80,32],
+    [-76,38],[-72,42],[-66,44],[-60,46],[-60,50],[-64,48],
+    [-70,44],[-76,44],[-80,44],[-84,46],[-88,46],[-92,48],
+    [-98,50],[-105,52],[-110,50],[-116,50],[-124,50],[-130,56],
+    [-140,60],[-148,62],[-158,60],[-164,62],[-168,64],
+  ],
+  // Central America
+  [
+    [-80,9],[-84,10],[-88,14],[-90,18],[-92,20],[-95,18],[-88,12],[-80,9],
+  ],
+  // South America
+  [
+    [-80,8],[-76,8],[-62,10],[-52,6],[-50,2],[-48,0],
+    [-38,-8],[-35,-12],[-35,-15],[-38,-22],[-46,-24],[-52,-32],
+    [-58,-38],[-65,-45],[-68,-54],[-64,-56],[-60,-52],[-52,-42],
+    [-50,-38],[-52,-32],[-58,-28],[-62,-22],[-64,-10],[-70,-2],
+    [-76,0],[-80,6],[-80,8],
+  ],
+  // Greenland
+  [
+    [-30,82],[-42,80],[-52,78],[-56,76],[-60,72],[-55,70],
+    [-46,65],[-42,65],[-38,68],[-30,74],[-22,78],[-20,80],[-30,82],
+  ],
+];
+
 const COUNTRY_COORDS: Record<string, [number, number]> = {
   'France': [2.3, 48.9], 'Germany': [10.5, 51.2], 'Sweden': [18.6, 60.1], 'Norway': [10.7, 59.9],
   'Portugal': [-8.2, 39.4], 'Spain': [-3.7, 40.4], 'Italy': [12.6, 41.9], 'Greece': [21.8, 37.0],
@@ -84,6 +144,26 @@ function buildGridPaths(rotation: number, R: number): string[] {
   return paths;
 }
 
+function buildLandPaths(rotation: number, R: number): string[] {
+  const result: string[] = [];
+  for (const polygon of LAND_POLYGONS) {
+    let d = '';
+    let open = false;
+    for (const [lon, lat] of polygon) {
+      const p = project(lon, lat, rotation, R);
+      if (p.z > 0) {
+        d += open ? ` L${p.x.toFixed(1)},${p.y.toFixed(1)}` : `M${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+        open = true;
+      } else {
+        if (open) { d += ' Z'; open = false; }
+      }
+    }
+    if (open) d += ' Z';
+    if (d.length > 4) result.push(d);
+  }
+  return result;
+}
+
 interface GlobeState {
   rotation: number;
   R: number;
@@ -92,6 +172,7 @@ interface GlobeState {
   dotVisible: boolean;
   dotOpacity: number;
   gridPaths: string[];
+  landPaths: string[];
 }
 
 interface Props {
@@ -113,7 +194,7 @@ export function GlobeOverlay({ visible, country, decade, onDone }: Props) {
 
   const [globe, setGlobe] = useState<GlobeState>({
     rotation: 0, R: R_START, dotX: cx, dotY: cy,
-    dotVisible: false, dotOpacity: 0, gridPaths: [],
+    dotVisible: false, dotOpacity: 0, gridPaths: [], landPaths: [],
   });
 
   useEffect(() => {
@@ -180,6 +261,7 @@ export function GlobeOverlay({ visible, country, decade, onDone }: Props) {
         dotVisible: dot.z > 0.04,
         dotOpacity: dot.z > 0.04 ? Math.min(1, (dot.z - 0.04) / 0.25) : 0,
         gridPaths: buildGridPaths(rotation, R),
+        landPaths: buildLandPaths(rotation, R),
       });
 
       if (elapsed < TOTAL_MS) {
@@ -217,17 +299,27 @@ export function GlobeOverlay({ visible, country, decade, onDone }: Props) {
               <Stop offset="60%" stopColor="#0e1a38" />
               <Stop offset="100%" stopColor="#060c18" />
             </RadialGradient>
+            <RadialGradient id="limb" cx="50%" cy="50%" r="50%">
+              <Stop offset="62%" stopColor="#060c18" stopOpacity="0" />
+              <Stop offset="88%" stopColor="#060c18" stopOpacity="0.72" />
+              <Stop offset="100%" stopColor="#030810" stopOpacity="0.96" />
+            </RadialGradient>
             <ClipPath id="globeClip">
               <Circle cx={cx} cy={cy} r={globe.R} />
             </ClipPath>
           </Defs>
 
-          {/* Ocean fill + grid, clipped to globe */}
+          {/* Ocean fill + land + grid, clipped to globe */}
           <G clipPath="url(#globeClip)">
             <Circle cx={cx} cy={cy} r={globe.R} fill="url(#ocean)" />
-            {globe.gridPaths.map((d, i) => (
-              <Path key={i} d={d} stroke="rgba(90,140,230,0.18)" strokeWidth={0.7} fill="none" />
+            {globe.landPaths.map((d, i) => (
+              <Path key={`land-${i}`} d={d} fill="rgba(48,88,48,0.88)" stroke="rgba(68,118,58,0.5)" strokeWidth={0.6} />
             ))}
+            {globe.gridPaths.map((d, i) => (
+              <Path key={i} d={d} stroke="rgba(90,140,230,0.15)" strokeWidth={0.6} fill="none" />
+            ))}
+            {/* Limb darkening — hides back-hemisphere artifacts at the edges */}
+            <Circle cx={cx} cy={cy} r={globe.R} fill="url(#limb)" />
           </G>
 
           {/* Globe rim */}
