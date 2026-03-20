@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LandingScreen } from './screens/LandingScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { RecommendationScreen } from './screens/RecommendationScreen';
 import { TimeMachineScreen } from './screens/TimeMachineScreen';
@@ -15,6 +17,9 @@ import { useAuth } from './hooks/useAuth';
 import { useStamps } from './hooks/useStamps';
 import { useFavorites } from './hooks/useFavorites';
 import { AudioPlayerProvider, useAudioPlayer } from './contexts/AudioPlayerContext';
+import { SplashAnimation } from './components/SplashAnimation';
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const Stack = createStackNavigator();
 
@@ -73,7 +78,10 @@ function AppNavigator() {
     >
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Home">
-          {props => <HomeScreen {...props} auth={auth} stampsHook={stampsHook} favoritesHook={favoritesHook} />}
+          {props => <LandingScreen {...props} auth={auth} stampsHook={stampsHook} favoritesHook={favoritesHook} />}
+        </Stack.Screen>
+        <Stack.Screen name="Explore">
+          {props => <HomeScreen {...props} stampsHook={stampsHook} />}
         </Stack.Screen>
         <Stack.Screen name="Recommendations">
           {props => (
@@ -118,12 +126,19 @@ function AppNavigator() {
 }
 
 export default function App() {
+  const [splashDone, setSplashDone] = useState(false);
+
+  const onLayoutReady = useCallback(async () => {
+    await SplashScreen.hideAsync();
+  }, []);
+
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider onLayout={onLayoutReady}>
       <StatusBar style="light" />
       <AudioPlayerProvider>
         <AppNavigator />
       </AudioPlayerProvider>
+      {!splashDone && <SplashAnimation onDone={() => setSplashDone(true)} />}
     </SafeAreaProvider>
   );
 }
