@@ -6,6 +6,7 @@ import { fetchMe, fetchSpotifyToken, API_BASE_URL } from '../services/api';
 
 WebBrowser.maybeCompleteAuthSession();
 
+
 const SPOTIFY_CLIENT_ID = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID ?? '';
 const SCOPES = ['user-top-read', 'user-read-private', 'user-read-email'];
 const STORAGE_KEY_SPOTIFY = '@musical_passport_spotify_token';
