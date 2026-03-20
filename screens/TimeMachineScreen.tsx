@@ -12,6 +12,7 @@ import { REGIONS, DECADES } from '../constants/regions';
 import { fetchTimeMachine, TimeMachineResponse, Track } from '../services/api';
 import type { AuthService } from '../hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
+import type { SavedDiscovery } from '../hooks/useFavorites';
 import { GlobeOverlay } from '../components/GlobeOverlay';
 
 const FLAGS: Record<string, string> = {
@@ -37,10 +38,18 @@ const FLAGS: Record<string, string> = {
 
 const ALL_COUNTRIES = REGIONS.flatMap(r => r.countries);
 
+interface FavoritesHook {
+  isSaved: (country: string, type: SavedDiscovery['type'], decade?: string) => boolean;
+  save: (item: Omit<SavedDiscovery, 'id' | 'savedAt'>) => Promise<void>;
+  remove: (id: string) => Promise<void>;
+  findSaved: (country: string, type: SavedDiscovery['type'], decade?: string) => SavedDiscovery | undefined;
+}
+
 interface Props {
   navigation: any;
   accessToken: string | null;
   service: AuthService;
+  favoritesHook: FavoritesHook;
 }
 
 // ── Decade Picker Modal ────────────────────────────────────
@@ -203,7 +212,7 @@ function CountryPickerModal({ visible, selected, onClose, onSelect }: {
 }
 
 // ── Main Screen ────────────────────────────────────────────
-export function TimeMachineScreen({ navigation, accessToken, service }: Props) {
+export function TimeMachineScreen({ navigation, accessToken, service, favoritesHook }: Props) {
   const [selectedCountry, setSelectedCountry] = useState('');
   const [selectedDecade, setSelectedDecade] = useState('');
   const [loading, setLoading] = useState(false);
@@ -269,7 +278,7 @@ export function TimeMachineScreen({ navigation, accessToken, service }: Props) {
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.description}>
-          Pick a country and decade, or go fully random. We'll surface the iconic music of that time and place.
+          Pick a country and decade — or go random.
         </Text>
 
         {/* Pickers */}
@@ -351,13 +360,26 @@ export function TimeMachineScreen({ navigation, accessToken, service }: Props) {
           </View>
         )}
 
-        {result && !loading && (
+        {result && !loading && (() => {
+          const isSaved = favoritesHook.isSaved(result.country, 'timemachine', result.decade);
+          const toggleSave = async () => {
+            if (isSaved) {
+              const entry = favoritesHook.findSaved(result.country, 'timemachine', result.decade);
+              if (entry) await favoritesHook.remove(entry.id);
+            } else {
+              await favoritesHook.save({ type: 'timemachine', country: result.country, decade: result.decade, data: result });
+            }
+          };
+          return (
           <View style={styles.result}>
             <View style={styles.resultHeader}>
               <Text style={styles.resultLabel}>You arrived in</Text>
               <View style={styles.resultTitleRow}>
                 <Text style={styles.resultFlag}>{FLAGS[result.country] ?? '🌐'}</Text>
                 <Text style={styles.resultDestination}>{result.country}</Text>
+                <TouchableOpacity onPress={toggleSave} style={styles.heartBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={22} color={Colors.red} />
+                </TouchableOpacity>
               </View>
               <Text style={styles.resultDecade}>{result.decade}</Text>
             </View>
@@ -374,7 +396,8 @@ export function TimeMachineScreen({ navigation, accessToken, service }: Props) {
               <TimeMachineTrack key={i} index={i + 1} track={track} />
             ))}
           </View>
-        )}
+          );
+        })()}
 
         <View style={styles.bottomPad} />
       </ScrollView>
@@ -535,8 +558,7 @@ const styles = StyleSheet.create({
   // Picker card
   pickerCard: {
     backgroundColor: Colors.surface,
-    borderWidth: 1, borderColor: Colors.border,
-    borderRadius: 16, marginBottom: 12, overflow: 'hidden',
+    borderRadius: 14, marginBottom: 12, overflow: 'hidden',
   },
   pickerRow: {
     flexDirection: 'row', alignItems: 'center',
@@ -559,8 +581,8 @@ const styles = StyleSheet.create({
   // Launch button
   launchBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.gold, borderRadius: 14,
-    paddingVertical: 17, gap: 8, marginBottom: 24,
+    backgroundColor: Colors.gold, borderRadius: 12,
+    paddingVertical: 14, gap: 8, marginBottom: 24,
   },
   launchBtnDisabled: { opacity: 0.5 },
   launchIcon: {},
@@ -576,15 +598,16 @@ const styles = StyleSheet.create({
 
   // Result card
   result: {
-    backgroundColor: Colors.surface, borderWidth: 1,
-    borderColor: Colors.border, borderRadius: 16, padding: 18,
+    backgroundColor: Colors.surface,
+    borderRadius: 16, padding: 18,
   },
   resultHeader: { marginBottom: 14 },
   resultLabel: {
-    color: Colors.text3, fontSize: 11, fontWeight: '700',
-    letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6,
+    color: Colors.text3, fontSize: 12, fontWeight: '500',
+    marginBottom: 6,
   },
   resultTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  heartBtn: { padding: 4 },
   resultFlag: { fontSize: 28 },
   resultDestination: { color: Colors.text, fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
   resultDecade: { color: Colors.text2, fontSize: 16, fontWeight: '600', marginTop: 2 },
@@ -594,10 +617,10 @@ const styles = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5, marginBottom: 14,
   },
   genreBadgeText: { color: Colors.gold, fontSize: 13, fontWeight: '700' },
-  resultDesc: { color: Colors.text2, fontSize: 14, lineHeight: 21, marginBottom: 18 },
+  resultDesc: { color: Colors.text2, fontSize: 13, lineHeight: 20, marginBottom: 18 },
   tracksHeading: {
-    color: Colors.text3, fontSize: 11, fontWeight: '700',
-    letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10,
+    color: Colors.text3, fontSize: 12, fontWeight: '500',
+    marginBottom: 10,
   },
 
   // Track row

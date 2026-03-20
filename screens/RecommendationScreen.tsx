@@ -3,10 +3,12 @@ import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { fetchRecommendations, RecommendationResponse } from '../services/api';
 import { ArtistCard } from '../components/ArtistCard';
 import type { AuthState } from '../hooks/useAuth';
+import type { SavedDiscovery } from '../hooks/useFavorites';
 
 const FLAGS: Record<string, string> = {
   'France': '🇫🇷', 'Germany': '🇩🇪', 'Sweden': '🇸🇪', 'Norway': '🇳🇴',
@@ -34,21 +36,31 @@ interface StampsHook {
   addStamp: (country: string) => Promise<void>;
 }
 
-interface Props {
-  navigation: any;
-  route: { params: { country: string } };
-  auth: AuthState;
-  stampsHook: StampsHook;
+interface FavoritesHook {
+  isSaved: (country: string, type: SavedDiscovery['type']) => boolean;
+  save: (item: Omit<SavedDiscovery, 'id' | 'savedAt'>) => Promise<void>;
+  remove: (id: string) => Promise<void>;
+  findSaved: (country: string, type: SavedDiscovery['type']) => SavedDiscovery | undefined;
 }
 
-export function RecommendationScreen({ navigation, route, auth, stampsHook }: Props) {
-  const { country } = route.params;
+interface Props {
+  navigation: any;
+  route: { params: { country: string; savedData?: RecommendationResponse } };
+  auth: AuthState;
+  stampsHook: StampsHook;
+  favoritesHook: FavoritesHook;
+}
+
+export function RecommendationScreen({ navigation, route, auth, stampsHook, favoritesHook }: Props) {
+  const { country, savedData } = route.params;
   const { stamps, addStamp } = stampsHook;
-  const [loading, setLoading] = useState(true);
-  const [recs, setRecs] = useState<RecommendationResponse | null>(null);
+  const { isSaved, save, remove, findSaved } = favoritesHook;
+  const [loading, setLoading] = useState(!savedData);
+  const [recs, setRecs] = useState<RecommendationResponse | null>(savedData ?? null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (savedData) return;
     let cancelled = false;
     async function load() {
       try {
@@ -69,6 +81,16 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook }: Pr
 
   const isStamped = stamps.has(country);
   const flag = FLAGS[country] ?? '🌐';
+  const saved = isSaved(country, 'recommendation');
+
+  const toggleSave = async () => {
+    if (saved) {
+      const entry = findSaved(country, 'recommendation');
+      if (entry) await remove(entry.id);
+    } else if (recs) {
+      await save({ type: 'recommendation', country, data: recs });
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -92,6 +114,15 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook }: Pr
             </View>
           )}
         </View>
+        {recs && (
+          <TouchableOpacity
+            onPress={toggleSave}
+            style={styles.heartBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name={saved ? 'heart' : 'heart-outline'} size={24} color={Colors.red} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {loading ? (
@@ -114,9 +145,14 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook }: Pr
           {recs.genres?.length > 0 && (
             <View style={styles.genres}>
               {recs.genres.map(g => (
-                <View key={g} style={styles.genreTag}>
+                <TouchableOpacity
+                  key={g}
+                  style={styles.genreTag}
+                  onPress={() => navigation.navigate('GenreSpotlight', { genre: g, country })}
+                  activeOpacity={0.7}
+                >
                   <Text style={styles.genreText}>{g}</Text>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
@@ -163,6 +199,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4 },
   backIcon: { color: Colors.blue, fontSize: 32, lineHeight: 32, fontWeight: '300' },
+  heartBtn: { padding: 4 },
   headerMid: { flex: 1 },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   countryFlag: { fontSize: 26 },
@@ -203,8 +240,6 @@ const styles = StyleSheet.create({
   genres: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 20 },
   genreTag: {
     backgroundColor: Colors.purpleBg,
-    borderWidth: 1,
-    borderColor: Colors.purpleBorder,
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 7,
@@ -212,13 +247,11 @@ const styles = StyleSheet.create({
   genreText: { color: Colors.purple, fontSize: 13, fontWeight: '600' },
 
   sectionHeader: { marginBottom: 14 },
-  sectionHeading: { color: Colors.text, fontSize: 16, fontWeight: '700', marginBottom: 3 },
+  sectionHeading: { color: Colors.text, fontSize: 15, fontWeight: '600', marginBottom: 3 },
   sectionHint: { color: Colors.text3, fontSize: 13 },
 
   dyk: {
     backgroundColor: Colors.goldBg,
-    borderWidth: 1,
-    borderColor: Colors.goldBorder,
     borderRadius: 14,
     padding: 16,
     marginTop: 10,

@@ -7,9 +7,13 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { HomeScreen } from './screens/HomeScreen';
 import { RecommendationScreen } from './screens/RecommendationScreen';
 import { TimeMachineScreen } from './screens/TimeMachineScreen';
+import { InsightsScreen } from './screens/InsightsScreen';
+import { SavedScreen } from './screens/SavedScreen';
+import { GenreSpotlightScreen } from './screens/GenreSpotlightScreen';
 import { Colors } from './constants/colors';
 import { useAuth } from './hooks/useAuth';
 import { useStamps } from './hooks/useStamps';
+import { useFavorites } from './hooks/useFavorites';
 import { AudioPlayerProvider, useAudioPlayer } from './contexts/AudioPlayerContext';
 
 const Stack = createStackNavigator();
@@ -45,6 +49,7 @@ function MiniPlayer() {
 function AppNavigator() {
   const auth = useAuth();
   const stampsHook = useStamps();
+  const favoritesHook = useFavorites();
 
   return (
     <NavigationContainer
@@ -68,7 +73,7 @@ function AppNavigator() {
     >
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Home">
-          {props => <HomeScreen {...props} auth={auth} stampsHook={stampsHook} />}
+          {props => <HomeScreen {...props} auth={auth} stampsHook={stampsHook} favoritesHook={favoritesHook} />}
         </Stack.Screen>
         <Stack.Screen name="Recommendations">
           {props => (
@@ -77,6 +82,7 @@ function AppNavigator() {
               route={props.route as any}
               auth={auth}
               stampsHook={stampsHook}
+              favoritesHook={favoritesHook}
             />
           )}
         </Stack.Screen>
@@ -86,8 +92,24 @@ function AppNavigator() {
               {...props}
               accessToken={auth.accessToken}
               service={auth.service}
+              favoritesHook={favoritesHook}
             />
           )}
+        </Stack.Screen>
+        <Stack.Screen name="GenreSpotlight">
+          {props => (
+            <GenreSpotlightScreen
+              {...props}
+              service={auth.service}
+              accessToken={auth.accessToken}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Insights">
+          {props => <InsightsScreen {...props} auth={auth} />}
+        </Stack.Screen>
+        <Stack.Screen name="Saved">
+          {props => <SavedScreen {...props} favoritesHook={favoritesHook} />}
         </Stack.Screen>
       </Stack.Navigator>
       <MiniPlayer />

@@ -12,7 +12,11 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SPOTIFY_CLIENT_ID": "8a5790471aa34ec4b64484f93796378d",
+        "EXPO_PUBLIC_API_URL": "https://musical-passport-production.up.railway.app"
+      }
     }
   },
   "submit": {

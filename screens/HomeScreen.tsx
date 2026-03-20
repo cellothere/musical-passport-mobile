@@ -9,6 +9,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Colors } from '../constants/colors';
 import { REGIONS, getAllCountries } from '../constants/regions';
 import type { AuthState } from '../hooks/useAuth';
+import type { SavedDiscovery } from '../hooks/useFavorites';
 
 const FLAGS: Record<string, string> = {
   'France': '🇫🇷', 'Germany': '🇩🇪', 'Sweden': '🇸🇪', 'Norway': '🇳🇴',
@@ -67,10 +68,15 @@ interface StampsHook {
   addStamp: (country: string) => Promise<void>;
 }
 
+interface FavoritesHook {
+  favorites: SavedDiscovery[];
+}
+
 interface Props {
   navigation: any;
   auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
   stampsHook: StampsHook;
+  favoritesHook: FavoritesHook;
 }
 
 // ── Service Modal ─────────────────────────────────────────
@@ -205,9 +211,11 @@ function CountryPickerModal({ visible, onClose, onSelect }: {
 }
 
 // ── Main Screen ───────────────────────────────────────────
-export function HomeScreen({ navigation, auth, stampsHook }: Props) {
+export function HomeScreen({ navigation, auth, stampsHook, favoritesHook }: Props) {
   const { stamps } = stampsHook;
+  const { favorites } = favoritesHook;
   const canTimeMachine = auth.service === 'spotify' || auth.service === 'apple-music';
+  const hasInsights = auth.service === 'spotify' && auth.topArtists?.length > 0;
   const [collapsedRegions, setCollapsedRegions] = useState<Set<string>>(new Set(REGIONS.map(r => r.name)));
   const [pickerVisible, setPickerVisible] = useState(false);
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
@@ -227,7 +235,7 @@ export function HomeScreen({ navigation, auth, stampsHook }: Props) {
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>Musical Passport</Text>
           <View style={styles.stampPill}>
-            <Text style={styles.stampPillText}>{stamps.size} / {totalCountries}</Text>
+           <Text style={styles.stampPillText}>Stamps: {stamps.size} / {totalCountries}</Text>
           </View>
         </View>
         {auth.loading ? (
@@ -299,6 +307,41 @@ export function HomeScreen({ navigation, auth, stampsHook }: Props) {
             </View>
           );
         })}
+
+        {/* Secondary features row */}
+        {(hasInsights || favorites.length > 0) && (
+          <View style={styles.secondarySection}>
+            {hasInsights && (
+              <TouchableOpacity
+                style={styles.dnaCard}
+                onPress={() => navigation.navigate('Insights')}
+                activeOpacity={0.72}
+              >
+                <Ionicons name="analytics-outline" size={20} color={Colors.purple} />
+                <View style={styles.tmTextBlock}>
+                  <Text style={styles.dnaTitle}>Your Musical DNA</Text>
+                  <Text style={styles.dnaSubtitle}>Breakdown of your musical roots</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.text3} />
+              </TouchableOpacity>
+            )}
+            {hasInsights && favorites.length > 0 && <View style={styles.rowDivider} />}
+            {favorites.length > 0 && (
+              <TouchableOpacity
+                style={styles.savedCard}
+                onPress={() => navigation.navigate('Saved')}
+                activeOpacity={0.72}
+              >
+                <Ionicons name="heart-outline" size={20} color={Colors.red} />
+                <View style={styles.tmTextBlock}>
+                  <Text style={styles.savedTitle}>Saved Discoveries</Text>
+                  <Text style={styles.savedSubtitle}>{favorites.length} saved · tap to revisit</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.text3} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Time Machine */}
         <TouchableOpacity
@@ -433,15 +476,32 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 16 },
 
+  dnaCard: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 14, paddingHorizontal: 4,
+    marginBottom: 2, gap: 14,
+  },
+  dnaTitle: { color: Colors.text, fontSize: 15, fontWeight: '600', marginBottom: 2 },
+  dnaSubtitle: { color: Colors.text3, fontSize: 13 },
+
+  savedCard: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 14, paddingHorizontal: 4,
+    marginBottom: 2, gap: 14,
+  },
+  savedTitle: { color: Colors.text, fontSize: 15, fontWeight: '600', marginBottom: 2 },
+  savedSubtitle: { color: Colors.text3, fontSize: 13 },
+  savedArrow: { color: Colors.text3, fontSize: 24, opacity: 0.65 },
+
   tmCard: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.goldBg, borderWidth: 1, borderColor: Colors.goldBorder,
-    borderRadius: 14, padding: 16, marginBottom: 14, gap: 14,
+    backgroundColor: Colors.goldBg, borderWidth: 1.5, borderColor: Colors.goldBorder,
+    borderRadius: 16, padding: 18, marginBottom: 24, gap: 14,
   },
   tmCardDisabled: { opacity: 0.4 },
   tmTextBlock: { flex: 1 },
-  tmTitle: { color: Colors.gold, fontSize: 16, fontWeight: '700', marginBottom: 3 },
-  tmSubtitle: { color: Colors.gold, fontSize: 13, opacity: 0.75 },
+  tmTitle: { color: Colors.gold, fontSize: 17, fontWeight: '700', marginBottom: 4 },
+  tmSubtitle: { color: Colors.gold, fontSize: 13, opacity: 0.8, lineHeight: 18 },
   tmArrow: { color: Colors.gold, fontSize: 24, opacity: 0.65 },
 
   pickerBtn: {
@@ -473,34 +533,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   regionIcon: { fontSize: 18 },
   regionName: {
     color: Colors.text,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: -0.2,
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.1,
     flex: 1,
   },
-  regionCount: { color: Colors.text3, fontSize: 12, fontWeight: '600' },
+  regionCount: { color: Colors.text3, fontSize: 12, fontWeight: '500' },
   regionChevron: { color: Colors.text3, fontSize: 18, width: 20, textAlign: 'center' },
 
-  countryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  countryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   countryBtn: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: 10, paddingVertical: 11, paddingHorizontal: 12, minHeight: 44, gap: 6,
+    backgroundColor: Colors.surface2,
+    borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, minHeight: 38, gap: 5,
   },
-  countryBtnStamped: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
-  countryFlag: { fontSize: 15 },
-  countryText: { color: Colors.text2, fontSize: 13, fontWeight: '500' },
+  countryBtnStamped: { backgroundColor: Colors.goldBg, borderWidth: 1, borderColor: Colors.goldBorder },
+  countryFlag: { fontSize: 13 },
+  countryText: { color: Colors.text3, fontSize: 12, fontWeight: '500' },
   countryTextStamped: { color: Colors.gold, fontWeight: '600' },
   stampDot: { color: Colors.gold, fontSize: 9, marginLeft: 2 },
+
+  secondarySection: {
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+  rowDivider: { height: 1, backgroundColor: Colors.border, marginLeft: 34 },
 
   bottomPad: { height: 48 },
 });

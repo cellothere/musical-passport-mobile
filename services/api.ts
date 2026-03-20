@@ -137,3 +137,54 @@ export async function fetchAppleMusicToken(): Promise<string> {
   const data: any = await res.json();
   return data.token;
 }
+
+export interface InsightsSuggestion {
+  country: string;
+  reason: string;
+}
+
+export interface InsightsDNA {
+  region: string;
+  percentage: number;
+}
+
+export interface InsightsResponse {
+  summary: string;
+  suggestedCountries: InsightsSuggestion[];
+  dna: InsightsDNA[];
+  topEras: Array<{ decade: string; percentage: number }>;
+}
+
+export interface GenreSpotlightResponse {
+  genre: string;
+  country: string;
+  explanation: string;
+  tracks: Track[];
+}
+
+export async function fetchGenreSpotlight(
+  genre: string,
+  country: string,
+  service: 'spotify' | 'apple-music',
+  accessToken?: string
+): Promise<GenreSpotlightResponse> {
+  const res = await apiFetch('/api/genre-spotlight', {
+    method: 'POST',
+    body: JSON.stringify({ genre, country, service }),
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error || 'Failed to load genre spotlight');
+  }
+  return res.json();
+}
+
+export async function fetchInsights(topArtists: string[]): Promise<InsightsResponse> {
+  const res = await apiFetch('/api/insights', {
+    method: 'POST',
+    body: JSON.stringify({ topArtists }),
+  });
+  if (!res.ok) throw new Error('Could not load insights');
+  return res.json();
+}
