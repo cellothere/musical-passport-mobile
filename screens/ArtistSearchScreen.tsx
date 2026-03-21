@@ -199,6 +199,7 @@ export function ArtistSearchScreen({ navigation, service, accessToken }: Props) 
                 artist={matchToArtist(match)}
                 service={service}
                 accessToken={accessToken}
+                showSimilarTo={false}
               />
             </View>
           ))}

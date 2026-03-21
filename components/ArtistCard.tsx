@@ -13,6 +13,7 @@ interface Props {
   artist: Artist;
   service: AuthService;
   accessToken: string | null;
+  showSimilarTo?: boolean;
 }
 
 function eraColors(era: string): { bg: string; border: string; text: string } {
@@ -22,7 +23,7 @@ function eraColors(era: string): { bg: string; border: string; text: string } {
   return { bg: Colors.purpleBg, border: Colors.purpleBorder, text: Colors.purple };
 }
 
-export function ArtistCard({ artist, service, accessToken }: Props) {
+export function ArtistCard({ artist, service, accessToken, showSimilarTo = true }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -53,8 +54,9 @@ export function ArtistCard({ artist, service, accessToken }: Props) {
         <View style={styles.cardLeft}>
           <Text style={styles.artistName}>{artist.name}</Text>
           <Text style={styles.artistGenre}>{artist.genre}</Text>
-          {artist.similarTo ? <Text style={styles.similarTo}>Similar to {artist.similarTo}</Text> : null}
+          {showSimilarTo && artist.similarTo ? <Text style={styles.similarTo}>Similar to {artist.similarTo}</Text> : null}
         </View>
+        
         <View style={styles.cardRight}>
           <View style={[styles.eraBadge, { backgroundColor: era.bg, borderColor: era.border }]}>
             <Text style={[styles.eraText, { color: era.text }]}>{artist.era}</Text>
