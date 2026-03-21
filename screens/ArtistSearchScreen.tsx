@@ -214,7 +214,7 @@ function matchToArtist(match: ArtistMatch): Artist {
     name: match.name,
     genre: match.genre,
     era: match.era,
-    similarTo: '',
+    similarTo: `${flagEmoji(match.countryCode)} ${match.country}`,
   };
 }
 
@@ -366,6 +366,13 @@ const styles = StyleSheet.create({
   },
   matchFlag: { fontSize: 20 },
   matchCountry: { color: Colors.text3, fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6 },
+  matchReason: {
+    color: Colors.text2,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
 
   bottomPad: { height: 48 },
 });
