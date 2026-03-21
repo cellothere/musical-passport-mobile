@@ -17,8 +17,8 @@ interface Props {
 
 function eraColors(era: string): { bg: string; border: string; text: string } {
   const e = era.toLowerCase();
-  if (e.includes('legend')) return { bg: Colors.goldBg, border: Colors.goldBorder, text: Colors.gold };
-  if (e.includes('classic')) return { bg: Colors.blueBg, border: Colors.blueBorder, text: Colors.blue };
+  if (e.includes('pioneer')) return { bg: Colors.goldBg, border: Colors.goldBorder, text: Colors.gold };
+  if (e.includes('golden')) return { bg: Colors.blueBg, border: Colors.blueBorder, text: Colors.blue };
   return { bg: Colors.purpleBg, border: Colors.purpleBorder, text: Colors.purple };
 }
 
@@ -53,7 +53,7 @@ export function ArtistCard({ artist, service, accessToken }: Props) {
         <View style={styles.cardLeft}>
           <Text style={styles.artistName}>{artist.name}</Text>
           <Text style={styles.artistGenre}>{artist.genre}</Text>
-          <Text style={styles.similarTo}>Similar to {artist.similarTo}</Text>
+          {artist.similarTo ? <Text style={styles.similarTo}>Similar to {artist.similarTo}</Text> : null}
         </View>
         <View style={styles.cardRight}>
           <View style={[styles.eraBadge, { backgroundColor: era.bg, borderColor: era.border }]}>

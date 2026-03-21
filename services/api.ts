@@ -7,7 +7,7 @@ export interface Artist {
   name: string;
   genre: string;
   era: string;
-  similarTo: string;
+  similarTo?: string;
 }
 
 export interface RecommendationResponse {
@@ -176,6 +176,51 @@ export async function fetchGenreSpotlight(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as any).error || 'Failed to load genre spotlight');
+  }
+  return res.json();
+}
+
+export interface FoundArtist {
+  id: string;
+  name: string;
+  genres: string[];
+  imageUrl: string | null;
+  followers: number;
+}
+
+export interface ArtistMatch {
+  name: string;
+  country: string;
+  countryCode: string;
+  genre: string;
+  era: string;
+  description: string;
+  similarityReason: string;
+}
+
+export interface SimilarArtistsResponse {
+  baseArtist: string;
+  sonicSummary: string;
+  artists: ArtistMatch[];
+}
+
+export async function findArtist(query: string): Promise<FoundArtist> {
+  const res = await apiFetch(`/api/find-artist?q=${encodeURIComponent(query)}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error || 'Artist not found');
+  }
+  return res.json();
+}
+
+export async function fetchSimilarArtists(artistName: string): Promise<SimilarArtistsResponse> {
+  const res = await apiFetch('/api/similar-artists', {
+    method: 'POST',
+    body: JSON.stringify({ artistName }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error || 'Failed to find similar artists');
   }
   return res.json();
 }

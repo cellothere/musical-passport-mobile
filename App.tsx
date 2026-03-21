@@ -12,6 +12,7 @@ import { TimeMachineScreen } from './screens/TimeMachineScreen';
 import { InsightsScreen } from './screens/InsightsScreen';
 import { SavedScreen } from './screens/SavedScreen';
 import { GenreSpotlightScreen } from './screens/GenreSpotlightScreen';
+import { ArtistSearchScreen } from './screens/ArtistSearchScreen';
 import { Colors } from './constants/colors';
 import { useAuth } from './hooks/useAuth';
 import { useStamps } from './hooks/useStamps';
@@ -115,6 +116,15 @@ function AppNavigator() {
         </Stack.Screen>
         <Stack.Screen name="Insights">
           {props => <InsightsScreen {...props} auth={auth} />}
+        </Stack.Screen>
+        <Stack.Screen name="ArtistSearch">
+          {props => (
+            <ArtistSearchScreen
+              {...props}
+              service={auth.service}
+              accessToken={auth.accessToken}
+            />
+          )}
         </Stack.Screen>
         <Stack.Screen name="Saved">
           {props => <SavedScreen {...props} favoritesHook={favoritesHook} />}

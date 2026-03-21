@@ -78,7 +78,7 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
   const { stamps } = stampsHook;
   const { favorites } = favoritesHook;
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
-  const canTimeMachine = auth.service === 'spotify' || auth.service === 'apple-music';
+  const isConnected = auth.service === 'spotify' || auth.service === 'apple-music';
   const hasInsights = auth.service === 'spotify' && auth.topArtists?.length > 0;
 
   return (
@@ -93,15 +93,15 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
         </View>
         {auth.loading ? (
           <ActivityIndicator size="small" color={Colors.gold} />
-        ) : (
+        ) : auth.service ? (
           <TouchableOpacity onPress={() => setServiceModalVisible(true)} style={styles.serviceBtn} activeOpacity={0.7}>
-            {auth.service === 'spotify' ? (
-              <FontAwesome5 name="spotify" size={18} color="#1DB954" />
-            ) : auth.service === 'apple-music' ? (
-              <FontAwesome5 name="apple" size={18} color={Colors.text} />
-            ) : (
-              <Ionicons name="musical-notes-outline" size={18} color={Colors.text3} />
-            )}
+            {auth.service === 'spotify'
+              ? <FontAwesome5 name="spotify" size={18} color="#1DB954" />
+              : <FontAwesome5 name="apple" size={18} color={Colors.text} />}
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={() => setServiceModalVisible(true)} style={styles.loginBtn} activeOpacity={0.7}>
+            <Text style={styles.loginBtnText}>Connect</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -127,9 +127,9 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
 
         {/* Time Machine */}
         <TouchableOpacity
-          style={[styles.card, !canTimeMachine && styles.cardDisabled]}
-          onPress={() => canTimeMachine && navigation.navigate('TimeMachine')}
-          activeOpacity={canTimeMachine ? 0.8 : 1}
+          style={styles.card}
+          onPress={() => isConnected ? navigation.navigate('TimeMachine') : setServiceModalVisible(true)}
+          activeOpacity={0.8}
         >
           <View style={[styles.cardIconWrap, styles.cardIconBlue]}>
             <Ionicons name="time-outline" size={28} color={Colors.blue} />
@@ -137,17 +137,38 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>Time Machine</Text>
             <Text style={styles.cardDesc}>
-              {canTimeMachine ? 'Travel through iconic sounds from any era' : 'Connect a music service to unlock'}
+              {isConnected ? 'Travel through iconic sounds from any era' : 'Connect a music service to unlock'}
             </Text>
           </View>
-          {canTimeMachine && <Ionicons name="chevron-forward" size={20} color={Colors.text3} style={{ opacity: 0.6 }} />}
+          <Ionicons name="chevron-forward" size={20} color={Colors.text3} style={{ opacity: 0.6 }} />
+        </TouchableOpacity>
+
+        {/* Sound-Alike Search */}
+        <TouchableOpacity
+          style={[styles.card, styles.cardGreen]}
+          onPress={() => isConnected ? navigation.navigate('ArtistSearch') : setServiceModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.cardIconWrap, styles.cardIconGreen]}>
+            <Ionicons name="search" size={28} color={Colors.green} />
+          </View>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle}>Sound-Alike Search</Text>
+            <Text style={styles.cardDesc}>
+              {isConnected ? 'Type an artist you love, find their global equivalents' : 'Connect a music service to unlock'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.text3} style={{ opacity: 0.6 }} />
         </TouchableOpacity>
 
         {/* Musical DNA */}
         <TouchableOpacity
-          style={[styles.card, !hasInsights && styles.cardDisabled]}
-          onPress={() => hasInsights && navigation.navigate('Insights')}
-          activeOpacity={hasInsights ? 0.8 : 1}
+          style={[styles.card, isConnected && !hasInsights && styles.cardDisabled]}
+          onPress={() => {
+            if (!isConnected) { setServiceModalVisible(true); }
+            else if (hasInsights) { navigation.navigate('Insights'); }
+          }}
+          activeOpacity={hasInsights || !isConnected ? 0.8 : 1}
         >
           <View style={[styles.cardIconWrap, styles.cardIconPurple]}>
             <Ionicons name="analytics-outline" size={28} color={Colors.purple} />
@@ -155,14 +176,18 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>Your Musical DNA</Text>
             <Text style={styles.cardDesc}>
-              {hasInsights ? 'Understand the roots of your musical taste' : 'Connect Spotify to unlock'}
+              {hasInsights
+                ? 'Understand the roots of your musical taste'
+                : isConnected
+                  ? 'Connect Spotify to unlock'
+                  : 'Connect a music service to unlock'}
             </Text>
           </View>
-          {hasInsights && <Ionicons name="chevron-forward" size={20} color={Colors.text3} style={{ opacity: 0.6 }} />}
+          {(hasInsights || !isConnected) && <Ionicons name="chevron-forward" size={20} color={Colors.text3} style={{ opacity: 0.6 }} />}
         </TouchableOpacity>
 
-        {/* Saved — secondary row, only if user has saves */}
-        {favorites.length > 0 && (
+        {/* Saved — secondary row, only if service connected and user has saves */}
+        {isConnected && favorites.length > 0 && (
           <TouchableOpacity
             style={styles.savedRow}
             onPress={() => navigation.navigate('Saved')}
@@ -213,12 +238,20 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border2,
     alignItems: 'center', justifyContent: 'center',
   },
+  loginBtn: {
+    backgroundColor: Colors.goldBg,
+    borderWidth: 1, borderColor: Colors.goldBorder,
+    borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 6,
+  },
+  loginBtnText: { color: Colors.gold, fontSize: 13, fontWeight: '700' },
 
   cards: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 8,
     gap: 12,
+    justifyContent: 'center',
+    paddingBottom: 32,
   },
 
   // Primary hero card (Explore)
@@ -250,7 +283,9 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   cardIconBlue: { backgroundColor: Colors.blueBg },
+  cardIconGreen: { backgroundColor: Colors.greenBg },
   cardIconPurple: { backgroundColor: Colors.purpleBg },
+  cardGreen: { borderWidth: 0 },
 
   cardBody: { flex: 1, gap: 4 },
   cardTitle: { color: Colors.text, fontSize: 17, fontWeight: '700' },

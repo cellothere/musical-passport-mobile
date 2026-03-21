@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Alert } from 'react-native';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -32,6 +33,8 @@ export function useAuth() {
     loading: true,
   });
 
+  const loginTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'musical-passport', path: 'callback' });
   const discovery = AuthSession.useAutoDiscovery('https://accounts.spotify.com');
 
@@ -61,11 +64,13 @@ export function useAuth() {
 
   // Handle Spotify OAuth callback
   useEffect(() => {
-    if (response?.type === 'success') {
+    if (!response) return;
+    if (loginTimeoutRef.current) { clearTimeout(loginTimeoutRef.current); loginTimeoutRef.current = null; }
+    if (response.type === 'success') {
       const { code } = response.params;
       const codeVerifier = request?.codeVerifier;
       if (code && codeVerifier) exchangeSpotifyCode(code, codeVerifier);
-    } else if (response?.type === 'error' || response?.type === 'dismiss') {
+    } else if (response.type === 'error' || response.type === 'dismiss') {
       setState(s => ({ ...s, loading: false }));
     }
   }, [response]);
@@ -96,6 +101,15 @@ export function useAuth() {
   const loginSpotify = useCallback(async () => {
     await AsyncStorage.removeItem(STORAGE_KEY_SERVICE);
     setState(s => ({ ...s, loading: true }));
+    if (loginTimeoutRef.current) clearTimeout(loginTimeoutRef.current);
+    loginTimeoutRef.current = setTimeout(() => {
+      setState(s => {
+        if (!s.loading) return s;
+        Alert.alert('Connection Failed', 'Could not connect to Spotify. Please try again.');
+        return { ...s, loading: false };
+      });
+      loginTimeoutRef.current = null;
+    }, 15000);
     await promptAsync();
   }, [promptAsync]);
 
@@ -103,7 +117,13 @@ export function useAuth() {
     setState(s => ({ ...s, loading: true }));
     try {
       const authUrl = `${API_BASE_URL}/auth/apple-music`;
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, 'musical-passport://apple-music-callback');
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 15000)
+      );
+      const result = await Promise.race([
+        WebBrowser.openAuthSessionAsync(authUrl, 'musical-passport://apple-music-callback'),
+        timeout,
+      ]);
 
       if (result.type === 'success' && result.url) {
         const url = new URL(result.url);
@@ -124,7 +144,13 @@ export function useAuth() {
       }
     } catch (err: any) {
       console.error('Apple Music connect failed:', err);
-      alert('Could not connect to Apple Music: ' + (err.message || 'Unknown error'));
+      const isTimeout = err.message === 'timeout';
+      Alert.alert(
+        'Connection Failed',
+        isTimeout
+          ? 'Could not connect to Apple Music. Please try again.'
+          : 'Could not connect to Apple Music: ' + (err.message || 'Unknown error')
+      );
       setState(s => ({ ...s, loading: false }));
     }
   }, []);
