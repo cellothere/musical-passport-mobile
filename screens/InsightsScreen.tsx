@@ -5,7 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
-import { fetchInsights, InsightsResponse } from '../services/api';
+import { fetchInsights, InsightsResponse, InsightsBlindSpot } from '../services/api';
 import type { AuthState } from '../hooks/useAuth';
 
 const FLAGS: Record<string, string> = {
@@ -29,23 +29,42 @@ const FLAGS: Record<string, string> = {
   'USA': '🇺🇸', 'Canada': '🇨🇦',
 };
 
+const REGION_COLORS: Record<string, string> = {
+  'North America': Colors.blue,
+  'Europe': Colors.purple,
+  'Latin America': Colors.green,
+  'Africa': Colors.gold,
+  'Middle East': '#e07b3a',
+  'Asia': '#e05a8a',
+  'Oceania': '#4ab8c1',
+};
+
 interface Props {
   navigation: any;
   auth: AuthState;
+  updateSyncData: (partial: { insights: any }) => void;
 }
 
-export function InsightsScreen({ navigation, auth }: Props) {
+export function InsightsScreen({ navigation, auth, updateSyncData }: Props) {
   const [loading, setLoading] = useState(true);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!auth.topArtists.length) {
+    if (!auth.topArtists.length) { setLoading(false); return; }
+    // Use cached insights from login sync if available
+    if (auth.syncData?.insights) {
+      setInsights(auth.syncData.insights);
       setLoading(false);
       return;
     }
-    fetchInsights(auth.topArtists)
-      .then(data => { setInsights(data); setLoading(false); })
+    const token = auth.service === 'spotify' ? auth.accessToken : null;
+    fetchInsights(auth.topArtists, token ?? undefined)
+      .then(data => {
+        setInsights(data);
+        setLoading(false);
+        updateSyncData({ insights: data });
+      })
       .catch(err => { setError(err.message); setLoading(false); });
   }, []);
 
@@ -61,7 +80,7 @@ export function InsightsScreen({ navigation, auth }: Props) {
         </TouchableOpacity>
         <View style={styles.headerTitleRow}>
           <Ionicons name="analytics-outline" size={20} color={Colors.purple} />
-          <Text style={styles.headerTitle}>Your Musical DNA</Text>
+          <Text style={styles.headerTitle}>{auth.user?.displayName ? `${auth.user.displayName}'s Musical DNA` : 'Your Musical DNA'}</Text>
         </View>
       </View>
 
@@ -86,26 +105,25 @@ export function InsightsScreen({ navigation, auth }: Props) {
       ) : insights ? (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-          {!!insights.summary && (
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryText}>{insights.summary}</Text>
-            </View>
-          )}
-
           {/* Regional DNA */}
           {insights.dna?.length > 0 && (
             <>
-              <Text style={styles.sectionLabel}>Regional Breakdown</Text>
+              <Text style={styles.sectionLabel}>Where your music comes from</Text>
               <View style={styles.card}>
-                {insights.dna.map(({ region, percentage }, i) => (
-                  <View key={region} style={[styles.dnaRow, i > 0 && styles.dnaRowBorder]}>
-                    <Text style={styles.dnaLabel}>{region}</Text>
-                    <View style={styles.dnaBarTrack}>
-                      <View style={[styles.dnaBarFill, { width: `${Math.min(percentage, 100)}%` }]} />
-                    </View>
-                    <Text style={styles.dnaPct}>{percentage}%</Text>
-                  </View>
-                ))}
+                {insights.dna
+                  .sort((a, b) => b.percentage - a.percentage)
+                  .map(({ region, percentage }, i) => {
+                    const color = REGION_COLORS[region] ?? Colors.purple;
+                    return (
+                      <View key={region} style={[styles.dnaRow, i > 0 && styles.dnaRowBorder]}>
+                        <Text style={styles.dnaLabel}>{region}</Text>
+                        <View style={styles.dnaBarTrack}>
+                          <View style={[styles.dnaBarFill, { width: `${Math.min(percentage, 100)}%`, backgroundColor: color }]} />
+                        </View>
+                        <Text style={styles.dnaPct}>{percentage}%</Text>
+                      </View>
+                    );
+                  })}
               </View>
             </>
           )}
@@ -113,13 +131,13 @@ export function InsightsScreen({ navigation, auth }: Props) {
           {/* Top eras */}
           {insights.topEras?.length > 0 && (
             <>
-              <Text style={styles.sectionLabel}>Top Eras</Text>
+              <Text style={styles.sectionLabel}>Your eras</Text>
               <View style={styles.card}>
                 {insights.topEras.map(({ decade, percentage }, i) => (
                   <View key={decade} style={[styles.dnaRow, i > 0 && styles.dnaRowBorder]}>
                     <Text style={styles.dnaLabel}>{decade}</Text>
                     <View style={styles.dnaBarTrack}>
-                      <View style={[styles.dnaBarFill, styles.dnaBarGold, { width: `${Math.min(percentage, 100)}%` }]} />
+                      <View style={[styles.dnaBarFill, { width: `${Math.min(percentage, 100)}%`, backgroundColor: Colors.gold }]} />
                     </View>
                     <Text style={styles.dnaPct}>{percentage}%</Text>
                   </View>
@@ -128,10 +146,42 @@ export function InsightsScreen({ navigation, auth }: Props) {
             </>
           )}
 
+          {/* Blind spots */}
+          {insights.blindSpots?.length > 0 && (
+            <>
+              <Text style={styles.sectionLabel}>Your blind spots</Text>
+              {insights.blindSpots.map((spot: InsightsBlindSpot) => (
+                <TouchableOpacity
+                  key={spot.region}
+                  style={styles.blindSpotCard}
+                  onPress={() => navigation.navigate('Recommendations', { country: spot.gatewayCountry })}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.blindSpotLeft}>
+                    <View style={styles.blindSpotIconWrap}>
+                      <Ionicons name="earth-outline" size={22} color={Colors.red} />
+                    </View>
+                    <View style={styles.blindSpotBody}>
+                      <View style={styles.blindSpotTitleRow}>
+                        <Text style={styles.blindSpotRegion}>{spot.region}</Text>
+                        <View style={styles.blindSpotBadge}>
+                          <Text style={styles.blindSpotBadgeText}>{spot.percentage}% of your taste</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.blindSpotCta}>
+                        Start with {FLAGS[spot.gatewayCountry] ?? '🌐'} {spot.gatewayCountry} →
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
+
           {/* Suggested countries */}
           {insights.suggestedCountries?.length > 0 && (
             <>
-              <Text style={styles.sectionLabel}>For You</Text>
+              <Text style={styles.sectionLabel}>Picked for you</Text>
               {insights.suggestedCountries.map(({ country, reason }) => (
                 <TouchableOpacity
                   key={country}
@@ -178,12 +228,31 @@ const styles = StyleSheet.create({
 
   content: { padding: 18 },
 
-  summaryCard: {
+  // Archetype hero
+  archetypeCard: {
     backgroundColor: Colors.purpleBg,
     borderWidth: 1, borderColor: Colors.purpleBorder,
+    borderRadius: 16, padding: 20, marginBottom: 14, alignItems: 'center',
+  },
+  archetypeLabel: {
+    color: Colors.purple, fontSize: 11, fontWeight: '700',
+    letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8,
+  },
+  archetypeTitle: {
+    color: Colors.text, fontSize: 24, fontWeight: '800',
+    letterSpacing: -0.5, textAlign: 'center', marginBottom: 10,
+  },
+  archetypeDesc: {
+    color: Colors.text2, fontSize: 14, lineHeight: 21, textAlign: 'center',
+  },
+
+  // Summary
+  summaryCard: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1, borderColor: Colors.border,
     borderRadius: 14, padding: 16, marginBottom: 24,
   },
-  summaryText: { color: Colors.text, fontSize: 15, lineHeight: 23 },
+  summaryText: { color: Colors.text2, fontSize: 14, lineHeight: 22 },
 
   sectionLabel: {
     color: Colors.text3, fontSize: 11, fontWeight: '700',
@@ -191,6 +260,7 @@ const styles = StyleSheet.create({
     marginBottom: 10, marginTop: 4,
   },
 
+  // DNA bars
   card: {
     backgroundColor: Colors.surface,
     borderWidth: 1, borderColor: Colors.border,
@@ -198,15 +268,38 @@ const styles = StyleSheet.create({
   },
   dnaRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
   dnaRowBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
-  dnaLabel: { color: Colors.text, fontSize: 14, fontWeight: '600', width: 110 },
+  dnaLabel: { color: Colors.text, fontSize: 13, fontWeight: '600', width: 114 },
   dnaBarTrack: {
     flex: 1, height: 6, backgroundColor: Colors.surface2,
     borderRadius: 3, overflow: 'hidden',
   },
-  dnaBarFill: { height: '100%', backgroundColor: Colors.purple, borderRadius: 3 },
-  dnaBarGold: { backgroundColor: Colors.gold },
+  dnaBarFill: { height: '100%', borderRadius: 3 },
   dnaPct: { color: Colors.text3, fontSize: 13, fontWeight: '600', width: 38, textAlign: 'right' },
 
+  // Blind spots
+  blindSpotCard: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1, borderColor: 'rgba(240,101,101,0.3)',
+    borderRadius: 14, padding: 16, marginBottom: 10,
+  },
+  blindSpotLeft: { flexDirection: 'row', gap: 14 },
+  blindSpotIconWrap: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(240,101,101,0.1)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  blindSpotBody: { flex: 1 },
+  blindSpotTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' },
+  blindSpotRegion: { color: Colors.text, fontSize: 15, fontWeight: '700' },
+  blindSpotBadge: {
+    backgroundColor: 'rgba(240,101,101,0.12)',
+    borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2,
+  },
+  blindSpotBadgeText: { color: Colors.red, fontSize: 11, fontWeight: '700' },
+  blindSpotTeaser: { color: Colors.text2, fontSize: 13, lineHeight: 19, marginBottom: 8 },
+  blindSpotCta: { color: Colors.blue, fontSize: 13, fontWeight: '600' },
+
+  // Suggested countries
   suggestionCard: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: Colors.surface,

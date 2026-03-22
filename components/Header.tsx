@@ -10,6 +10,7 @@ interface Props {
   onLogout: () => void;
 }
 
+
 export function Header({ stampCount, auth, onLoginSpotify, onLogout }: Props) {
   return (
     <View style={styles.header}>

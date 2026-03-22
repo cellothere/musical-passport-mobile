@@ -116,28 +116,37 @@ function SavedItem({
 }) {
   const [expanded, setExpanded] = useState(false);
   const isTimeMachine = item.type === 'timemachine';
+  const isArtist = item.type === 'artist';
+  const isGenre = item.type === 'genre';
+  const artistData = isArtist ? (item.data as any) : null;
+  const genreData = isGenre ? (item.data as any) : null;
+
+  const badgeStyle = isTimeMachine ? styles.typeBadgeGold : (isArtist || isGenre) ? styles.typeBadgeGreen : styles.typeBadgePurple;
+  const badgeTextStyle = isTimeMachine ? styles.typeBadgeTextGold : (isArtist || isGenre) ? styles.typeBadgeTextGreen : styles.typeBadgeTextPurple;
+  const badgeLabel = isTimeMachine ? `⏳ ${item.decade}` : isArtist ? `🎵 ${item.decade ?? 'Artist'}` : isGenre ? '🎼 Genre Spotlight' : '🌍 Recommendations';
 
   return (
     <View style={styles.card}>
       <TouchableOpacity
         style={styles.cardHeader}
-        onPress={() => isTimeMachine ? setExpanded(e => !e) : onNavigate()}
+        onPress={() => isTimeMachine || isArtist || isGenre ? setExpanded(e => !e) : onNavigate()}
         activeOpacity={0.7}
       >
-        <Text style={styles.cardFlag}>{FLAGS[item.country] ?? '🌐'}</Text>
+        <Text style={styles.cardFlag}>{isArtist ? '🎤' : isGenre ? '🎼' : (FLAGS[item.country] ?? '🌐')}</Text>
         <View style={styles.cardMeta}>
-          <Text style={styles.cardCountry}>{item.country}</Text>
+          <Text style={styles.cardCountry}>{isArtist ? artistData?.name : isGenre ? genreData?.genre : item.country}</Text>
           <View style={styles.cardSubRow}>
-            <View style={[styles.typeBadge, isTimeMachine ? styles.typeBadgeGold : styles.typeBadgePurple]}>
-              <Text style={[styles.typeBadgeText, isTimeMachine ? styles.typeBadgeTextGold : styles.typeBadgeTextPurple]}>
-                {isTimeMachine ? `⏳ ${item.decade}` : '🌍 Recommendations'}
-              </Text>
+            <View style={[styles.typeBadge, badgeStyle]}>
+              <Text style={[styles.typeBadgeText, badgeTextStyle]}>{badgeLabel}</Text>
             </View>
+            {(isArtist || isGenre) && (
+              <Text style={styles.cardCountryMeta}>{FLAGS[item.country] ?? '🌐'} {item.country}</Text>
+            )}
             <Text style={styles.cardDate}>{formatDate(item.savedAt)}</Text>
           </View>
         </View>
         <View style={styles.cardActions}>
-          {!isTimeMachine && (
+          {!isTimeMachine && !isArtist && !isGenre && (
             <TouchableOpacity
               onPress={onNavigate}
               style={styles.goBtn}
@@ -146,7 +155,7 @@ function SavedItem({
               <Ionicons name="chevron-forward" size={18} color={Colors.blue} />
             </TouchableOpacity>
           )}
-          {isTimeMachine && (
+          {(isTimeMachine || isArtist || isGenre) && (
             <Ionicons
               name={expanded ? 'chevron-up' : 'chevron-down'}
               size={18}
@@ -165,6 +174,42 @@ function SavedItem({
 
       {expanded && isTimeMachine && (
         <TimeMachineDetail data={item.data as TimeMachineResponse} />
+      )}
+      {expanded && isGenre && genreData && (
+        <View style={styles.detail}>
+          {genreData.explanation && (
+            <Text style={styles.detailDesc}>{genreData.explanation}</Text>
+          )}
+          {genreData.tracks?.length > 0 && (
+            <>
+              <Text style={styles.tracksLabel}>Essential Tracks</Text>
+              {genreData.tracks.map((t: any, i: number) => (
+                <View key={i} style={styles.trackRow}>
+                  <Text style={styles.trackNum}>{i + 1}</Text>
+                  <View style={styles.trackInfo}>
+                    <Text style={styles.trackTitle}>{t.title}</Text>
+                    {t.artist && <Text style={styles.trackArtist}>{t.artist}</Text>}
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
+        </View>
+      )}
+      {expanded && isArtist && artistData && (
+        <View style={styles.detail}>
+          {artistData.genre && (
+            <View style={[styles.genreBadge, { marginBottom: 8 }]}>
+              <Text style={styles.genreBadgeText}>{artistData.genre}</Text>
+            </View>
+          )}
+          {artistData.description && (
+            <Text style={styles.detailDesc}>{artistData.description}</Text>
+          )}
+          {artistData.similarityReason && (
+            <Text style={[styles.detailDesc, { fontStyle: 'italic' }]}>{artistData.similarityReason}</Text>
+          )}
+        </View>
       )}
     </View>
   );
@@ -263,9 +308,12 @@ const styles = StyleSheet.create({
   },
   typeBadgeGold: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
   typeBadgePurple: { backgroundColor: Colors.purpleBg, borderColor: Colors.purpleBorder },
+  typeBadgeGreen: { backgroundColor: Colors.greenBg, borderColor: Colors.greenBorder },
   typeBadgeText: { fontSize: 11, fontWeight: '600' },
   typeBadgeTextGold: { color: Colors.gold },
   typeBadgeTextPurple: { color: Colors.purple },
+  typeBadgeTextGreen: { color: Colors.green },
+  cardCountryMeta: { color: Colors.text3, fontSize: 11 },
   cardDate: { color: Colors.text3, fontSize: 11 },
   cardActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   goBtn: { padding: 4 },

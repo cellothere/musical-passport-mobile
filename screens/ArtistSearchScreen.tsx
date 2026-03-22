@@ -12,11 +12,20 @@ import {
 } from '../services/api';
 import { ArtistCard } from '../components/ArtistCard';
 import type { AuthService } from '../hooks/useAuth';
+import type { SavedDiscovery } from '../hooks/useFavorites';
+
+interface FavoritesHook {
+  isArtistSaved: (artistName: string) => boolean;
+  findSavedArtist: (artistName: string) => SavedDiscovery | undefined;
+  save: (item: Omit<SavedDiscovery, 'id' | 'savedAt'>) => Promise<void>;
+  remove: (id: string) => Promise<void>;
+}
 
 interface Props {
   navigation: any;
   service: AuthService;
   accessToken: string | null;
+  favoritesHook: FavoritesHook;
 }
 
 type Phase = 'search' | 'confirm' | 'loading' | 'results';
@@ -32,7 +41,7 @@ function formatFollowers(n: number): string {
   return `${n} followers`;
 }
 
-export function ArtistSearchScreen({ navigation, service, accessToken }: Props) {
+export function ArtistSearchScreen({ navigation, service, accessToken, favoritesHook }: Props) {
   const [query, setQuery] = useState('');
   const [phase, setPhase] = useState<Phase>('search');
   const [foundArtist, setFoundArtist] = useState<FoundArtist | null>(null);
@@ -189,20 +198,34 @@ export function ArtistSearchScreen({ navigation, service, accessToken }: Props) 
             <Text style={styles.sonicSummary}>{sonicSummary}</Text>
           ) : null}
 
-          {matches.map((match, i) => (
-            <View key={i} style={styles.matchWrapper}>
-              <View style={styles.matchMeta}>
-                <Text style={styles.matchFlag}>{flagEmoji(match.countryCode)}</Text>
-                <Text style={styles.matchCountry}>{match.country}</Text>
+          {matches.map((match, i) => {
+            const isSaved = favoritesHook.isArtistSaved(match.name);
+            const toggleSave = async () => {
+              if (isSaved) {
+                const entry = favoritesHook.findSavedArtist(match.name);
+                if (entry) await favoritesHook.remove(entry.id);
+              } else {
+                await favoritesHook.save({ type: 'artist', country: match.country, decade: match.era, data: match });
+              }
+            };
+            return (
+              <View key={i} style={styles.matchWrapper}>
+                <View style={styles.matchMeta}>
+                  <Text style={styles.matchFlag}>{flagEmoji(match.countryCode)}</Text>
+                  <Text style={styles.matchCountry}>{match.country}</Text>
+                  <TouchableOpacity onPress={toggleSave} style={styles.matchHeart} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
+                  </TouchableOpacity>
+                </View>
+                <ArtistCard
+                  artist={matchToArtist(match)}
+                  service={service}
+                  accessToken={accessToken}
+                  showSimilarTo={false}
+                />
               </View>
-              <ArtistCard
-                artist={matchToArtist(match)}
-                service={service}
-                accessToken={accessToken}
-                showSimilarTo={false}
-              />
-            </View>
-          ))}
+            );
+          })}
           <View style={styles.bottomPad} />
         </ScrollView>
       )}
@@ -366,7 +389,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   matchFlag: { fontSize: 20 },
-  matchCountry: { color: Colors.text3, fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6 },
+  matchCountry: { flex: 1, color: Colors.text3, fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6 },
+  matchHeart: { padding: 4 },
   matchReason: {
     color: Colors.text2,
     fontSize: 13,

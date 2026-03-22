@@ -54,8 +54,9 @@ function MiniPlayer() {
 
 function AppNavigator() {
   const auth = useAuth();
-  const stampsHook = useStamps();
-  const favoritesHook = useFavorites();
+  const spotifyToken = auth.service === 'spotify' ? auth.accessToken : null;
+  const stampsHook = useStamps(spotifyToken, auth.syncData?.stamps ?? []);
+  const favoritesHook = useFavorites(spotifyToken, auth.syncData?.favorites ?? []);
 
   return (
     <NavigationContainer
@@ -111,11 +112,12 @@ function AppNavigator() {
               {...props}
               service={auth.service}
               accessToken={auth.accessToken}
+              favoritesHook={favoritesHook}
             />
           )}
         </Stack.Screen>
         <Stack.Screen name="Insights">
-          {props => <InsightsScreen {...props} auth={auth} />}
+          {props => <InsightsScreen {...props} auth={auth} updateSyncData={auth.updateSyncData} />}
         </Stack.Screen>
         <Stack.Screen name="ArtistSearch">
           {props => (
@@ -123,6 +125,7 @@ function AppNavigator() {
               {...props}
               service={auth.service}
               accessToken={auth.accessToken}
+              favoritesHook={favoritesHook}
             />
           )}
         </Stack.Screen>

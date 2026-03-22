@@ -8,7 +8,7 @@ import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
-import { REGIONS, DECADES } from '../constants/regions';
+import { REGIONS, DECADES, MUSIC_REGIONS } from '../constants/regions';
 import { fetchTimeMachine, TimeMachineResponse, Track } from '../services/api';
 import type { AuthService } from '../hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
@@ -101,6 +101,8 @@ function DecadePickerModal({ visible, selected, onClose, onSelect }: {
 }
 
 // ── Country Picker Modal ───────────────────────────────────
+const CULTURAL_REGIONS_KEY = '__cultural__';
+
 function CountryPickerModal({ visible, selected, onClose, onSelect }: {
   visible: boolean;
   selected: string;
@@ -111,16 +113,22 @@ function CountryPickerModal({ visible, selected, onClose, onSelect }: {
   const [activeRegion, setActiveRegion] = useState('');
   const insets = useSafeAreaInsets();
 
-  const regionCountries = activeRegion
+  const isCultural = activeRegion === CULTURAL_REGIONS_KEY;
+
+  const regionCountries = isCultural
+    ? MUSIC_REGIONS
+    : activeRegion
     ? (REGIONS.find(r => r.name === activeRegion)?.countries ?? ALL_COUNTRIES)
     : ALL_COUNTRIES;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const pool = [{ label: 'Random', value: '' }, ...regionCountries.map(c => ({ label: c, value: c }))];
+    const pool = isCultural
+      ? regionCountries.map(c => ({ label: c, value: c }))
+      : [{ label: 'Random', value: '' }, ...regionCountries.map(c => ({ label: c, value: c }))];
     if (!q) return pool;
     return pool.filter(c => c.label.toLowerCase().includes(q));
-  }, [query, regionCountries]);
+  }, [query, regionCountries, isCultural]);
 
   const handleSelect = (value: string) => {
     setQuery('');
@@ -149,15 +157,21 @@ function CountryPickerModal({ visible, selected, onClose, onSelect }: {
             style={sheetStyles.regionRow}
             contentContainerStyle={sheetStyles.regionRowContent}
           >
-            {['', ...REGIONS.map(r => r.name)].map(r => (
+            {['', ...REGIONS.map(r => r.name), CULTURAL_REGIONS_KEY].map(r => (
               <TouchableOpacity
                 key={r || '__all'}
-                style={[sheetStyles.regionChip, activeRegion === r && sheetStyles.regionChipActive]}
+                style={[
+                  sheetStyles.regionChip,
+                  activeRegion === r && (r === CULTURAL_REGIONS_KEY ? sheetStyles.regionChipCultural : sheetStyles.regionChipActive),
+                ]}
                 onPress={() => { setActiveRegion(r); setQuery(''); }}
                 activeOpacity={0.7}
               >
-                <Text style={[sheetStyles.regionChipText, activeRegion === r && sheetStyles.regionChipTextActive]}>
-                  {r || 'All'}
+                <Text style={[
+                  sheetStyles.regionChipText,
+                  activeRegion === r && (r === CULTURAL_REGIONS_KEY ? sheetStyles.regionChipTextCultural : sheetStyles.regionChipTextActive),
+                ]}>
+                  {r === CULTURAL_REGIONS_KEY ? '🌐 Cultural Regions' : r || 'All'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -192,6 +206,8 @@ function CountryPickerModal({ visible, selected, onClose, onSelect }: {
                 <View style={sheetStyles.rowIconWrap}>
                   {item.value === '' ? (
                     <Ionicons name="shuffle" size={18} color={isSelected ? Colors.gold : Colors.text3} />
+                  ) : isCultural ? (
+                    <Ionicons name="earth-outline" size={20} color={isSelected ? Colors.gold : Colors.purple} />
                   ) : (
                     <Text style={{ fontSize: 20 }}>{FLAGS[item.value] ?? '🌐'}</Text>
                   )}
@@ -226,11 +242,15 @@ export function TimeMachineScreen({ navigation, accessToken, service, favoritesH
   const pendingFetch = useRef<Promise<TimeMachineResponse> | null>(null);
   const pendingResult = useRef<TimeMachineResponse | null>(null);
   const pendingError = useRef<string | null>(null);
+  const resolvedCountry = useRef('');
+  const resolvedDecade = useRef('');
 
   const launch = async () => {
     const allCountries = REGIONS.flatMap(r => r.countries);
     const country = selectedCountry || allCountries[Math.floor(Math.random() * allCountries.length)];
     const decade = selectedDecade || DECADES[Math.floor(Math.random() * DECADES.length)];
+    resolvedCountry.current = country;
+    resolvedDecade.current = decade;
 
     setResult(null);
     setError(null);
@@ -252,7 +272,12 @@ export function TimeMachineScreen({ navigation, accessToken, service, favoritesH
     // Wait for API if still in flight
     try {
       if (pendingFetch.current) await pendingFetch.current;
-      if (pendingResult.current) setResult(pendingResult.current);
+      if (pendingResult.current) {
+        setResult(pendingResult.current);
+        // Populate pickers with the actual resolved values so "Random" becomes the real choice
+        setSelectedCountry(resolvedCountry.current);
+        setSelectedDecade(resolvedDecade.current);
+      }
     } catch {
       setError(pendingError.current ?? 'Time machine failed');
     } finally {
@@ -261,7 +286,7 @@ export function TimeMachineScreen({ navigation, accessToken, service, favoritesH
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -278,7 +303,7 @@ export function TimeMachineScreen({ navigation, accessToken, service, favoritesH
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.description}>
-          Pick a country and decade — or go random.
+          Pick a country and decade - or go random.
         </Text>
 
         {/* Pickers */}
@@ -517,8 +542,10 @@ const sheetStyles = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
   },
   regionChipActive: { backgroundColor: Colors.blueBg, borderColor: Colors.blueBorder },
+  regionChipCultural: { backgroundColor: Colors.purpleBg, borderColor: Colors.purpleBorder },
   regionChipText: { color: Colors.text2, fontSize: 13, fontWeight: '500' },
   regionChipTextActive: { color: Colors.blue, fontWeight: '700' },
+  regionChipTextCultural: { color: Colors.purple, fontWeight: '700' },
   searchRow: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,

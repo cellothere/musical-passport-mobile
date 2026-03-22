@@ -10,15 +10,24 @@ import { Colors } from '../constants/colors';
 import { fetchGenreSpotlight, Track } from '../services/api';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import type { AuthService } from '../hooks/useAuth';
+import type { SavedDiscovery } from '../hooks/useFavorites';
+
+interface FavoritesHook {
+  isGenreSaved: (genre: string, country: string) => boolean;
+  findSavedGenre: (genre: string, country: string) => SavedDiscovery | undefined;
+  save: (item: Omit<SavedDiscovery, 'id' | 'savedAt'>) => Promise<void>;
+  remove: (id: string) => Promise<void>;
+}
 
 interface Props {
   navigation: any;
   route: { params: { genre: string; country: string } };
   service: AuthService;
   accessToken: string | null;
+  favoritesHook: FavoritesHook;
 }
 
-export function GenreSpotlightScreen({ navigation, route, service, accessToken }: Props) {
+export function GenreSpotlightScreen({ navigation, route, service, accessToken, favoritesHook }: Props) {
   const { genre, country } = route.params;
   const [loading, setLoading] = useState(true);
   const [explanation, setExplanation] = useState('');
@@ -35,6 +44,16 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken }
       .finally(() => setLoading(false));
   }, [genre, country]);
 
+  const isSaved = favoritesHook.isGenreSaved(genre, country);
+  const toggleSave = async () => {
+    if (isSaved) {
+      const entry = favoritesHook.findSavedGenre(genre, country);
+      if (entry) await favoritesHook.remove(entry.id);
+    } else {
+      await favoritesHook.save({ type: 'genre', country, data: { genre, country, explanation, tracks } });
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -49,6 +68,15 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken }
           <Text style={styles.headerGenre}>{genre}</Text>
           <Text style={styles.headerCountry}>{country}</Text>
         </View>
+        {!loading && !error && (
+          <TouchableOpacity
+            onPress={toggleSave}
+            style={styles.heartBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={24} color={Colors.red} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {loading ? (
@@ -152,6 +180,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4 },
   headerMid: { flex: 1 },
+  heartBtn: { padding: 4 },
   headerGenre: { color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
   headerCountry: { color: Colors.text3, fontSize: 13, marginTop: 2 },
 

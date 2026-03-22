@@ -148,11 +148,21 @@ export interface InsightsDNA {
   percentage: number;
 }
 
+export interface InsightsBlindSpot {
+  region: string;
+  percentage: number;
+  gatewayCountry: string;
+  teaser: string;
+}
+
 export interface InsightsResponse {
+  archetype: string;
+  archetypeDescription: string;
   summary: string;
   suggestedCountries: InsightsSuggestion[];
   dna: InsightsDNA[];
   topEras: Array<{ decade: string; percentage: number }>;
+  blindSpots: InsightsBlindSpot[];
 }
 
 export interface GenreSpotlightResponse {
@@ -225,11 +235,63 @@ export async function fetchSimilarArtists(artistName: string): Promise<SimilarAr
   return res.json();
 }
 
-export async function fetchInsights(topArtists: string[]): Promise<InsightsResponse> {
+export async function fetchInsights(topArtists: string[], accessToken?: string): Promise<InsightsResponse> {
   const res = await apiFetch('/api/insights', {
     method: 'POST',
     body: JSON.stringify({ topArtists }),
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
   });
   if (!res.ok) throw new Error('Could not load insights');
   return res.json();
+}
+
+export interface SyncResult {
+  favorites: import('../hooks/useFavorites').SavedDiscovery[];
+  stamps: string[];
+  insights: InsightsResponse | null;
+}
+
+export async function syncUser(
+  accessToken: string,
+  payload: { displayName?: string; topArtists: string[] }
+): Promise<SyncResult> {
+  const res = await apiFetch('/api/user/sync', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error('Sync failed');
+  return res.json();
+}
+
+export async function apiFetchFavorites(accessToken: string) {
+  const res = await apiFetch('/api/user/favorites', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return res.ok ? res.json() : [];
+}
+
+export async function apiSaveFavorite(accessToken: string, item: { type: string; country: string; decade?: string; data: any }) {
+  const res = await apiFetch('/api/user/favorites', {
+    method: 'POST',
+    body: JSON.stringify(item),
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error('Failed to save');
+  return res.json();
+}
+
+export async function apiRemoveFavorite(accessToken: string, id: string) {
+  await apiFetch(`/api/user/favorites/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+export async function apiAddStamp(accessToken: string, country: string) {
+  await apiFetch('/api/user/stamps', {
+    method: 'POST',
+    body: JSON.stringify({ country }),
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 }

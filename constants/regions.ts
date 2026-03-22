@@ -16,6 +16,51 @@ export const REGIONS: Region[] = [
 
 export const DECADES = ["1900s","1910s","1920s","1930s","1940s","1950s","1960s","1970s","1980s","1990s","2000s","2010s","2020s"];
 
+// Cultural / musical regions that transcend political borders.
+// Each entry is a place-name Claude understands as a distinct musical world.
+export const MUSIC_REGIONS: string[] = [
+  "Aboriginal Australia",
+  "Andalusia",
+  "Appalachia",
+  "Basque Country",
+  "Bengal",
+  "Brittany",
+  "Cape Verde",
+  "Central Asia",
+  "Galicia (Spain)",
+  "Louisiana",
+  "Melanesia",
+  "New Orleans",
+  "Occitania",
+  "Polynesia",
+  "Punjab",
+  "Quebec",
+  "Sardinia",
+  "Sápmi (Lapland)",
+  "Southern Africa",
+  "The Amazon Basin",
+  "The American South",
+  "The American Southwest",
+  "The Andes",
+  "The Arabian Peninsula",
+  "The Balkans",
+  "The Caribbean",
+  "The Caucasus",
+  "The Celtic Fringe",
+  "The Congo Basin",
+  "The French Antilles",
+  "The Horn of Africa",
+  "The Indonesian Archipelago",
+  "The Levant",
+  "The Maghreb",
+  "The Mekong Delta",
+  "The Persian World",
+  "The Rio de la Plata",
+  "The Sahel",
+  "The Swahili Coast",
+  "Trinidad & Tobago",
+];
+
 export function getAllCountries(): string[] {
   return REGIONS.flatMap(r => r.countries);
 }

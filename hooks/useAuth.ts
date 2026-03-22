@@ -3,7 +3,9 @@ import { Alert } from 'react-native';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fetchMe, fetchSpotifyToken, API_BASE_URL } from '../services/api';
+import { fetchMe, fetchSpotifyToken, syncUser, API_BASE_URL } from '../services/api';
+import type { SyncResult } from '../services/api';
+import type { SavedDiscovery } from './useFavorites';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -19,9 +21,10 @@ export type AuthService = 'spotify' | 'apple-music' | null;
 export interface AuthState {
   service: AuthService;
   accessToken: string | null;
-  user: { displayName?: string; email?: string } | null;
+  user: { id?: string; displayName?: string; email?: string } | null;
   topArtists: string[];
   loading: boolean;
+  syncData: SyncResult | null;
 }
 
 export function useAuth() {
@@ -31,6 +34,7 @@ export function useAuth() {
     user: null,
     topArtists: [],
     loading: true,
+    syncData: null,
   });
 
   const loginTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -53,7 +57,7 @@ export function useAuth() {
       } else if (service === 'apple-music') {
         const token = await AsyncStorage.getItem(STORAGE_KEY_APPLE);
         if (token) {
-          setState({ service: 'apple-music', accessToken: token, user: { displayName: 'Apple Music' }, topArtists: [], loading: false });
+          setState({ service: 'apple-music', accessToken: token, user: { displayName: 'Apple Music' }, topArtists: [], loading: false, syncData: null });
           return;
         }
       }
@@ -80,11 +84,16 @@ export function useAuth() {
       const data = await fetchMe(token);
       await AsyncStorage.setItem(STORAGE_KEY_SPOTIFY, token);
       await AsyncStorage.setItem(STORAGE_KEY_SERVICE, 'spotify');
-      setState({ service: 'spotify', accessToken: token, user: data.user, topArtists: data.topArtists, loading: false });
+      // Sync user to Supabase and retrieve their persisted data
+      const syncData = await syncUser(token, {
+        displayName: data.user.displayName,
+        topArtists: data.topArtists,
+      }).catch(() => null);
+      setState({ service: 'spotify', accessToken: token, user: data.user, topArtists: data.topArtists, loading: false, syncData });
     } catch {
       await AsyncStorage.removeItem(STORAGE_KEY_SPOTIFY);
       await AsyncStorage.removeItem(STORAGE_KEY_SERVICE);
-      setState({ service: null, accessToken: null, user: null, topArtists: [], loading: false });
+      setState({ service: null, accessToken: null, user: null, topArtists: [], loading: false, syncData: null });
     }
   }
 
@@ -134,7 +143,7 @@ export function useAuth() {
           await AsyncStorage.removeItem(STORAGE_KEY_SPOTIFY);
           await AsyncStorage.setItem(STORAGE_KEY_APPLE, token);
           await AsyncStorage.setItem(STORAGE_KEY_SERVICE, 'apple-music');
-          setState({ service: 'apple-music', accessToken: token, user: { displayName: 'Apple Music' }, topArtists: [], loading: false });
+          setState({ service: 'apple-music', accessToken: token, user: { displayName: 'Apple Music' }, topArtists: [], loading: false, syncData: null });
         } else {
           throw new Error(error || 'Authorization failed');
         }
@@ -159,8 +168,15 @@ export function useAuth() {
     await AsyncStorage.removeItem(STORAGE_KEY_SPOTIFY);
     await AsyncStorage.removeItem(STORAGE_KEY_APPLE);
     await AsyncStorage.removeItem(STORAGE_KEY_SERVICE);
-    setState({ service: null, accessToken: null, user: null, topArtists: [], loading: false });
+    setState({ service: null, accessToken: null, user: null, topArtists: [], loading: false, syncData: null });
   }, []);
 
-  return { ...state, loginSpotify, loginAppleMusic, logout, request };
+  const updateSyncData = useCallback((partial: Partial<NonNullable<AuthState['syncData']>>) => {
+    setState(s => ({
+      ...s,
+      syncData: s.syncData ? { ...s.syncData, ...partial } : null,
+    }));
+  }, []);
+
+  return { ...state, loginSpotify, loginAppleMusic, logout, request, updateSyncData };
 }

@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
-import { REGIONS, getAllCountries } from '../constants/regions';
+import { REGIONS, MUSIC_REGIONS, getAllCountries } from '../constants/regions';
 
 const FLAGS: Record<string, string> = {
   'France': '🇫🇷', 'Germany': '🇩🇪', 'Sweden': '🇸🇪', 'Norway': '🇳🇴',
@@ -53,6 +53,7 @@ const FLAGS: Record<string, string> = {
 
 
 const ALL_COUNTRIES = getAllCountries();
+const ALL_SEARCHABLE = [...ALL_COUNTRIES, ...MUSIC_REGIONS];
 
 interface Props {
   navigation: any;
@@ -70,8 +71,8 @@ function CountryPickerModal({ visible, onClose, onSelect }: {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return ALL_COUNTRIES;
-    return ALL_COUNTRIES.filter(c => c.toLowerCase().includes(q));
+    if (!q) return ALL_SEARCHABLE;
+    return ALL_SEARCHABLE.filter(c => c.toLowerCase().includes(q));
   }, [query]);
 
   const handleSelect = (country: string) => {
@@ -131,7 +132,7 @@ function CountryPickerModal({ visible, onClose, onSelect }: {
 // ── Main Screen ───────────────────────────────────────────
 export function HomeScreen({ navigation, stampsHook }: Props) {
   const { stamps } = stampsHook;
-  const [collapsedRegions, setCollapsedRegions] = useState<Set<string>>(new Set(REGIONS.map(r => r.name)));
+  const [collapsedRegions, setCollapsedRegions] = useState<Set<string>>(new Set([...REGIONS.map(r => r.name), '__cultural__']));
   const [pickerVisible, setPickerVisible] = useState(false);
 
   const toggleRegion = (name: string) => {
@@ -214,6 +215,51 @@ export function HomeScreen({ navigation, stampsHook }: Props) {
             </View>
           );
         })}
+
+        {/* Cultural / Musical Regions */}
+        {(() => {
+          const isCollapsed = collapsedRegions.has('__cultural__');
+          return (
+            <View style={styles.region}>
+              <TouchableOpacity
+                style={styles.regionHeader}
+                onPress={() => toggleRegion('__cultural__')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.regionName}>Cultural Regions</Text>
+                <Text style={styles.regionCount}>{MUSIC_REGIONS.length}</Text>
+                <Ionicons
+                  name={isCollapsed ? 'chevron-forward' : 'chevron-down'}
+                  size={16}
+                  color={Colors.text3}
+                />
+              </TouchableOpacity>
+
+              {!isCollapsed && (
+                <View style={styles.countryGrid}>
+                  {MUSIC_REGIONS.map(region => (
+                    <TouchableOpacity
+                      key={region}
+                      style={styles.countryBtn}
+                      onPress={() => navigation.navigate('Recommendations', { country: region })}
+                      activeOpacity={0.65}
+                    >
+                      <Text style={styles.countryFlag}>🌐</Text>
+                      <Text
+                        style={styles.countryText}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.75}
+                      >
+                        {region}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          );
+        })()}
 
         <View style={styles.bottomPad} />
       </ScrollView>
