@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
-import { REGIONS, MUSIC_REGIONS, getAllCountries } from '../constants/regions';
+import { REGIONS, MUSIC_REGIONS, DECADES, getAllCountries } from '../constants/regions';
 
 const FLAGS: Record<string, string> = {
   'France': '🇫🇷', 'Germany': '🇩🇪', 'Sweden': '🇸🇪', 'Norway': '🇳🇴',
@@ -130,10 +130,53 @@ function CountryPickerModal({ visible, onClose, onSelect }: {
 }
 
 // ── Main Screen ───────────────────────────────────────────
+function DecadeFilterModal({ visible, selected, onSelect, onClose }: {
+  visible: boolean;
+  selected: string;
+  onSelect: (decade: string) => void;
+  onClose: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <TouchableOpacity style={decadeStyles.backdrop} activeOpacity={1} onPress={onClose}>
+        <View style={[decadeStyles.sheet, { paddingBottom: insets.bottom + 12 }]}>
+          <View style={decadeStyles.handle} />
+          <Text style={decadeStyles.title}>Filter by Era</Text>
+          <TouchableOpacity
+            style={[decadeStyles.row, !selected && decadeStyles.rowActive]}
+            onPress={() => { onSelect(''); onClose(); }}
+            activeOpacity={0.7}
+          >
+            <Text style={[decadeStyles.rowLabel, !selected && decadeStyles.rowLabelActive]}>Any era</Text>
+            {!selected && <Ionicons name="checkmark" size={18} color={Colors.gold} />}
+          </TouchableOpacity>
+          {DECADES.map(d => (
+            <TouchableOpacity
+              key={d}
+              style={[decadeStyles.row, selected === d && decadeStyles.rowActive]}
+              onPress={() => { onSelect(d); onClose(); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[decadeStyles.rowLabel, selected === d && decadeStyles.rowLabelActive]}>{d}</Text>
+              {selected === d && <Ionicons name="checkmark" size={18} color={Colors.gold} />}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
 export function HomeScreen({ navigation, stampsHook }: Props) {
   const { stamps } = stampsHook;
   const [collapsedRegions, setCollapsedRegions] = useState<Set<string>>(new Set([...REGIONS.map(r => r.name), '__cultural__']));
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [selectedDecade, setSelectedDecade] = useState('');
+  const [decadeModalVisible, setDecadeModalVisible] = useState(false);
+
+  const navigate = (country: string) =>
+    navigation.navigate('Recommendations', selectedDecade ? { country, decade: selectedDecade } : { country });
 
   const toggleRegion = (name: string) => {
     setCollapsedRegions(prev => {
@@ -155,6 +198,16 @@ export function HomeScreen({ navigation, stampsHook }: Props) {
           <Ionicons name="chevron-back" size={24} color={Colors.blue} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Explore Countries</Text>
+        <TouchableOpacity
+          style={[styles.decadePill, selectedDecade ? styles.decadePillActive : null]}
+          onPress={() => setDecadeModalVisible(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="time-outline" size={26} color={Colors.gold} />
+          {selectedDecade ? (
+            <Text style={styles.decadePillTextActive}>{selectedDecade}</Text>
+          ) : null}
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -194,7 +247,7 @@ export function HomeScreen({ navigation, stampsHook }: Props) {
                       <TouchableOpacity
                         key={country}
                         style={[styles.countryBtn, isStamped && styles.countryBtnStamped]}
-                        onPress={() => navigation.navigate('Recommendations', { country })}
+                        onPress={() => navigate(country)}
                         activeOpacity={0.65}
                       >
                         <Text style={styles.countryFlag}>{flag}</Text>
@@ -241,7 +294,7 @@ export function HomeScreen({ navigation, stampsHook }: Props) {
                     <TouchableOpacity
                       key={region}
                       style={styles.countryBtn}
-                      onPress={() => navigation.navigate('Recommendations', { country: region })}
+                      onPress={() => navigate(region)}
                       activeOpacity={0.65}
                     >
                       <Text style={styles.countryFlag}>🌐</Text>
@@ -267,7 +320,13 @@ export function HomeScreen({ navigation, stampsHook }: Props) {
       <CountryPickerModal
         visible={pickerVisible}
         onClose={() => setPickerVisible(false)}
-        onSelect={country => navigation.navigate('Recommendations', { country })}
+        onSelect={country => navigate(country)}
+      />
+      <DecadeFilterModal
+        visible={decadeModalVisible}
+        selected={selectedDecade}
+        onSelect={setSelectedDecade}
+        onClose={() => setDecadeModalVisible(false)}
       />
     </SafeAreaView>
   );
@@ -347,7 +406,16 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   backBtn: { padding: 4 },
-  headerTitle: { color: Colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
+  headerTitle: { color: Colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.3, flex: 1 },
+  decadePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.surface,
+    borderWidth: 1, borderColor: Colors.text3,
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  decadePillActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
+  decadePillText: { color: Colors.text3, fontSize: 12, fontWeight: '600' },
+  decadePillTextActive: { color: Colors.gold },
 
   scroll: { flex: 1 },
   content: { padding: 16 },
@@ -395,4 +463,26 @@ const styles = StyleSheet.create({
   stampDot: { color: Colors.gold, fontSize: 9, marginLeft: 2 },
 
   bottomPad: { height: 48 },
+});
+
+const decadeStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: Colors.bg,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingTop: 12, maxHeight: '80%',
+  },
+  handle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: Colors.border2, alignSelf: 'center', marginBottom: 16,
+  },
+  title: {
+    color: Colors.text3, fontSize: 12, fontWeight: '600',
+    letterSpacing: 0.8, textTransform: 'uppercase',
+    paddingHorizontal: 20, marginBottom: 8,
+  },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 },
+  rowActive: { backgroundColor: Colors.goldBg },
+  rowLabel: { flex: 1, color: Colors.text, fontSize: 16, fontWeight: '500' },
+  rowLabelActive: { color: Colors.gold, fontWeight: '700' },
 });

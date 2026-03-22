@@ -8,7 +8,6 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { LandingScreen } from './screens/LandingScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { RecommendationScreen } from './screens/RecommendationScreen';
-import { TimeMachineScreen } from './screens/TimeMachineScreen';
 import { InsightsScreen } from './screens/InsightsScreen';
 import { SavedScreen } from './screens/SavedScreen';
 import { GenreSpotlightScreen } from './screens/GenreSpotlightScreen';
@@ -96,17 +95,7 @@ function AppNavigator() {
             />
           )}
         </Stack.Screen>
-        <Stack.Screen name="TimeMachine" options={{ presentation: 'modal' }}>
-          {props => (
-            <TimeMachineScreen
-              {...props}
-              accessToken={auth.accessToken}
-              service={auth.service}
-              favoritesHook={favoritesHook}
-            />
-          )}
-        </Stack.Screen>
-        <Stack.Screen name="GenreSpotlight">
+<Stack.Screen name="GenreSpotlight">
           {props => (
             <GenreSpotlightScreen
               {...props}

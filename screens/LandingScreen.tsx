@@ -125,25 +125,7 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
           <Ionicons name="chevron-forward" size={20} color={Colors.gold} style={{ opacity: 0.6 }} />
         </TouchableOpacity>
 
-        {/* Time Machine */}
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() => isConnected ? navigation.navigate('TimeMachine') : setServiceModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.cardIconWrap, styles.cardIconBlue]}>
-            <Ionicons name="time-outline" size={28} color={Colors.blue} />
-          </View>
-          <View style={styles.cardBody}>
-            <Text style={styles.cardTitle}>Time Machine</Text>
-            <Text style={styles.cardDesc}>
-              {isConnected ? 'Travel through iconic sounds from any era' : 'Connect a music service to unlock'}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={Colors.text3} style={{ opacity: 0.6 }} />
-        </TouchableOpacity>
-
-        {/* Sound-Alike Search */}
+{/* Sound-Alike Search */}
         <TouchableOpacity
           style={[styles.card, styles.cardGreen]}
           onPress={() => isConnected ? navigation.navigate('ArtistSearch') : setServiceModalVisible(true)}
