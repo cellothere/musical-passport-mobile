@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Dimensions, Image, Modal, StyleSheet, View } from 'react-native';
 
-const SHOW_MS = 3000; // how long to show the globe before fading out
+const SHOW_MS = 5000; // how long to show the globe before fading out
 const { width: SW } = Dimensions.get('window');
 const SIZE = Math.min(SW, 340);
 

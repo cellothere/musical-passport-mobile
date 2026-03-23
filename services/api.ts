@@ -34,7 +34,6 @@ export interface TimeMachineResponse {
   country: string;
   decade: string;
   genre: string;
-  description: string;
   tracks: Track[];
 }
 

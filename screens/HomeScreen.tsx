@@ -1,12 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  Modal, TextInput, FlatList, Platform, KeyboardAvoidingView,
+  Modal, TextInput, FlatList, Platform, KeyboardAvoidingView, Animated, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { REGIONS, MUSIC_REGIONS, DECADES, getAllCountries } from '../constants/regions';
+import * as Haptics from 'expo-haptics';
 
 const FLAGS: Record<string, string> = {
   'France': '🇫🇷', 'Germany': '🇩🇪', 'Sweden': '🇸🇪', 'Norway': '🇳🇴',
@@ -44,16 +45,27 @@ const FLAGS: Record<string, string> = {
   'Pakistan': '🇵🇰', 'Bangladesh': '🇧🇩', 'Taiwan': '🇹🇼', 'Mongolia': '🇲🇳',
   'Myanmar': '🇲🇲', 'Cambodia': '🇰🇭', 'Laos': '🇱🇦', 'Malaysia': '🇲🇾',
   'Singapore': '🇸🇬', 'Sri Lanka': '🇱🇰', 'Nepal': '🇳🇵', 'Afghanistan': '🇦🇫',
-  'Kazakhstan': '🇰🇿', 'Uzbekistan': '🇺🇿', 'Hong Kong': '🇭🇰',
+  'Kazakhstan': '🇰🇿', 'Uzbekistan': '🇺🇿', 'Tajikistan': '🇹🇯', 'Kyrgyzstan': '🇰🇬', 'Turkmenistan': '🇹🇲', 'Hong Kong': '🇭🇰',
   'Australia': '🇦🇺', 'New Zealand': '🇳🇿', 'Papua New Guinea': '🇵🇬', 'Fiji': '🇫🇯',
+  'Vanuatu': '🇻🇺', 'Solomon Islands': '🇸🇧', 'Hawaii': '🌺',
   'USA': '🇺🇸', 'Canada': '🇨🇦',
   'Yugoslavia': '🏳', 'Soviet Union': '☭', 'Czechoslovakia': '🏳',
   'East Germany': '🏳', 'Ottoman Empire': '🌙', 'British India': '🏳',
 };
 
+const FLAG_IMAGES: Record<string, any> = {
+  'Republic of South Vietnam': require('../assets/SouthVietnam.png'),
+};
 
 const ALL_COUNTRIES = getAllCountries();
-const ALL_SEARCHABLE = [...ALL_COUNTRIES, ...MUSIC_REGIONS];
+const ALL_SEARCHABLE = [...new Set([...ALL_COUNTRIES, ...MUSIC_REGIONS])];
+
+// Curated picks — musically rich and diverse
+const QUICK_PICKS = [
+  'Brazil', 'Japan', 'Nigeria', 'Cuba', 'India', 'Jamaica',
+  'Iran', 'Colombia', 'South Korea', 'Mali', 'Greece', 'Iceland',
+  'Portugal', 'Ethiopia', 'Vietnam', 'Argentina',
+];
 
 interface Props {
   navigation: any;
@@ -116,7 +128,9 @@ function CountryPickerModal({ visible, onClose, onSelect }: {
           keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => (
             <TouchableOpacity style={pickerStyles.row} onPress={() => handleSelect(item)} activeOpacity={0.6}>
-              <Text style={pickerStyles.rowFlag}>{FLAGS[item] ?? '🌐'}</Text>
+              {FLAG_IMAGES[item]
+                ? <Image source={FLAG_IMAGES[item]} style={pickerStyles.rowFlagImg} />
+                : <Text style={pickerStyles.rowFlag}>{FLAGS[item] ?? '🌐'}</Text>}
               <Text style={pickerStyles.rowName}>{item}</Text>
               <Text style={pickerStyles.rowArrow}>›</Text>
             </TouchableOpacity>
@@ -175,13 +189,29 @@ export function HomeScreen({ navigation, stampsHook }: Props) {
   const [selectedDecade, setSelectedDecade] = useState('');
   const [decadeModalVisible, setDecadeModalVisible] = useState(false);
 
-  const navigate = (country: string) =>
+  // Pulse animation for the random button
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.06, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
+  const navigate = (country: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     navigation.navigate('Recommendations', selectedDecade ? { country, decade: selectedDecade } : { country });
+  };
 
   const toggleRegion = (name: string) => {
     setCollapsedRegions(prev => {
       const next = new Set(prev);
       next.has(name) ? next.delete(name) : next.add(name);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       return next;
     });
   };
@@ -218,6 +248,54 @@ export function HomeScreen({ navigation, stampsHook }: Props) {
           <Text style={styles.pickerBtnText}>Search any country…</Text>
         </TouchableOpacity>
 
+        {/* Quick Picks */}
+        <Text style={styles.sectionLabel}>Quick Picks</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.quickPicksScroll}
+          contentContainerStyle={styles.quickPicksContent}
+        >
+          {QUICK_PICKS.map(country => {
+            const isStamped = stamps.has(country);
+            return (
+              <TouchableOpacity
+                key={country}
+                style={[styles.quickPickCard, isStamped && styles.quickPickCardStamped]}
+                onPress={() => navigate(country)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.quickPickFlag}>{FLAGS[country] ?? '🌐'}</Text>
+                <Text style={[styles.quickPickName, isStamped && styles.quickPickNameStamped]} numberOfLines={1}>
+                  {country}
+                </Text>
+                {isStamped && <Text style={styles.quickPickCheck}>✦</Text>}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* Random button — prominent, above the region list */}
+        <Animated.View style={{ transform: [{ scale: pulseAnim }], alignSelf: 'center', marginBottom: 24 }}>
+          <TouchableOpacity
+            style={styles.randomBtn}
+            onPress={() => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+              const country = ALL_COUNTRIES[Math.floor(Math.random() * ALL_COUNTRIES.length)];
+              navigate(country);
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="shuffle" size={18} color={Colors.bg} />
+            <Text style={styles.randomBtnText}>
+              {selectedDecade ? `Surprise Me · ${selectedDecade}` : 'Surprise Me'}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Divider before browse-by-region */}
+        <Text style={styles.sectionLabel}>Browse by Region</Text>
+
         {/* Country regions */}
         {REGIONS.map(region => {
           const isCollapsed = collapsedRegions.has(region.name);
@@ -243,6 +321,7 @@ export function HomeScreen({ navigation, stampsHook }: Props) {
                   {region.countries.map(country => {
                     const isStamped = stamps.has(country);
                     const flag = FLAGS[country] ?? '🌐';
+                    const flagImg = FLAG_IMAGES[country];
                     return (
                       <TouchableOpacity
                         key={country}
@@ -250,7 +329,9 @@ export function HomeScreen({ navigation, stampsHook }: Props) {
                         onPress={() => navigate(country)}
                         activeOpacity={0.65}
                       >
-                        <Text style={styles.countryFlag}>{flag}</Text>
+                        {flagImg
+                          ? <Image source={flagImg} style={styles.countryFlagImg} />
+                          : <Text style={styles.countryFlag}>{flag}</Text>}
                         <Text
                           style={[styles.countryText, isStamped && styles.countryTextStamped]}
                           numberOfLines={1}
@@ -387,6 +468,7 @@ const pickerStyles = StyleSheet.create({
     gap: 12,
   },
   rowFlag: { fontSize: 22, width: 30 },
+  rowFlagImg: { width: 30, height: 20, borderRadius: 2 },
   rowName: { flex: 1, color: Colors.text, fontSize: 16, fontWeight: '500' },
   rowArrow: { color: Colors.text3, fontSize: 20 },
   sep: { height: 1, backgroundColor: Colors.border, marginLeft: 60 },
@@ -458,11 +540,59 @@ const styles = StyleSheet.create({
   },
   countryBtnStamped: { backgroundColor: Colors.goldBg, borderWidth: 1, borderColor: Colors.goldBorder },
   countryFlag: { fontSize: 13 },
+  countryFlagImg: { width: 18, height: 12, borderRadius: 2 },
   countryText: { color: Colors.text3, fontSize: 12, fontWeight: '500' },
   countryTextStamped: { color: Colors.gold, fontWeight: '600' },
   stampDot: { color: Colors.gold, fontSize: 9, marginLeft: 2 },
 
   bottomPad: { height: 48 },
+
+  statsBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.goldBg,
+    borderWidth: 1, borderColor: Colors.goldBorder,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+    marginBottom: 16, alignSelf: 'flex-start',
+  },
+  statsText: { color: Colors.text2, fontSize: 13 },
+  statsHighlight: { color: Colors.gold, fontWeight: '700' },
+
+  sectionLabel: {
+    color: Colors.text3, fontSize: 11, fontWeight: '700',
+    letterSpacing: 1.1, textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+
+  quickPicksScroll: { marginLeft: -16, marginBottom: 20 },
+  quickPicksContent: { paddingHorizontal: 16, gap: 8 },
+  quickPickCard: {
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.surface2,
+    borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14,
+    minWidth: 80, gap: 4,
+  },
+  quickPickCardStamped: {
+    backgroundColor: Colors.goldBg,
+    borderColor: Colors.goldBorder,
+  },
+  quickPickFlag: { fontSize: 28 },
+  quickPickName: {
+    color: Colors.text2, fontSize: 11, fontWeight: '600',
+    maxWidth: 76, textAlign: 'center',
+  },
+  quickPickNameStamped: { color: Colors.gold },
+  quickPickCheck: { color: Colors.gold, fontSize: 9 },
+
+  randomBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.gold,
+    borderRadius: 24, paddingHorizontal: 28, paddingVertical: 14,
+    shadowColor: Colors.gold, shadowOpacity: 0.4,
+    shadowRadius: 12, shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+  randomBtnText: { color: Colors.bg, fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
 });
 
 const decadeStyles = StyleSheet.create({

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  ActivityIndicator, Linking, Modal, FlatList, Platform,
+  ActivityIndicator, Linking, Modal, FlatList, Platform, Image,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,6 +37,12 @@ const FLAGS: Record<string, string> = {
   'Pakistan': '🇵🇰', 'Bangladesh': '🇧🇩', 'Taiwan': '🇹🇼', 'Mongolia': '🇲🇳',
   'Australia': '🇦🇺', 'New Zealand': '🇳🇿', 'Papua New Guinea': '🇵🇬', 'Fiji': '🇫🇯',
   'USA': '🇺🇸', 'Canada': '🇨🇦', 'Haiti': '🇭🇹', 'Trinidad & Tobago': '🇹🇹', 'Barbados': '🇧🇧',
+  'Yugoslavia': '🏳', 'Soviet Union': '☭', 'Czechoslovakia': '🏳',
+  'East Germany': '🏳', 'Ottoman Empire': '🌙', 'British India': '🏳',
+};
+
+const FLAG_IMAGES: Record<string, any> = {
+  'Republic of South Vietnam': require('../assets/SouthVietnam.png'),
 };
 
 interface StampsHook {
@@ -274,7 +280,9 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
         </TouchableOpacity>
         <View style={styles.headerMid}>
           <View style={styles.headerTitleRow}>
-            <Text style={styles.countryFlag}>{flag}</Text>
+            {FLAG_IMAGES[country]
+              ? <Image source={FLAG_IMAGES[country]} style={styles.countryFlagImg} />
+              : <Text style={styles.countryFlag}>{flag}</Text>}
             <Text style={styles.countryName}>{country}</Text>
           </View>
           {isStamped && (
@@ -290,10 +298,10 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
           onPress={() => setDecadePickerVisible(true)}
           activeOpacity={0.7}
         >
-          <Ionicons name="time-outline" size={18} color={selectedDecade ? Colors.gold : Colors.text3} />
-          <Text style={[styles.decadePillText, selectedDecade ? styles.decadePillTextActive : null]}>
-            {selectedDecade || 'Any era'}
-          </Text>
+          <Ionicons name="time-outline" size={26} color={Colors.gold} />
+          {selectedDecade ? (
+            <Text style={styles.decadePillTextActive}>{selectedDecade}</Text>
+          ) : null}
         </TouchableOpacity>
 
         {hasContent && (
@@ -358,7 +366,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
           {(recs.artists || []).map((artist, i) => (
             <ArtistCard key={i} artist={artist} service={auth.service} accessToken={auth.accessToken} />
           ))}
-          {recs.didYouKnow && (
+          {recs.didYouKnow && selectedDecade && (
             <View style={styles.dyk}>
               <Text style={styles.dykLabel}>💡 Did you know</Text>
               <Text style={styles.dykText}>{recs.didYouKnow}</Text>
@@ -433,6 +441,7 @@ const styles = StyleSheet.create({
   headerMid: { flex: 1 },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   countryFlag: { fontSize: 26 },
+  countryFlagImg: { width: 34, height: 22, borderRadius: 3 },
   countryName: { color: Colors.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
   stampedBadge: {
     alignSelf: 'flex-start', marginTop: 4,
@@ -443,8 +452,8 @@ const styles = StyleSheet.create({
 
   decadePill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.text3,
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
   },
   decadePillActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
   decadePillText: { color: Colors.text3, fontSize: 12, fontWeight: '600' },
