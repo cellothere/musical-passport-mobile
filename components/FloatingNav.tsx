@@ -1,30 +1,44 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, PanResponder, Animated,
+  View, Text, TouchableOpacity, StyleSheet, Modal, ActivityIndicator,
 } from 'react-native';
-import { Image } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
-import { getAllCountries, MUSIC_REGIONS } from '../constants/regions';
-import { haptics } from '../utils/haptics';
+import * as Haptics from 'expo-haptics';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 
+type FullAuth = AuthState & {
+  loginSpotify: () => void;
+  loginAppleMusic: () => void;
+  logout: () => void;
+};
+
 interface Props {
   navigation: any;
-  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
-  stampsHook: { stamps: Set<string> };
-  favoritesHook: { favorites: SavedDiscovery[] };
+  auth: FullAuth;
+  favorites: SavedDiscovery[];
+  currentScreen?: string;
 }
 
-function ServiceModal({ visible, onClose, auth }: {
+function ServiceModal({ visible, onClose, auth, onServiceChange }: {
   visible: boolean;
   onClose: () => void;
-  auth: Props['auth'];
+  auth: FullAuth;
+  onServiceChange: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const handleOption = (action: () => void) => { onClose(); action(); };
+
+  const handleOption = (action: () => void) => {
+    const wasConnected = !!auth.service;
+    onClose();
+    action();
+    if (wasConnected) {
+      // Switching service or logging out — return to root
+      setTimeout(onServiceChange, 150);
+    }
+  };
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
@@ -74,111 +88,51 @@ function ServiceModal({ visible, onClose, auth }: {
   );
 }
 
-export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: Props) {
-  const { favorites } = favoritesHook;
+export function FloatingNav({ navigation, auth, favorites, currentScreen }: Props) {
+  const insets = useSafeAreaInsets();
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
+
   const isConnected = auth.service === 'spotify' || auth.service === 'apple-music';
+  const hasInsights = auth.service === 'spotify' && auth.topArtists?.length > 0 && currentScreen !== 'Insights';
+  const showSearch = isConnected && currentScreen !== 'ArtistSearch';
 
-  const prevService = useRef(auth.service);
-  useEffect(() => {
-    if (!prevService.current && auth.service) {
-      haptics.success();
-    }
-    prevService.current = auth.service;
-  }, [auth.service]);
-  const hasInsights = auth.service === 'spotify' && auth.topArtists?.length > 0;
-  const handleGlobeTap = () => {
-    haptics.medium();
-    navigation.navigate('Explore');
-  };
-
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.06, duration: 900, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, []);
-
-  const handleSurprise = () => {
-    haptics.launch();
-    const country = allCountries[Math.floor(Math.random() * allCountries.length)];
-    navigation.navigate('Recommendations', { country });
-  };
-
-  const allCountries = useRef([...getAllCountries(), ...MUSIC_REGIONS]).current;
-  const swipePanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderRelease: (_, g) => {
-        if (g.dy < -40) {
-          handleSurprise();
-        } else if (Math.abs(g.dx) < 8 && Math.abs(g.dy) < 8) {
-          handleGlobeTap();
-        }
-      },
-    })
-  ).current;
+  const haptic = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Top-right icon buttons */}
-      <View style={styles.topRightBtns}>
+    <>
+      {/* Top-right: insights + search */}
+      <View style={[styles.topRightBtns, { top: insets.top + 5 }]}>
         {hasInsights && (
           <TouchableOpacity
             style={styles.dnaBtn}
-            onPress={() => { haptics.light(); navigation.navigate('Insights'); }}
+            onPress={() => { haptic(); navigation.navigate('Insights'); }}
             activeOpacity={0.7}
             hitSlop={{ top: 16, bottom: 12, left: 12, right: 12 }}
           >
-            <Ionicons name="analytics-outline" size={36} color={Colors.purple} />
+            <Ionicons name="analytics-outline" size={26} color={Colors.purple} />
           </TouchableOpacity>
         )}
-        {isConnected && (
+        {showSearch && (
           <TouchableOpacity
             style={styles.searchBtn}
-            onPress={() => { haptics.light(); navigation.navigate('ArtistSearch'); }}
+            onPress={() => { haptic(); navigation.navigate('ArtistSearch'); }}
             activeOpacity={0.7}
             hitSlop={{ top: 16, bottom: 12, left: 12, right: 12 }}
           >
-            <Ionicons name="search" size={36} color={Colors.green} />
+            <Ionicons name="search" size={26} color={Colors.green} />
           </TouchableOpacity>
         )}
-      </View>
-
-      {/* Globe */}
-      <View style={styles.cards} {...swipePanResponder.panHandlers}>
-        <View style={styles.globeWrap}>
-          <Text style={styles.tapHint}>tap to explore</Text>
-          <Image
-            source={require('../assets/Rotating_earth_animated_transparent.gif')}
-            style={styles.globeImage}
-            resizeMode="contain"
-          />
-          <Animated.View style={{ transform: [{ scale: pulseAnim }], marginTop: 8 }}>
-            <TouchableOpacity style={styles.surpriseBtn} onPress={handleSurprise} activeOpacity={0.8}>
-              <Ionicons name="shuffle" size={16} color={Colors.bg} />
-              <Text style={styles.surpriseBtnText}>Surprise Me</Text>
-              <Ionicons name="arrow-up" size={15} color={Colors.bg} />
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
       </View>
 
       {/* Bottom-left: service button */}
-      <View style={styles.floatingBtnLeft}>
+      <View style={[styles.floatingBtnLeft, { bottom: insets.bottom + 12 }]}>
         {auth.loading ? (
           <ActivityIndicator size="small" color={Colors.gold} />
         ) : auth.service ? (
           <TouchableOpacity onPress={() => setServiceModalVisible(true)} style={styles.serviceBtn} activeOpacity={0.7}>
             {auth.service === 'spotify'
-              ? <FontAwesome5 name="spotify" size={26} color="#1DB954" />
-              : <FontAwesome5 name="apple" size={26} color={Colors.text} />}
+              ? <FontAwesome5 name="spotify" size={22} color="#1DB954" />
+              : <FontAwesome5 name="apple" size={22} color={Colors.text} />}
           </TouchableOpacity>
         ) : (
           <TouchableOpacity onPress={() => setServiceModalVisible(true)} style={styles.loginBtn} activeOpacity={0.7}>
@@ -190,11 +144,11 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
       {/* Bottom-right: saved discoveries */}
       {isConnected && favorites.length > 0 && (
         <TouchableOpacity
-          style={styles.floatingBtnRight}
+          style={[styles.floatingBtnRight, { bottom: insets.bottom + 12 }]}
           onPress={() => navigation.navigate('Saved')}
           activeOpacity={0.7}
         >
-          <Ionicons name="heart" size={26} color={Colors.red} />
+          <Ionicons name="heart" size={22} color={Colors.red} />
           <View style={styles.heartBadge}>
             <Text style={styles.heartBadgeText}>{favorites.length}</Text>
           </View>
@@ -205,106 +159,62 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
         visible={serviceModalVisible}
         onClose={() => setServiceModalVisible(false)}
         auth={auth}
+        onServiceChange={() => navigation.navigate('Home')}
       />
-    </SafeAreaView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
-
   topRightBtns: {
-    position: 'absolute', top: 56, right: 20,
+    position: 'absolute', right: 20,
     flexDirection: 'row', gap: 10,
-    zIndex: 10,
+    zIndex: 20,
   },
   dnaBtn: {
     borderWidth: 1, borderColor: Colors.purpleBorder,
-    borderRadius: 30,
-    backgroundColor: Colors.purpleBg,
-    padding: 8,
+    borderRadius: 20, backgroundColor: Colors.purpleBg, padding: 7,
   },
   searchBtn: {
     borderWidth: 1, borderColor: Colors.greenBorder,
-    borderRadius: 30,
-    backgroundColor: Colors.greenBg,
-    padding: 8,
+    borderRadius: 20, backgroundColor: Colors.greenBg, padding: 7,
   },
-
-  cards: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  globeWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    shadowColor: '#4ab8c1',
-    shadowOpacity: 0.55,
-    shadowRadius: 60,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  globeImage: {
-    width: 280,
-    height: 280,
-  },
-  tapHint: {
-    color: Colors.text3,
-    fontSize: 15,
-    fontWeight: '500',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  surpriseBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    backgroundColor: Colors.gold,
-    borderRadius: 24, paddingHorizontal: 22, paddingVertical: 12,
-    shadowColor: Colors.gold, shadowOpacity: 0.2,
-    shadowRadius: 6, shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
-  },
-  surpriseBtnText: { color: Colors.bg, fontSize: 15, fontWeight: '800', letterSpacing: -0.2 },
-
   floatingBtnLeft: {
-    position: 'absolute', bottom: 32, left: 24,
+    position: 'absolute', left: 24, zIndex: 20,
   },
   floatingBtnRight: {
-    position: 'absolute', bottom: 32, right: 24,
-    width: 62, height: 62, borderRadius: 31,
+    position: 'absolute', right: 24,
+    width: 52, height: 52, borderRadius: 26,
     backgroundColor: Colors.surface2,
     borderWidth: 1, borderColor: Colors.border2,
     alignItems: 'center', justifyContent: 'center',
+    zIndex: 20,
   },
   heartBadge: {
     position: 'absolute', top: -4, right: -4,
     backgroundColor: Colors.red,
     borderRadius: 8, minWidth: 16, height: 16,
-    alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 3,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
   },
   heartBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
   serviceBtn: {
-    width: 62, height: 62, borderRadius: 31,
+    width: 52, height: 52, borderRadius: 26,
     backgroundColor: Colors.surface2,
     borderWidth: 1, borderColor: Colors.border2,
     alignItems: 'center', justifyContent: 'center',
   },
   loginBtn: {
-    backgroundColor: Colors.goldBg,
-    borderWidth: 1, borderColor: Colors.goldBorder,
-    borderRadius: 28,
-    paddingHorizontal: 22, paddingVertical: 14,
+    backgroundColor: Colors.goldBg, borderWidth: 1, borderColor: Colors.goldBorder,
+    borderRadius: 24, paddingHorizontal: 18, paddingVertical: 10,
   },
-  loginBtnText: { color: Colors.gold, fontSize: 16, fontWeight: '700' },
+  loginBtnText: { color: Colors.gold, fontSize: 14, fontWeight: '700' },
 });
 
 const svcStyles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: Colors.bg,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    paddingTop: 12,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12,
   },
   handle: {
     width: 36, height: 4, borderRadius: 2,

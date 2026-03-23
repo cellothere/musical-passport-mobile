@@ -11,7 +11,9 @@ import {
   type FoundArtist, type ArtistMatch, type Artist,
 } from '../services/api';
 import { ArtistCard } from '../components/ArtistCard';
-import type { AuthService } from '../hooks/useAuth';
+import { FloatingNav } from '../components/FloatingNav';
+import { haptics } from '../utils/haptics';
+import type { AuthService, AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 
 interface FavoritesHook {
@@ -19,6 +21,7 @@ interface FavoritesHook {
   findSavedArtist: (artistName: string) => SavedDiscovery | undefined;
   save: (item: Omit<SavedDiscovery, 'id' | 'savedAt'>) => Promise<void>;
   remove: (id: string) => Promise<void>;
+  favorites: SavedDiscovery[];
 }
 
 interface Props {
@@ -26,6 +29,7 @@ interface Props {
   service: AuthService;
   accessToken: string | null;
   favoritesHook: FavoritesHook;
+  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
 }
 
 type Phase = 'search' | 'confirm' | 'loading' | 'results';
@@ -41,7 +45,7 @@ function formatFollowers(n: number): string {
   return `${n} followers`;
 }
 
-export function ArtistSearchScreen({ navigation, service, accessToken, favoritesHook }: Props) {
+export function ArtistSearchScreen({ navigation, service, accessToken, favoritesHook, auth }: Props) {
   const [query, setQuery] = useState('');
   const [phase, setPhase] = useState<Phase>('search');
   const [foundArtist, setFoundArtist] = useState<FoundArtist | null>(null);
@@ -73,6 +77,7 @@ export function ArtistSearchScreen({ navigation, service, accessToken, favorites
       setSonicSummary(data.sonicSummary);
       setMatches(data.artists);
       setPhase('results');
+      haptics.success();
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
       setPhase('confirm');
@@ -171,7 +176,7 @@ export function ArtistSearchScreen({ navigation, service, accessToken, favorites
           <ActivityIndicator size="large" color={Colors.green} />
           <Text style={styles.loadingTitle}>Searching the world…</Text>
           <Text style={styles.loadingSubtitle}>
-            Asking our music expert to find artists similar to {foundArtist?.name}
+            Asking our music expert to find artists similar to {foundArtist?.name} from around the world.
           </Text>
         </View>
       )}
@@ -229,6 +234,7 @@ export function ArtistSearchScreen({ navigation, service, accessToken, favorites
           <View style={styles.bottomPad} />
         </ScrollView>
       )}
+      <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} currentScreen="ArtistSearch" />
     </SafeAreaView>
   );
 }

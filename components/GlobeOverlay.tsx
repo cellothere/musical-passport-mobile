@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function GlobeOverlay({ visible, country, decade, onDone }: Props) {
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const overlayOpacity = useRef(new Animated.Value(1)).current;
   const labelCountryOpacity = useRef(new Animated.Value(0)).current;
   const labelCountryY = useRef(new Animated.Value(10)).current;
   const labelDecadeOpacity = useRef(new Animated.Value(0)).current;
@@ -23,16 +23,11 @@ export function GlobeOverlay({ visible, country, decade, onDone }: Props) {
     if (!visible) return;
 
     // Reset
-    overlayOpacity.setValue(0);
+    overlayOpacity.setValue(1);
     labelCountryOpacity.setValue(0);
     labelCountryY.setValue(10);
     labelDecadeOpacity.setValue(0);
     labelDecadeY.setValue(8);
-
-    // Fade in backdrop + globe
-    Animated.timing(overlayOpacity, {
-      toValue: 1, duration: 400, useNativeDriver: true,
-    }).start();
 
     // Country label appears after 600ms
     const countryTimer = setTimeout(() => {
@@ -67,11 +62,13 @@ export function GlobeOverlay({ visible, country, decade, onDone }: Props) {
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
       <Animated.View style={[styles.backdrop, { opacity: overlayOpacity }]}>
-        <Image
-          source={require('../assets/Rotating_earth_animated_transparent.gif')}
-          style={styles.globe}
-          resizeMode="contain"
-        />
+        <View style={styles.globeGlow}>
+          <Image
+            source={require('../assets/Rotating_earth_animated_transparent.gif')}
+            style={styles.globe}
+            resizeMode="contain"
+          />
+        </View>
         <View style={styles.labels}>
           <Animated.Text style={[styles.labelCountry, {
             opacity: labelCountryOpacity,
@@ -98,6 +95,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 24,
+  },
+  globeGlow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4ab8c1',
+    shadowOpacity: 0.55,
+    shadowRadius: 60,
+    shadowOffset: { width: 0, height: 0 },
   },
   globe: {
     width: SIZE,

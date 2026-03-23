@@ -7,54 +7,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { REGIONS, MUSIC_REGIONS, DECADES, getAllCountries } from '../constants/regions';
+import { FLAGS } from '../constants/flags';
 import * as Haptics from 'expo-haptics';
-
-const FLAGS: Record<string, string> = {
-  'France': '🇫🇷', 'Germany': '🇩🇪', 'Sweden': '🇸🇪', 'Norway': '🇳🇴',
-  'Portugal': '🇵🇹', 'Spain': '🇪🇸', 'Italy': '🇮🇹', 'Greece': '🇬🇷',
-  'Poland': '🇵🇱', 'Iceland': '🇮🇸', 'Finland': '🇫🇮', 'Ireland': '🇮🇪',
-  'Netherlands': '🇳🇱', 'Romania': '🇷🇴', 'Serbia': '🇷🇸', 'Ukraine': '🇺🇦',
-  'Hungary': '🇭🇺', 'Czechia': '🇨🇿', 'Turkey': '🇹🇷', 'Belgium': '🇧🇪',
-  'Switzerland': '🇨🇭', 'Austria': '🇦🇹', 'Denmark': '🇩🇰', 'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
-  'Wales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'Croatia': '🇭🇷', 'Bulgaria': '🇧🇬', 'Slovakia': '🇸🇰',
-  'Slovenia': '🇸🇮', 'Lithuania': '🇱🇹', 'Latvia': '🇱🇻', 'Estonia': '🇪🇪',
-  'Albania': '🇦🇱', 'North Macedonia': '🇲🇰', 'Bosnia': '🇧🇦', 'Kosovo': '🇽🇰',
-  'Montenegro': '🇲🇪', 'Luxembourg': '🇱🇺', 'Malta': '🇲🇹', 'Cyprus': '🇨🇾',
-  'Brazil': '🇧🇷', 'Argentina': '🇦🇷', 'Colombia': '🇨🇴', 'Cuba': '🇨🇺',
-  'Mexico': '🇲🇽', 'Chile': '🇨🇱', 'Peru': '🇵🇪', 'Jamaica': '🇯🇲',
-  'Venezuela': '🇻🇪', 'Bolivia': '🇧🇴', 'Ecuador': '🇪🇨', 'Panama': '🇵🇦',
-  'Uruguay': '🇺🇾', 'Paraguay': '🇵🇾', 'Costa Rica': '🇨🇷', 'Dominican Republic': '🇩🇴',
-  'Puerto Rico': '🇵🇷', 'Guatemala': '🇬🇹', 'Honduras': '🇭🇳', 'El Salvador': '🇸🇻',
-  'Nicaragua': '🇳🇮', 'Belize': '🇧🇿', 'Guyana': '🇬🇾', 'Suriname': '🇸🇷',
-  'Trinidad & Tobago': '🇹🇹', 'Barbados': '🇧🇧', 'Haiti': '🇭🇹',
-  'Nigeria': '🇳🇬', 'Ghana': '🇬🇭', 'Senegal': '🇸🇳', 'Mali': '🇲🇱',
-  'Ethiopia': '🇪🇹', 'South Africa': '🇿🇦', 'Egypt': '🇪🇬', 'Cameroon': '🇨🇲',
-  'Congo': '🇨🇩', 'Kenya': '🇰🇪', 'Algeria': '🇩🇿', 'Morocco': '🇲🇦',
-  'Tanzania': '🇹🇿', 'Ivory Coast': '🇨🇮', 'Angola': '🇦🇴', 'Mozambique': '🇲🇿',
-  'Zimbabwe': '🇿🇼', 'Uganda': '🇺🇬', 'Rwanda': '🇷🇼', 'Zambia': '🇿🇲',
-  'Tunisia': '🇹🇳', 'Libya': '🇱🇾', 'Sudan': '🇸🇩', 'Guinea': '🇬🇳',
-  'Burkina Faso': '🇧🇫', 'Benin': '🇧🇯', 'Togo': '🇹🇬', 'Sierra Leone': '🇸🇱',
-  'Liberia': '🇱🇷', 'Namibia': '🇳🇦', 'Botswana': '🇧🇼', 'Malawi': '🇲🇼',
-  'Madagascar': '🇲🇬', 'Mauritius': '🇲🇺', 'Cape Verde': '🇨🇻',
-  'Lebanon': '🇱🇧', 'Iran': '🇮🇷', 'Israel': '🇮🇱', 'Saudi Arabia': '🇸🇦',
-  'Armenia': '🇦🇲', 'Azerbaijan': '🇦🇿', 'Georgia': '🇬🇪', 'Iraq': '🇮🇶',
-  'Syria': '🇸🇾', 'Jordan': '🇯🇴', 'Yemen': '🇾🇪', 'Oman': '🇴🇲',
-  'UAE': '🇦🇪', 'Kuwait': '🇰🇼', 'Qatar': '🇶🇦', 'Bahrain': '🇧🇭', 'Palestine': '🇵🇸',
-  'Japan': '🇯🇵', 'South Korea': '🇰🇷', 'India': '🇮🇳', 'China': '🇨🇳',
-  'Indonesia': '🇮🇩', 'Thailand': '🇹🇭', 'Vietnam': '🇻🇳', 'Philippines': '🇵🇭',
-  'Pakistan': '🇵🇰', 'Bangladesh': '🇧🇩', 'Taiwan': '🇹🇼', 'Mongolia': '🇲🇳',
-  'Myanmar': '🇲🇲', 'Cambodia': '🇰🇭', 'Laos': '🇱🇦', 'Malaysia': '🇲🇾',
-  'Singapore': '🇸🇬', 'Sri Lanka': '🇱🇰', 'Nepal': '🇳🇵', 'Afghanistan': '🇦🇫',
-  'Kazakhstan': '🇰🇿', 'Uzbekistan': '🇺🇿', 'Tajikistan': '🇹🇯', 'Kyrgyzstan': '🇰🇬', 'Turkmenistan': '🇹🇲', 'Hong Kong': '🇭🇰',
-  'Australia': '🇦🇺', 'New Zealand': '🇳🇿', 'Papua New Guinea': '🇵🇬', 'Fiji': '🇫🇯',
-  'Vanuatu': '🇻🇺', 'Solomon Islands': '🇸🇧', 'Hawaii': '🌺',
-  'USA': '🇺🇸', 'Canada': '🇨🇦',
-  'Yugoslavia': '🏳', 'Soviet Union': '☭', 'Czechoslovakia': '🏳',
-  'East Germany': '🏳', 'Ottoman Empire': '🌙', 'British India': '🏳',
-};
+import { FloatingNav } from '../components/FloatingNav';
+import type { AuthState } from '../hooks/useAuth';
+import type { SavedDiscovery } from '../hooks/useFavorites';
 
 const FLAG_IMAGES: Record<string, any> = {
   'Republic of South Vietnam': require('../assets/SouthVietnam.png'),
+  'Quebec': require('../assets/QuebecFlag.png'),
 };
 
 const ALL_COUNTRIES = getAllCountries();
@@ -70,6 +31,8 @@ const QUICK_PICKS = [
 interface Props {
   navigation: any;
   stampsHook: { stamps: Set<string> };
+  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
+  favoritesHook: { favorites: SavedDiscovery[] };
 }
 
 // ── Country Picker Modal ──────────────────────────────────
@@ -182,7 +145,7 @@ function DecadeFilterModal({ visible, selected, onSelect, onClose }: {
   );
 }
 
-export function HomeScreen({ navigation, stampsHook }: Props) {
+export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Props) {
   const { stamps } = stampsHook;
   const [collapsedRegions, setCollapsedRegions] = useState<Set<string>>(new Set([...REGIONS.map(r => r.name), '__cultural__']));
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -228,25 +191,28 @@ export function HomeScreen({ navigation, stampsHook }: Props) {
           <Ionicons name="chevron-back" size={24} color={Colors.blue} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Explore Countries</Text>
-        <TouchableOpacity
-          style={[styles.decadePill, selectedDecade ? styles.decadePillActive : null]}
-          onPress={() => setDecadeModalVisible(true)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="time-outline" size={26} color={Colors.gold} />
-          {selectedDecade ? (
-            <Text style={styles.decadePillTextActive}>{selectedDecade}</Text>
-          ) : null}
-        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Search + era pill row */}
+        <View style={styles.searchRow}>
+          <TouchableOpacity style={[styles.pickerBtn, { flex: 1 }]} onPress={() => setPickerVisible(true)} activeOpacity={0.75}>
+            <Ionicons name="search" size={16} color={Colors.text3} />
+            <Text style={styles.pickerBtnText}>Search any country…</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.decadePill, selectedDecade ? styles.decadePillActive : null]}
+            onPress={() => setDecadeModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="time-outline" size={26} color={Colors.gold} />
+            {selectedDecade ? (
+              <Text style={styles.decadePillTextActive}>{selectedDecade}</Text>
+            ) : null}
+          </TouchableOpacity>
+        </View>
 
-        {/* Country search picker button */}
-        <TouchableOpacity style={styles.pickerBtn} onPress={() => setPickerVisible(true)} activeOpacity={0.75}>
-          <Ionicons name="search" size={16} color={Colors.text3} />
-          <Text style={styles.pickerBtnText}>Search any country…</Text>
-        </TouchableOpacity>
+ 
 
         {/* Quick Picks */}
         <Text style={styles.sectionLabel}>Quick Picks</Text>
@@ -265,7 +231,9 @@ export function HomeScreen({ navigation, stampsHook }: Props) {
                 onPress={() => navigate(country)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.quickPickFlag}>{FLAGS[country] ?? '🌐'}</Text>
+                {FLAG_IMAGES[country]
+                  ? <Image source={FLAG_IMAGES[country]} style={styles.quickPickFlagImg} />
+                  : <Text style={styles.quickPickFlag}>{FLAGS[country] ?? '🌐'}</Text>}
                 <Text style={[styles.quickPickName, isStamped && styles.quickPickNameStamped]} numberOfLines={1}>
                   {country}
                 </Text>
@@ -409,6 +377,7 @@ export function HomeScreen({ navigation, stampsHook }: Props) {
         onSelect={setSelectedDecade}
         onClose={() => setDecadeModalVisible(false)}
       />
+      <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} />
     </SafeAreaView>
   );
 }
@@ -496,12 +465,15 @@ const styles = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
   },
   decadePillActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
-  decadePillText: { color: Colors.text3, fontSize: 12, fontWeight: '600' },
+  decadePillText: { color: Colors.text3, fontSize: 13, fontWeight: '600' },
   decadePillTextActive: { color: Colors.gold },
 
   scroll: { flex: 1 },
   content: { padding: 16 },
 
+  searchRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20,
+  },
   pickerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -509,7 +481,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    marginBottom: 20,
     gap: 10,
   },
   pickerBtnText: { flex: 1, color: Colors.text2, fontSize: 15 },
@@ -577,6 +548,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.goldBorder,
   },
   quickPickFlag: { fontSize: 28 },
+  quickPickFlagImg: { width: 36, height: 24, borderRadius: 3 },
   quickPickName: {
     color: Colors.text2, fontSize: 11, fontWeight: '600',
     maxWidth: 76, textAlign: 'center',

@@ -1,33 +1,17 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, Image,
 } from 'react-native';
+
+const HEART_ICON = require('../assets/favorite-music-heart-icon-png.png');
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
+import { FLAGS } from '../constants/flags';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 import type { TimeMachineResponse, RecommendationResponse } from '../services/api';
-
-const FLAGS: Record<string, string> = {
-  'France': '🇫🇷', 'Germany': '🇩🇪', 'Sweden': '🇸🇪', 'Norway': '🇳🇴',
-  'Portugal': '🇵🇹', 'Spain': '🇪🇸', 'Italy': '🇮🇹', 'Greece': '🇬🇷',
-  'Poland': '🇵🇱', 'Iceland': '🇮🇸', 'Finland': '🇫🇮', 'Ireland': '🇮🇪',
-  'Netherlands': '🇳🇱', 'Romania': '🇷🇴', 'Serbia': '🇷🇸', 'Ukraine': '🇺🇦',
-  'Hungary': '🇭🇺', 'Czechia': '🇨🇿', 'Turkey': '🇹🇷', 'Belgium': '🇧🇪',
-  'Brazil': '🇧🇷', 'Argentina': '🇦🇷', 'Colombia': '🇨🇴', 'Cuba': '🇨🇺',
-  'Mexico': '🇲🇽', 'Chile': '🇨🇱', 'Peru': '🇵🇪', 'Jamaica': '🇯🇲',
-  'Venezuela': '🇻🇪', 'Bolivia': '🇧🇴', 'Ecuador': '🇪🇨', 'Panama': '🇵🇦',
-  'Nigeria': '🇳🇬', 'Ghana': '🇬🇭', 'Senegal': '🇸🇳', 'Mali': '🇲🇱',
-  'Ethiopia': '🇪🇹', 'South Africa': '🇿🇦', 'Egypt': '🇪🇬', 'Cameroon': '🇨🇲',
-  'Congo': '🇨🇩', 'Kenya': '🇰🇪', 'Algeria': '🇩🇿', 'Morocco': '🇲🇦',
-  'Tanzania': '🇹🇿', 'Lebanon': '🇱🇧', 'Iran': '🇮🇷', 'Israel': '🇮🇱',
-  'Saudi Arabia': '🇸🇦', 'Armenia': '🇦🇲', 'Azerbaijan': '🇦🇿', 'Georgia': '🇬🇪',
-  'Japan': '🇯🇵', 'South Korea': '🇰🇷', 'India': '🇮🇳', 'China': '🇨🇳',
-  'Indonesia': '🇮🇩', 'Thailand': '🇹🇭', 'Vietnam': '🇻🇳', 'Philippines': '🇵🇭',
-  'Pakistan': '🇵🇰', 'Bangladesh': '🇧🇩', 'Taiwan': '🇹🇼', 'Mongolia': '🇲🇳',
-  'Australia': '🇦🇺', 'New Zealand': '🇳🇿', 'Papua New Guinea': '🇵🇬', 'Fiji': '🇫🇯',
-  'USA': '🇺🇸', 'Canada': '🇨🇦',
-};
+import type { AuthState } from '../hooks/useAuth';
+import { FloatingNav } from '../components/FloatingNav';
 
 interface FavoritesHook {
   favorites: SavedDiscovery[];
@@ -37,6 +21,7 @@ interface FavoritesHook {
 interface Props {
   navigation: any;
   favoritesHook: FavoritesHook;
+  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
 }
 
 function formatDate(ts: number) {
@@ -53,7 +38,6 @@ function TimeMachineDetail({ data }: { data: TimeMachineResponse }) {
         </View>
         <Text style={styles.detailDecade}>{data.decade}</Text>
       </View>
-      <Text style={styles.detailDesc}>{data.description}</Text>
       {data.tracks?.length > 0 && (
         <>
           <Text style={styles.tracksLabel}>Essential Tracks</Text>
@@ -215,7 +199,7 @@ function SavedItem({
   );
 }
 
-export function SavedScreen({ navigation, favoritesHook }: Props) {
+export function SavedScreen({ navigation, favoritesHook, auth }: Props) {
   const { favorites, remove } = favoritesHook;
 
   return (
@@ -229,8 +213,8 @@ export function SavedScreen({ navigation, favoritesHook }: Props) {
           <Ionicons name="chevron-back" size={24} color={Colors.blue} />
         </TouchableOpacity>
         <View style={styles.headerTitleRow}>
-          <Ionicons name="heart" size={20} color={Colors.red} />
-          <Text style={styles.headerTitle}>Saved Discoveries</Text>
+          <Image source={HEART_ICON} style={{ width: 22, height: 22 }} />
+          <Text style={styles.headerTitle}>Saved</Text>
         </View>
       </View>
 
@@ -261,6 +245,7 @@ export function SavedScreen({ navigation, favoritesHook }: Props) {
           <View style={{ height: 48 }} />
         </ScrollView>
       )}
+      <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} />
     </SafeAreaView>
   );
 }

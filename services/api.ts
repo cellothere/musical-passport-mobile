@@ -137,9 +137,10 @@ export async function fetchAppleMusicToken(): Promise<string> {
   return data.token;
 }
 
-export interface InsightsSuggestion {
+export interface InsightsPick {
+  type: 'country' | 'genre';
   country: string;
-  reason: string;
+  genre?: string;
 }
 
 export interface InsightsDNA {
@@ -158,7 +159,7 @@ export interface InsightsResponse {
   archetype: string;
   archetypeDescription: string;
   summary: string;
-  suggestedCountries: InsightsSuggestion[];
+  picks: InsightsPick[];
   dna: InsightsDNA[];
   topEras: Array<{ decade: string; percentage: number }>;
   blindSpots: InsightsBlindSpot[];

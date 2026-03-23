@@ -8,61 +8,22 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { DECADES } from '../constants/regions';
+import { FLAGS } from '../constants/flags';
+import { haptics } from '../utils/haptics';
 import {
   fetchRecommendations, fetchTimeMachine,
   RecommendationResponse, TimeMachineResponse, Track,
 } from '../services/api';
 import { ArtistCard } from '../components/ArtistCard';
 import { GlobeOverlay } from '../components/GlobeOverlay';
+import { FloatingNav } from '../components/FloatingNav';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 
-const FLAGS: Record<string, string> = {
-  'France': '🇫🇷', 'Germany': '🇩🇪', 'Sweden': '🇸🇪', 'Norway': '🇳🇴',
-  'Portugal': '🇵🇹', 'Spain': '🇪🇸', 'Italy': '🇮🇹', 'Greece': '🇬🇷',
-  'Poland': '🇵🇱', 'Iceland': '🇮🇸', 'Finland': '🇫🇮', 'Ireland': '🇮🇪',
-  'Netherlands': '🇳🇱', 'Romania': '🇷🇴', 'Serbia': '🇷🇸', 'Ukraine': '🇺🇦',
-  'Hungary': '🇭🇺', 'Czechia': '🇨🇿', 'Turkey': '🇹🇷',
-  'Brazil': '🇧🇷', 'Argentina': '🇦🇷', 'Colombia': '🇨🇴', 'Cuba': '🇨🇺',
-  'Mexico': '🇲🇽', 'Chile': '🇨🇱', 'Peru': '🇵🇪', 'Jamaica': '🇯🇲',
-  'Venezuela': '🇻🇪', 'Bolivia': '🇧🇴', 'Ecuador': '🇪🇨', 'Panama': '🇵🇦',
-  'Nigeria': '🇳🇬', 'Ghana': '🇬🇭', 'Senegal': '🇸🇳', 'Mali': '🇲🇱',
-  'Ethiopia': '🇪🇹', 'South Africa': '🇿🇦', 'Egypt': '🇪🇬', 'Cameroon': '🇨🇲',
-  'Congo': '🇨🇩', 'Kenya': '🇰🇪', 'Algeria': '🇩🇿', 'Morocco': '🇲🇦',
-  'Tanzania': '🇹🇿', 'Lebanon': '🇱🇧', 'Iran': '🇮🇷', 'Israel': '🇮🇱',
-  'Saudi Arabia': '🇸🇦', 'Armenia': '🇦🇲', 'Azerbaijan': '🇦🇿', 'Georgia': '🇬🇪',
-  'Japan': '🇯🇵', 'South Korea': '🇰🇷', 'India': '🇮🇳', 'China': '🇨🇳',
-  'Indonesia': '🇮🇩', 'Thailand': '🇹🇭', 'Vietnam': '🇻🇳', 'Philippines': '🇵🇭',
-  'Pakistan': '🇵🇰', 'Bangladesh': '🇧🇩', 'Taiwan': '🇹🇼', 'Mongolia': '🇲🇳',
-  'Myanmar': '🇲🇲', 'Cambodia': '🇰🇭', 'Laos': '🇱🇦', 'Malaysia': '🇲🇾',
-  'Singapore': '🇸🇬', 'Sri Lanka': '🇱🇰', 'Nepal': '🇳🇵', 'Afghanistan': '🇦🇫',
-  'Kazakhstan': '🇰🇿', 'Uzbekistan': '🇺🇿', 'Tajikistan': '🇹🇯', 'Kyrgyzstan': '🇰🇬', 'Turkmenistan': '🇹🇲', 'Hong Kong': '🇭🇰',
-  'Australia': '🇦🇺', 'New Zealand': '🇳🇿', 'Papua New Guinea': '🇵🇬', 'Fiji': '🇫🇯',
-  'Vanuatu': '🇻🇺', 'Solomon Islands': '🇸🇧', 'Hawaii': '🌺',
-  'USA': '🇺🇸', 'Canada': '🇨🇦', 'Haiti': '🇭🇹', 'Trinidad & Tobago': '🇹🇹', 'Barbados': '🇧🇧',
-  'Belgium': '🇧🇪', 'Switzerland': '🇨🇭', 'Austria': '🇦🇹', 'Denmark': '🇩🇰',
-  'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'Wales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'Croatia': '🇭🇷', 'Bulgaria': '🇧🇬',
-  'Slovakia': '🇸🇰', 'Slovenia': '🇸🇮', 'Lithuania': '🇱🇹', 'Latvia': '🇱🇻', 'Estonia': '🇪🇪',
-  'Albania': '🇦🇱', 'North Macedonia': '🇲🇰', 'Bosnia': '🇧🇦', 'Kosovo': '🇽🇰',
-  'Montenegro': '🇲🇪', 'Luxembourg': '🇱🇺', 'Malta': '🇲🇹', 'Cyprus': '🇨🇾',
-  'Uruguay': '🇺🇾', 'Paraguay': '🇵🇾', 'Costa Rica': '🇨🇷', 'Dominican Republic': '🇩🇴',
-  'Puerto Rico': '🇵🇷', 'Guatemala': '🇬🇹', 'Honduras': '🇭🇳', 'El Salvador': '🇸🇻',
-  'Nicaragua': '🇳🇮', 'Belize': '🇧🇿', 'Guyana': '🇬🇾', 'Suriname': '🇸🇷',
-  'Ivory Coast': '🇨🇮', 'Angola': '🇦🇴', 'Mozambique': '🇲🇿', 'Zimbabwe': '🇿🇼',
-  'Uganda': '🇺🇬', 'Rwanda': '🇷🇼', 'Zambia': '🇿🇲', 'Tunisia': '🇹🇳',
-  'Libya': '🇱🇾', 'Sudan': '🇸🇩', 'Guinea': '🇬🇳', 'Burkina Faso': '🇧🇫',
-  'Benin': '🇧🇯', 'Togo': '🇹🇬', 'Sierra Leone': '🇸🇱', 'Liberia': '🇱🇷',
-  'Namibia': '🇳🇦', 'Botswana': '🇧🇼', 'Malawi': '🇲🇼', 'Madagascar': '🇲🇬',
-  'Mauritius': '🇲🇺', 'Cape Verde': '🇨🇻',
-  'Iraq': '🇮🇶', 'Syria': '🇸🇾', 'Jordan': '🇯🇴', 'Yemen': '🇾🇪', 'Oman': '🇴🇲',
-  'UAE': '🇦🇪', 'Kuwait': '🇰🇼', 'Qatar': '🇶🇦', 'Bahrain': '🇧🇭', 'Palestine': '🇵🇸',
-  'Yugoslavia': '🏳', 'Soviet Union': '☭', 'Czechoslovakia': '🏳',
-  'East Germany': '🏳', 'Ottoman Empire': '🌙', 'British India': '🏳',
-};
-
 const FLAG_IMAGES: Record<string, any> = {
   'Republic of South Vietnam': require('../assets/SouthVietnam.png'),
+  'Quebec': require('../assets/QuebecFlag.png')
 };
 
 interface StampsHook {
@@ -75,12 +36,15 @@ interface FavoritesHook {
   save: (item: Omit<SavedDiscovery, 'id' | 'savedAt'>) => Promise<void>;
   remove: (id: string) => Promise<void>;
   findSaved: (country: string, type: SavedDiscovery['type'], decade?: string) => SavedDiscovery | undefined;
+  isArtistSaved: (name: string) => boolean;
+  findSavedArtist: (name: string) => SavedDiscovery | undefined;
+  favorites: SavedDiscovery[];
 }
 
 interface Props {
   navigation: any;
   route: { params: { country: string; decade?: string; savedData?: RecommendationResponse | TimeMachineResponse } };
-  auth: AuthState;
+  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
   stampsHook: StampsHook;
   favoritesHook: FavoritesHook;
 }
@@ -191,7 +155,6 @@ function TrackRow({ track, index }: { track: Track; index: number }) {
 export function RecommendationScreen({ navigation, route, auth, stampsHook, favoritesHook }: Props) {
   const { country, decade: initialDecade, savedData } = route.params;
   const { stamps, addStamp } = stampsHook;
-  const { isSaved, save, remove, findSaved } = favoritesHook;
 
   const [selectedDecade, setSelectedDecade] = useState(initialDecade ?? '');
   const [decadePickerVisible, setDecadePickerVisible] = useState(false);
@@ -251,6 +214,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
           setRecs(data);
           addStamp(country);
         }
+        haptics.success();
       }
     } catch {
       setError(pendingError.current ?? 'Something went wrong');
@@ -267,25 +231,18 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
     fetchContent(country, decade);
   };
 
-  // Save / heart logic — handles both types
-  const currentType = tmData ? 'timemachine' : 'recommendation';
-  const currentDecade = tmData ? selectedDecade : undefined;
-  const saved = isSaved(country, currentType, currentDecade);
-
-  const toggleSave = async () => {
-    if (saved) {
-      const entry = findSaved(country, currentType, currentDecade);
-      if (entry) await remove(entry.id);
-    } else if (tmData) {
-      await save({ type: 'timemachine', country, decade: selectedDecade, data: tmData });
-    } else if (recs) {
-      await save({ type: 'recommendation', country, data: recs });
-    }
-  };
-
   const isStamped = stamps.has(country);
   const flag = FLAGS[country] ?? '🌐';
-  const hasContent = !!(recs || tmData);
+
+  const isArtistSaved = (artistName: string) => favoritesHook.isArtistSaved(artistName);
+  const toggleArtistSave = async (artist: import('../services/api').Artist) => {
+    if (favoritesHook.isArtistSaved(artist.name)) {
+      const entry = favoritesHook.findSavedArtist(artist.name);
+      if (entry) await favoritesHook.remove(entry.id);
+    } else {
+      await favoritesHook.save({ type: 'artist', country, data: { name: artist.name, artist, country } });
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -312,23 +269,6 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
           )}
         </View>
 
-        {/* Decade filter pill */}
-        <TouchableOpacity
-          style={[styles.decadePill, selectedDecade ? styles.decadePillActive : null]}
-          onPress={() => setDecadePickerVisible(true)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="time-outline" size={26} color={Colors.gold} />
-          {selectedDecade ? (
-            <Text style={styles.decadePillTextActive}>{selectedDecade}</Text>
-          ) : null}
-        </TouchableOpacity>
-
-        {hasContent && (
-          <TouchableOpacity onPress={toggleSave} style={styles.heartBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons name={saved ? 'heart' : 'heart-outline'} size={24} color={Colors.red} />
-          </TouchableOpacity>
-        )}
       </View>
 
       {loading ? (
@@ -355,7 +295,6 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
               <Text style={styles.genreBadgeText}>{tmData.genre}</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.tmDesc}>{tmData.description}</Text>
           <Text style={styles.tracksHeading}>Essential tracks</Text>
           {tmData.tracks.map((track, i) => (
             <TrackRow key={i} track={track} index={i + 1} />
@@ -366,17 +305,29 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
         // ── Explore mode ─────────────────────────────────────
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {recs.genres?.length > 0 && (
-            <View style={styles.genres}>
-              {recs.genres.map(g => (
+            <View style={styles.genresRow}>
+              <View style={styles.genres}>
+                {recs.genres.map(g => (
+                  <TouchableOpacity
+                    key={g}
+                    style={styles.genreTag}
+                    onPress={() => navigation.navigate('GenreSpotlight', { genre: g, country })}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.genreText}>{g}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={styles.genreActions}>
                 <TouchableOpacity
-                  key={g}
-                  style={styles.genreTag}
-                  onPress={() => navigation.navigate('GenreSpotlight', { genre: g, country })}
+                  style={[styles.decadePill, selectedDecade ? styles.decadePillActive : null]}
+                  onPress={() => setDecadePickerVisible(true)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.genreText}>{g}</Text>
+                  <Ionicons name="time-outline" size={26} color={Colors.gold} />
+                  {selectedDecade ? <Text style={styles.decadePillTextActive}>{selectedDecade}</Text> : null}
                 </TouchableOpacity>
-              ))}
+              </View>
             </View>
           )}
           <View style={styles.sectionHeader}>
@@ -384,7 +335,14 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
             <Text style={styles.sectionHint}>Tap any artist to reveal tracks</Text>
           </View>
           {(recs.artists || []).map((artist, i) => (
-            <ArtistCard key={i} artist={artist} service={auth.service} accessToken={auth.accessToken} />
+            <ArtistCard
+              key={i}
+              artist={artist}
+              service={auth.service}
+              accessToken={auth.accessToken}
+              isSaved={isArtistSaved(artist.name)}
+              onToggleSave={() => toggleArtistSave(artist)}
+            />
           ))}
           {recs.didYouKnow && selectedDecade && (
             <View style={styles.dyk}>
@@ -409,6 +367,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
         onClose={() => setDecadePickerVisible(false)}
         onSelect={handleDecadeChange}
       />
+      <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites ?? []} />
     </SafeAreaView>
   );
 }
@@ -495,7 +454,9 @@ const styles = StyleSheet.create({
   content: { padding: 18 },
 
   // Explore mode
-  genres: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 20 },
+  genresRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 20 },
+  genres: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  genreActions: { flexDirection: 'column', alignItems: 'center', gap: 8, paddingTop: 2 },
   genreTag: {
     backgroundColor: Colors.purpleBg, borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 7,

@@ -7,7 +7,7 @@ const LOCAL_KEY = '@musical_passport_favorites';
 
 export interface SavedDiscovery {
   id: string;
-  type: 'recommendation' | 'timemachine' | 'artist' | 'genre';
+  type: 'recommendation' | 'timemachine' | 'artist' | 'genre' | 'track';
   country: string;
   decade?: string;
   savedAt: number;
@@ -91,5 +91,13 @@ export function useFavorites(accessToken: string | null = null, initialFavorites
     favorites.find(f => f.type === 'genre' && f.country === country && (f.data as any)?.genre === genre),
     [favorites]);
 
-  return { favorites, save, remove, isSaved, findSaved, isArtistSaved, findSavedArtist, isGenreSaved, findSavedGenre };
+  const isTrackSaved = useCallback((trackId: string) =>
+    favorites.some(f => f.type === 'track' && (f.data as any)?.trackId === trackId),
+    [favorites]);
+
+  const findSavedTrack = useCallback((trackId: string) =>
+    favorites.find(f => f.type === 'track' && (f.data as any)?.trackId === trackId),
+    [favorites]);
+
+  return { favorites, save, remove, isSaved, findSaved, isArtistSaved, findSavedArtist, isGenreSaved, findSavedGenre, isTrackSaved, findSavedTrack };
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Linking,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { fetchArtistTracks, Track } from '../services/api';
 import type { Artist } from '../services/api';
@@ -14,6 +15,8 @@ interface Props {
   service: AuthService;
   accessToken: string | null;
   showSimilarTo?: boolean;
+  isSaved?: boolean;
+  onToggleSave?: () => void;
 }
 
 function eraColors(era: string): { bg: string; border: string; text: string } {
@@ -23,7 +26,7 @@ function eraColors(era: string): { bg: string; border: string; text: string } {
   return { bg: Colors.purpleBg, border: Colors.purpleBorder, text: Colors.purple };
 }
 
-export function ArtistCard({ artist, service, accessToken, showSimilarTo = true }: Props) {
+export function ArtistCard({ artist, service, accessToken, showSimilarTo = true, isSaved, onToggleSave }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -54,21 +57,27 @@ export function ArtistCard({ artist, service, accessToken, showSimilarTo = true 
         <View style={styles.cardLeft}>
           <Text style={styles.artistName}>{artist.name}</Text>
           <Text style={styles.artistGenre}>{artist.genre}</Text>
-          {showSimilarTo && artist.similarTo ? <Text style={styles.similarTo}>Similar to {artist.similarTo}</Text> : null}
+          {showSimilarTo && artist.similarTo ? <Text style={styles.similarTo}>Because you like {artist.similarTo}</Text> : null}
         </View>
         
         <View style={styles.cardRight}>
-          <View style={[styles.eraBadge, { backgroundColor: era.bg, borderColor: era.border }]}>
-            <Text style={[styles.eraText, { color: era.text }]}>{artist.era}</Text>
+          <View style={styles.cardRightTop}>
+            <View style={[styles.eraBadge, { backgroundColor: era.bg, borderColor: era.border }]}>
+              <Text style={[styles.eraText, { color: era.text }]}>{artist.era}</Text>
+            </View>
+            {onToggleSave && (
+              <TouchableOpacity
+                onPress={onToggleSave}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={20} color={isSaved ? Colors.red : Colors.text3} />
+              </TouchableOpacity>
+            )}
           </View>
           {loading ? (
             <ActivityIndicator size="small" color={Colors.gold} style={styles.spinner} />
           ) : (
-            <View style={[styles.chevronWrap, expanded && styles.chevronWrapOpen]}>
-              <Text style={[styles.chevron, expanded && styles.chevronOpen]}>
-                {expanded ? '−' : '+'}
-              </Text>
-            </View>
+            ''
           )}
         </View>
       </TouchableOpacity>
@@ -168,6 +177,7 @@ const styles = StyleSheet.create({
   similarTo: { color: Colors.text3, fontSize: 14, fontStyle: 'italic' },
 
   cardRight: { alignItems: 'flex-end', gap: 10 },
+  cardRightTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   eraBadge: {
     borderRadius: 8,
     borderWidth: 1,

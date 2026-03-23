@@ -5,29 +5,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
-import { fetchInsights, InsightsResponse, InsightsBlindSpot } from '../services/api';
+import { FLAGS } from '../constants/flags';
+import { fetchInsights, InsightsResponse, InsightsBlindSpot, InsightsPick } from '../services/api';
 import type { AuthState } from '../hooks/useAuth';
-
-const FLAGS: Record<string, string> = {
-  'France': '🇫🇷', 'Germany': '🇩🇪', 'Sweden': '🇸🇪', 'Norway': '🇳🇴',
-  'Portugal': '🇵🇹', 'Spain': '🇪🇸', 'Italy': '🇮🇹', 'Greece': '🇬🇷',
-  'Poland': '🇵🇱', 'Iceland': '🇮🇸', 'Finland': '🇫🇮', 'Ireland': '🇮🇪',
-  'Netherlands': '🇳🇱', 'Romania': '🇷🇴', 'Serbia': '🇷🇸', 'Ukraine': '🇺🇦',
-  'Hungary': '🇭🇺', 'Czechia': '🇨🇿', 'Turkey': '🇹🇷', 'Belgium': '🇧🇪',
-  'Brazil': '🇧🇷', 'Argentina': '🇦🇷', 'Colombia': '🇨🇴', 'Cuba': '🇨🇺',
-  'Mexico': '🇲🇽', 'Chile': '🇨🇱', 'Peru': '🇵🇪', 'Jamaica': '🇯🇲',
-  'Venezuela': '🇻🇪', 'Bolivia': '🇧🇴', 'Ecuador': '🇪🇨', 'Panama': '🇵🇦',
-  'Nigeria': '🇳🇬', 'Ghana': '🇬🇭', 'Senegal': '🇸🇳', 'Mali': '🇲🇱',
-  'Ethiopia': '🇪🇹', 'South Africa': '🇿🇦', 'Egypt': '🇪🇬', 'Cameroon': '🇨🇲',
-  'Congo': '🇨🇩', 'Kenya': '🇰🇪', 'Algeria': '🇩🇿', 'Morocco': '🇲🇦',
-  'Tanzania': '🇹🇿', 'Lebanon': '🇱🇧', 'Iran': '🇮🇷', 'Israel': '🇮🇱',
-  'Saudi Arabia': '🇸🇦', 'Armenia': '🇦🇲', 'Azerbaijan': '🇦🇿', 'Georgia': '🇬🇪',
-  'Japan': '🇯🇵', 'South Korea': '🇰🇷', 'India': '🇮🇳', 'China': '🇨🇳',
-  'Indonesia': '🇮🇩', 'Thailand': '🇹🇭', 'Vietnam': '🇻🇳', 'Philippines': '🇵🇭',
-  'Pakistan': '🇵🇰', 'Bangladesh': '🇧🇩', 'Taiwan': '🇹🇼', 'Mongolia': '🇲🇳',
-  'Australia': '🇦🇺', 'New Zealand': '🇳🇿', 'Papua New Guinea': '🇵🇬', 'Fiji': '🇫🇯',
-  'USA': '🇺🇸', 'Canada': '🇨🇦',
-};
+import type { SavedDiscovery } from '../hooks/useFavorites';
+import { FloatingNav } from '../components/FloatingNav';
 
 const REGION_COLORS: Record<string, string> = {
   'North America': Colors.blue,
@@ -41,11 +23,12 @@ const REGION_COLORS: Record<string, string> = {
 
 interface Props {
   navigation: any;
-  auth: AuthState;
+  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
   updateSyncData: (partial: { insights: any }) => void;
+  favoritesHook: { favorites: SavedDiscovery[] };
 }
 
-export function InsightsScreen({ navigation, auth, updateSyncData }: Props) {
+export function InsightsScreen({ navigation, auth, updateSyncData, favoritesHook }: Props) {
   const [loading, setLoading] = useState(true);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,14 +63,14 @@ export function InsightsScreen({ navigation, auth, updateSyncData }: Props) {
         </TouchableOpacity>
         <View style={styles.headerTitleRow}>
           <Ionicons name="analytics-outline" size={20} color={Colors.purple} />
-          <Text style={styles.headerTitle}>{auth.user?.displayName ? `${auth.user.displayName}'s Musical DNA` : 'Your Musical DNA'}</Text>
+          <Text style={styles.headerTitle}>{`My Musical DNA`}</Text>
         </View>
       </View>
 
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={Colors.purple} />
-          <Text style={styles.loadingText}>Analysing your taste…</Text>
+          <Text style={styles.loadingText}>Analyzing your taste…</Text>
         </View>
       ) : !auth.topArtists.length ? (
         <View style={styles.centered}>
@@ -149,7 +132,7 @@ export function InsightsScreen({ navigation, auth, updateSyncData }: Props) {
           {/* Blind spots */}
           {insights.blindSpots?.length > 0 && (
             <>
-              <Text style={styles.sectionLabel}>Your blind spots</Text>
+              <Text style={styles.sectionLabel}>Areas to Explore</Text>
               {insights.blindSpots.map((spot: InsightsBlindSpot) => (
                 <TouchableOpacity
                   key={spot.region}
@@ -179,20 +162,27 @@ export function InsightsScreen({ navigation, auth, updateSyncData }: Props) {
           )}
 
           {/* Suggested countries */}
-          {insights.suggestedCountries?.length > 0 && (
+          {insights.picks?.length > 0 && (
             <>
               <Text style={styles.sectionLabel}>Picked for you</Text>
-              {insights.suggestedCountries.map(({ country, reason }) => (
+              {insights.picks.map((pick: InsightsPick, i: number) => (
                 <TouchableOpacity
-                  key={country}
+                  key={i}
                   style={styles.suggestionCard}
-                  onPress={() => navigation.navigate('Recommendations', { country })}
+                  onPress={() => pick.type === 'genre'
+                    ? navigation.navigate('GenreSpotlight', { genre: pick.genre, country: pick.country })
+                    : navigation.navigate('Recommendations', { country: pick.country })
+                  }
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.suggestionFlag}>{FLAGS[country] ?? '🌐'}</Text>
+                  <Text style={styles.suggestionFlag}>{FLAGS[pick.country] ?? '🌐'}</Text>
                   <View style={styles.suggestionBody}>
-                    <Text style={styles.suggestionCountry}>{country}</Text>
-                    <Text style={styles.suggestionReason}>{reason}</Text>
+                    <Text style={styles.suggestionCountry}>
+                      {pick.type === 'genre' ? pick.genre : pick.country}
+                    </Text>
+                    {pick.type === 'genre' && (
+                      <Text style={styles.suggestionSub}>{pick.country}</Text>
+                    )}
                   </View>
                   <Ionicons name="chevron-forward" size={18} color={Colors.text3} />
                 </TouchableOpacity>
@@ -203,6 +193,7 @@ export function InsightsScreen({ navigation, auth, updateSyncData }: Props) {
           <View style={{ height: 48 }} />
         </ScrollView>
       ) : null}
+      <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} currentScreen="Insights" />
     </SafeAreaView>
   );
 }
@@ -308,6 +299,6 @@ const styles = StyleSheet.create({
   },
   suggestionFlag: { fontSize: 28 },
   suggestionBody: { flex: 1 },
-  suggestionCountry: { color: Colors.text, fontSize: 16, fontWeight: '700', marginBottom: 3 },
-  suggestionReason: { color: Colors.text2, fontSize: 13, lineHeight: 19 },
+  suggestionCountry: { color: Colors.text, fontSize: 16, fontWeight: '700' },
+  suggestionSub: { color: Colors.text3, fontSize: 13, marginTop: 2 },
 });

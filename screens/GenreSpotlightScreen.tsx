@@ -9,14 +9,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { fetchGenreSpotlight, Track } from '../services/api';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
-import type { AuthService } from '../hooks/useAuth';
+import type { AuthService, AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
+import { FloatingNav } from '../components/FloatingNav';
+import { haptics } from '../utils/haptics';
 
 interface FavoritesHook {
   isGenreSaved: (genre: string, country: string) => boolean;
   findSavedGenre: (genre: string, country: string) => SavedDiscovery | undefined;
+  isTrackSaved: (trackId: string) => boolean;
+  findSavedTrack: (trackId: string) => SavedDiscovery | undefined;
   save: (item: Omit<SavedDiscovery, 'id' | 'savedAt'>) => Promise<void>;
   remove: (id: string) => Promise<void>;
+  favorites: SavedDiscovery[];
 }
 
 interface Props {
@@ -25,9 +30,10 @@ interface Props {
   service: AuthService;
   accessToken: string | null;
   favoritesHook: FavoritesHook;
+  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
 }
 
-export function GenreSpotlightScreen({ navigation, route, service, accessToken, favoritesHook }: Props) {
+export function GenreSpotlightScreen({ navigation, route, service, accessToken, favoritesHook, auth }: Props) {
   const { genre, country } = route.params;
   const [loading, setLoading] = useState(true);
   const [explanation, setExplanation] = useState('');
@@ -39,6 +45,7 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
       .then(data => {
         setExplanation(data.explanation);
         setTracks(data.tracks);
+        haptics.success();
       })
       .catch(err => setError(err.message || 'Failed to load'))
       .finally(() => setLoading(false));
@@ -74,7 +81,6 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
             style={styles.heartBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={24} color={Colors.red} />
           </TouchableOpacity>
         )}
       </View>
@@ -98,19 +104,33 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
           <Text style={styles.tracksLabel}>Essential tracks</Text>
 
           {tracks.map((track, i) => (
-            <SpotlightTrack key={i} index={i + 1} track={track} />
+            <SpotlightTrack
+              key={i}
+              index={i + 1}
+              track={track}
+              genre={genre}
+              country={country}
+              favoritesHook={favoritesHook}
+            />
           ))}
 
           <View style={styles.bottomPad} />
         </ScrollView>
       )}
+      <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} />
     </SafeAreaView>
   );
 }
 
-function SpotlightTrack({ track, index }: { track: Track; index: number }) {
+function SpotlightTrack({ track, index, genre, country, favoritesHook }: {
+  track: Track;
+  index: number;
+  genre: string;
+  country: string;
+  favoritesHook: FavoritesHook;
+}) {
   const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
-  const trackId = track.spotifyId || track.appleId || track.previewUrl || `${track.title}-${index}`;
+  const trackId = track.spotifyId || track.appleId || `${track.title}-${track.artist ?? ''}`;
   const isThisTrack = currentTrackId === trackId;
 
   const openUrl = track.spotifyUrl
@@ -123,6 +143,17 @@ function SpotlightTrack({ track, index }: { track: Track; index: number }) {
     : track.appleId
     ? `https://embed.music.apple.com/us/album/${track.appleId}`
     : null;
+
+  const isSaved = favoritesHook.isTrackSaved(trackId);
+  const toggleSave = async () => {
+    if (isSaved) {
+      const entry = favoritesHook.findSavedTrack(trackId);
+      if (entry) await favoritesHook.remove(entry.id);
+    } else {
+      haptics.light();
+      await favoritesHook.save({ type: 'track', country, data: { trackId, track, genre, country } });
+    }
+  };
 
   const handlePlay = () => {
     if (track.previewUrl) {
@@ -158,6 +189,9 @@ function SpotlightTrack({ track, index }: { track: Track; index: number }) {
             )}
           </TouchableOpacity>
         )}
+        <TouchableOpacity style={styles.heartTrackBtn} onPress={toggleSave}>
+          <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
+        </TouchableOpacity>
         <TouchableOpacity style={styles.openBtn} onPress={() => Linking.openURL(openUrl)}>
           <Ionicons name="open-outline" size={18} color={Colors.blue} />
         </TouchableOpacity>
@@ -231,6 +265,11 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   playBtnActive: { backgroundColor: Colors.purpleBg, borderColor: Colors.purpleBorder },
+  heartTrackBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(240,101,101,0.08)', borderWidth: 1, borderColor: 'rgba(240,101,101,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   openBtn: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: Colors.blueBg, borderWidth: 1, borderColor: Colors.blueBorder,

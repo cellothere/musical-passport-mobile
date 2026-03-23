@@ -82,7 +82,7 @@ function AppNavigator() {
           {props => <LandingScreen {...props} auth={auth} stampsHook={stampsHook} favoritesHook={favoritesHook} />}
         </Stack.Screen>
         <Stack.Screen name="Explore">
-          {props => <HomeScreen {...props} stampsHook={stampsHook} />}
+          {props => <HomeScreen {...props} stampsHook={stampsHook} auth={auth} favoritesHook={favoritesHook} />}
         </Stack.Screen>
         <Stack.Screen name="Recommendations">
           {props => (
@@ -95,18 +95,19 @@ function AppNavigator() {
             />
           )}
         </Stack.Screen>
-<Stack.Screen name="GenreSpotlight">
+        <Stack.Screen name="GenreSpotlight">
           {props => (
             <GenreSpotlightScreen
               {...props}
               service={auth.service}
               accessToken={auth.accessToken}
               favoritesHook={favoritesHook}
+              auth={auth}
             />
           )}
         </Stack.Screen>
         <Stack.Screen name="Insights">
-          {props => <InsightsScreen {...props} auth={auth} updateSyncData={auth.updateSyncData} />}
+          {props => <InsightsScreen {...props} auth={auth} updateSyncData={auth.updateSyncData} favoritesHook={favoritesHook} />}
         </Stack.Screen>
         <Stack.Screen name="ArtistSearch">
           {props => (
@@ -115,11 +116,12 @@ function AppNavigator() {
               service={auth.service}
               accessToken={auth.accessToken}
               favoritesHook={favoritesHook}
+              auth={auth}
             />
           )}
         </Stack.Screen>
         <Stack.Screen name="Saved">
-          {props => <SavedScreen {...props} favoritesHook={favoritesHook} />}
+          {props => <SavedScreen {...props} favoritesHook={favoritesHook} auth={auth} />}
         </Stack.Screen>
       </Stack.Navigator>
       <MiniPlayer />
