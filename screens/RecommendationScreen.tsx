@@ -17,13 +17,15 @@ import {
 import { ArtistCard } from '../components/ArtistCard';
 import { GlobeOverlay } from '../components/GlobeOverlay';
 import { FloatingNav } from '../components/FloatingNav';
+import { ServiceModal } from '../components/ServiceModal';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 
 const FLAG_IMAGES: Record<string, any> = {
   'Republic of South Vietnam': require('../assets/SouthVietnam.png'),
-  'Quebec': require('../assets/QuebecFlag.png')
+  'Quebec': require('../assets/QuebecFlag.png'),
+  'East Germany': require('../assets/EastGermany.png')
 };
 
 interface StampsHook {
@@ -173,6 +175,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
   );
   const [loading, setLoading] = useState(!savedData);
   const [error, setError] = useState<string | null>(null);
+  const [serviceModalVisible, setServiceModalVisible] = useState(false);
 
   const pendingFetch = useRef<Promise<any> | null>(null);
   const pendingResult = useRef<any>(null);
@@ -236,6 +239,10 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
 
   const isArtistSaved = (artistName: string) => favoritesHook.isArtistSaved(artistName);
   const toggleArtistSave = async (artist: import('../services/api').Artist) => {
+    if (!auth.service) {
+      setServiceModalVisible(true);
+      return;
+    }
     if (favoritesHook.isArtistSaved(artist.name)) {
       const entry = favoritesHook.findSavedArtist(artist.name);
       if (entry) await favoritesHook.remove(entry.id);
@@ -262,11 +269,6 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
               : <Text style={styles.countryFlag}>{flag}</Text>}
             <Text style={styles.countryName}>{country}</Text>
           </View>
-          {isStamped && (
-            <View style={styles.stampedBadge}>
-              <Text style={styles.stampedBadgeText}>✦ Stamped</Text>
-            </View>
-          )}
         </View>
 
       </View>
@@ -368,6 +370,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
         onSelect={handleDecadeChange}
       />
       <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites ?? []} />
+      <ServiceModal visible={serviceModalVisible} onClose={() => setServiceModalVisible(false)} auth={auth} />
     </SafeAreaView>
   );
 }
@@ -422,13 +425,6 @@ const styles = StyleSheet.create({
   countryFlag: { fontSize: 26 },
   countryFlagImg: { width: 34, height: 22, borderRadius: 3 },
   countryName: { color: Colors.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
-  stampedBadge: {
-    alignSelf: 'flex-start', marginTop: 4,
-    backgroundColor: Colors.goldBg, borderWidth: 1, borderColor: Colors.goldBorder,
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 2,
-  },
-  stampedBadgeText: { color: Colors.gold, fontSize: 11, fontWeight: '700' },
-
   decadePill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.text3,

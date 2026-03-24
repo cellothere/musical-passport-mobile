@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { FLAGS } from '../constants/flags';
-import { fetchInsights, InsightsResponse, InsightsBlindSpot, InsightsPick } from '../services/api';
+import { fetchInsights, fetchAppleMe, InsightsResponse, InsightsBlindSpot, InsightsPick } from '../services/api';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 import { FloatingNav } from '../components/FloatingNav';
@@ -34,21 +34,32 @@ export function InsightsScreen({ navigation, auth, updateSyncData, favoritesHook
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!auth.topArtists.length) { setLoading(false); return; }
     // Use cached insights from login sync if available
     if (auth.syncData?.insights) {
       setInsights(auth.syncData.insights);
       setLoading(false);
       return;
     }
-    const token = auth.service === 'spotify' ? auth.accessToken : null;
-    fetchInsights(auth.topArtists, token ?? undefined)
-      .then(data => {
-        setInsights(data);
-        setLoading(false);
-        updateSyncData({ insights: data });
-      })
-      .catch(err => { setError(err.message); setLoading(false); });
+    async function load() {
+      let topArtists = auth.topArtists;
+      // For Apple Music, try fetching library artists if we don't have them yet
+      if (auth.service === 'apple-music' && !topArtists.length && auth.accessToken) {
+        try {
+          const data = await fetchAppleMe(auth.accessToken);
+          topArtists = data.topArtists;
+        } catch {}
+      }
+      if (!topArtists.length) { setLoading(false); return; }
+      const token = auth.service === 'spotify' ? auth.accessToken : null;
+      fetchInsights(topArtists, token ?? undefined)
+        .then(data => {
+          setInsights(data);
+          updateSyncData({ insights: data });
+        })
+        .catch(err => setError(err.message))
+        .finally(() => setLoading(false));
+    }
+    load();
   }, []);
 
   return (
@@ -75,9 +86,9 @@ export function InsightsScreen({ navigation, auth, updateSyncData, favoritesHook
       ) : !auth.topArtists.length ? (
         <View style={styles.centered}>
           <Ionicons name="musical-notes-outline" size={48} color={Colors.text3} />
-          <Text style={styles.emptyTitle}>Connect Spotify</Text>
+          <Text style={styles.emptyTitle}>No listening data found</Text>
           <Text style={styles.emptyText}>
-            Link your Spotify account to see a breakdown of your musical roots and personalised country suggestions.
+            We couldn't find enough listening history to generate your Musical DNA. Make sure your library has some artists added.
           </Text>
         </View>
       ) : error ? (

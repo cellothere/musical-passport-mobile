@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, PanResponder, Animated,
+  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, PanResponder, Animated,
 } from 'react-native';
 import { Image } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { getAllCountries, MUSIC_REGIONS } from '../constants/regions';
 import { haptics } from '../utils/haptics';
+import { ServiceModal } from '../components/ServiceModal';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 
@@ -18,61 +19,6 @@ interface Props {
   favoritesHook: { favorites: SavedDiscovery[] };
 }
 
-function ServiceModal({ visible, onClose, auth }: {
-  visible: boolean;
-  onClose: () => void;
-  auth: Props['auth'];
-}) {
-  const insets = useSafeAreaInsets();
-  const handleOption = (action: () => void) => { onClose(); action(); };
-
-  return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <TouchableOpacity style={svcStyles.backdrop} activeOpacity={1} onPress={onClose}>
-        <View style={[svcStyles.sheet, { paddingBottom: insets.bottom + 12 }]}>
-          <View style={svcStyles.handle} />
-          <Text style={svcStyles.title}>Music Service</Text>
-          {!auth.service ? (
-            <>
-              <TouchableOpacity style={svcStyles.row} onPress={() => handleOption(auth.loginSpotify)} activeOpacity={0.7}>
-                <View style={svcStyles.rowIconWrap}><FontAwesome5 name="spotify" size={20} color="#1DB954" /></View>
-                <Text style={svcStyles.rowLabel}>Connect Spotify</Text>
-                <Text style={svcStyles.rowArrow}>›</Text>
-              </TouchableOpacity>
-              <View style={svcStyles.sep} />
-              <TouchableOpacity style={svcStyles.row} onPress={() => handleOption(auth.loginAppleMusic)} activeOpacity={0.7}>
-                <View style={svcStyles.rowIconWrap}><FontAwesome5 name="apple" size={20} color={Colors.text} /></View>
-                <Text style={svcStyles.rowLabel}>Connect Apple Music</Text>
-                <Text style={svcStyles.rowArrow}>›</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              {auth.service === 'spotify' ? (
-                <TouchableOpacity style={svcStyles.row} onPress={() => handleOption(auth.loginAppleMusic)} activeOpacity={0.7}>
-                  <View style={svcStyles.rowIconWrap}><FontAwesome5 name="apple" size={20} color={Colors.text} /></View>
-                  <Text style={svcStyles.rowLabel}>Switch to Apple Music</Text>
-                  <Text style={svcStyles.rowArrow}>›</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity style={svcStyles.row} onPress={() => handleOption(auth.loginSpotify)} activeOpacity={0.7}>
-                  <View style={svcStyles.rowIconWrap}><FontAwesome5 name="spotify" size={20} color="#1DB954" /></View>
-                  <Text style={svcStyles.rowLabel}>Switch to Spotify</Text>
-                  <Text style={svcStyles.rowArrow}>›</Text>
-                </TouchableOpacity>
-              )}
-              <View style={svcStyles.sep} />
-              <TouchableOpacity style={svcStyles.row} onPress={() => handleOption(auth.logout)} activeOpacity={0.7}>
-                <View style={svcStyles.rowIconWrap}><Ionicons name="log-out-outline" size={20} color="#e05c5c" /></View>
-                <Text style={[svcStyles.rowLabel, { color: '#e05c5c' }]}>Logout</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  );
-}
 
 export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: Props) {
   const { favorites } = favoritesHook;
@@ -86,7 +32,7 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
     }
     prevService.current = auth.service;
   }, [auth.service]);
-  const hasInsights = auth.service === 'spotify' && auth.topArtists?.length > 0;
+  const hasInsights = !!auth.service;
   const handleGlobeTap = () => {
     haptics.medium();
     navigation.navigate('Explore');
@@ -299,25 +245,3 @@ const styles = StyleSheet.create({
   loginBtnText: { color: Colors.gold, fontSize: 16, fontWeight: '700' },
 });
 
-const svcStyles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: Colors.bg,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    paddingTop: 12,
-  },
-  handle: {
-    width: 36, height: 4, borderRadius: 2,
-    backgroundColor: Colors.border2, alignSelf: 'center', marginBottom: 16,
-  },
-  title: {
-    color: Colors.text3, fontSize: 12, fontWeight: '600',
-    letterSpacing: 0.8, textTransform: 'uppercase',
-    paddingHorizontal: 20, marginBottom: 8,
-  },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, gap: 14 },
-  rowIconWrap: { width: 28, alignItems: 'center' },
-  rowLabel: { flex: 1, color: Colors.text, fontSize: 16, fontWeight: '500' },
-  rowArrow: { color: Colors.text3, fontSize: 20 },
-  sep: { height: 1, backgroundColor: Colors.border, marginLeft: 62 },
-});

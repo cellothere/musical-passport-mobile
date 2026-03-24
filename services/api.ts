@@ -137,6 +137,14 @@ export async function fetchAppleMusicToken(): Promise<string> {
   return data.token;
 }
 
+export async function fetchAppleMe(userToken: string): Promise<{ topArtists: string[] }> {
+  const res = await apiFetch('/api/apple-me', {
+    headers: { Authorization: `Bearer ${userToken}` },
+  });
+  if (!res.ok) throw new Error('Failed to fetch Apple Music library');
+  return res.json();
+}
+
 export interface InsightsPick {
   type: 'country' | 'genre';
   country: string;

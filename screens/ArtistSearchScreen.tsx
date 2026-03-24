@@ -12,6 +12,7 @@ import {
 } from '../services/api';
 import { ArtistCard } from '../components/ArtistCard';
 import { FloatingNav } from '../components/FloatingNav';
+import { ServiceModal } from '../components/ServiceModal';
 import { haptics } from '../utils/haptics';
 import type { AuthService, AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
@@ -48,6 +49,7 @@ function formatFollowers(n: number): string {
 export function ArtistSearchScreen({ navigation, service, accessToken, favoritesHook, auth }: Props) {
   const [query, setQuery] = useState('');
   const [phase, setPhase] = useState<Phase>('search');
+  const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [foundArtist, setFoundArtist] = useState<FoundArtist | null>(null);
   const [sonicSummary, setSonicSummary] = useState('');
   const [matches, setMatches] = useState<ArtistMatch[]>([]);
@@ -206,6 +208,10 @@ export function ArtistSearchScreen({ navigation, service, accessToken, favorites
           {matches.map((match, i) => {
             const isSaved = favoritesHook.isArtistSaved(match.name);
             const toggleSave = async () => {
+              if (!auth.service) {
+                setServiceModalVisible(true);
+                return;
+              }
               if (isSaved) {
                 const entry = favoritesHook.findSavedArtist(match.name);
                 if (entry) await favoritesHook.remove(entry.id);
@@ -235,6 +241,7 @@ export function ArtistSearchScreen({ navigation, service, accessToken, favorites
         </ScrollView>
       )}
       <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} currentScreen="ArtistSearch" />
+      <ServiceModal visible={serviceModalVisible} onClose={() => setServiceModalVisible(false)} auth={auth} />
     </SafeAreaView>
   );
 }

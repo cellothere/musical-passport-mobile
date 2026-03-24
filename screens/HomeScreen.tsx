@@ -16,6 +16,7 @@ import type { SavedDiscovery } from '../hooks/useFavorites';
 const FLAG_IMAGES: Record<string, any> = {
   'Republic of South Vietnam': require('../assets/SouthVietnam.png'),
   'Quebec': require('../assets/QuebecFlag.png'),
+  'East Germany': require('../assets/EastGermany.png')
 };
 
 const ALL_COUNTRIES = getAllCountries();
@@ -227,17 +228,16 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
             return (
               <TouchableOpacity
                 key={country}
-                style={[styles.quickPickCard, isStamped && styles.quickPickCardStamped]}
+                style={styles.quickPickCard}
                 onPress={() => navigate(country)}
                 activeOpacity={0.7}
               >
                 {FLAG_IMAGES[country]
                   ? <Image source={FLAG_IMAGES[country]} style={styles.quickPickFlagImg} />
                   : <Text style={styles.quickPickFlag}>{FLAGS[country] ?? '🌐'}</Text>}
-                <Text style={[styles.quickPickName, isStamped && styles.quickPickNameStamped]} numberOfLines={1}>
+                <Text style={styles.quickPickName} numberOfLines={1}>
                   {country}
                 </Text>
-                {isStamped && <Text style={styles.quickPickCheck}>✦</Text>}
               </TouchableOpacity>
             );
           })}
@@ -276,7 +276,7 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
                 activeOpacity={0.7}
               >
                 <Text style={styles.regionName}>{region.name}</Text>
-                <Text style={styles.regionCount}>{stampedCount}/{region.countries.length}</Text>
+                <Text style={styles.regionCount}>{region.countries.length}</Text>
                 <Ionicons
                   name={isCollapsed ? 'chevron-forward' : 'chevron-down'}
                   size={16}
@@ -293,7 +293,7 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
                     return (
                       <TouchableOpacity
                         key={country}
-                        style={[styles.countryBtn, isStamped && styles.countryBtnStamped]}
+                        style={styles.countryBtn}
                         onPress={() => navigate(country)}
                         activeOpacity={0.65}
                       >
@@ -301,14 +301,13 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
                           ? <Image source={flagImg} style={styles.countryFlagImg} />
                           : <Text style={styles.countryFlag}>{flag}</Text>}
                         <Text
-                          style={[styles.countryText, isStamped && styles.countryTextStamped]}
+                          style={styles.countryText}
                           numberOfLines={1}
                           adjustsFontSizeToFit
                           minimumFontScale={0.75}
                         >
                           {country}
                         </Text>
-                        {isStamped && <Text style={styles.stampDot}>✦</Text>}
                       </TouchableOpacity>
                     );
                   })}

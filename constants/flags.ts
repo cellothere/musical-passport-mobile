@@ -36,7 +36,7 @@ export const FLAGS: Record<string, string> = {
   'Singapore': '🇸🇬', 'Sri Lanka': '🇱🇰', 'Nepal': '🇳🇵', 'Afghanistan': '🇦🇫',
   'Kazakhstan': '🇰🇿', 'Uzbekistan': '🇺🇿', 'Tajikistan': '🇹🇯', 'Kyrgyzstan': '🇰🇬', 'Turkmenistan': '🇹🇲', 'Hong Kong': '🇭🇰',
   'Australia': '🇦🇺', 'New Zealand': '🇳🇿', 'Papua New Guinea': '🇵🇬', 'Fiji': '🇫🇯',
-  'Vanuatu': '🇻🇺', 'Solomon Islands': '🇸🇧', 'Hawaii': '🌺',
+  'Vanuatu': '🇻🇺', 'Solomon Islands': '🇸🇧', 'Tonga': '🇹🇴', 'Samoa': '🇼🇸', 'Hawaii': '🌺',
   'USA': '🇺🇸', 'Canada': '🇨🇦',
   'Yugoslavia': '🏳', 'Soviet Union': '☭', 'Czechoslovakia': '🏳',
   'East Germany': '🏳', 'Ottoman Empire': '🌙', 'British India': '🏳',

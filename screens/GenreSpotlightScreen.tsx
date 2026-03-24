@@ -12,6 +12,7 @@ import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import type { AuthService, AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 import { FloatingNav } from '../components/FloatingNav';
+import { ServiceModal } from '../components/ServiceModal';
 import { haptics } from '../utils/haptics';
 
 interface FavoritesHook {
@@ -39,6 +40,7 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
   const [explanation, setExplanation] = useState('');
   const [tracks, setTracks] = useState<Track[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [serviceModalVisible, setServiceModalVisible] = useState(false);
 
   useEffect(() => {
     fetchGenreSpotlight(genre, country, service || 'spotify', accessToken || undefined)
@@ -53,6 +55,10 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
 
   const isSaved = favoritesHook.isGenreSaved(genre, country);
   const toggleSave = async () => {
+    if (!auth.service) {
+      setServiceModalVisible(true);
+      return;
+    }
     if (isSaved) {
       const entry = favoritesHook.findSavedGenre(genre, country);
       if (entry) await favoritesHook.remove(entry.id);
@@ -111,6 +117,8 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
               genre={genre}
               country={country}
               favoritesHook={favoritesHook}
+              auth={auth}
+              onNeedAuth={() => setServiceModalVisible(true)}
             />
           ))}
 
@@ -118,16 +126,19 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
         </ScrollView>
       )}
       <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} />
+      <ServiceModal visible={serviceModalVisible} onClose={() => setServiceModalVisible(false)} auth={auth} />
     </SafeAreaView>
   );
 }
 
-function SpotlightTrack({ track, index, genre, country, favoritesHook }: {
+function SpotlightTrack({ track, index, genre, country, favoritesHook, auth, onNeedAuth }: {
   track: Track;
   index: number;
   genre: string;
   country: string;
   favoritesHook: FavoritesHook;
+  auth: Props['auth'];
+  onNeedAuth: () => void;
 }) {
   const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
   const trackId = track.spotifyId || track.appleId || `${track.title}-${track.artist ?? ''}`;
@@ -146,6 +157,10 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook }: {
 
   const isSaved = favoritesHook.isTrackSaved(trackId);
   const toggleSave = async () => {
+    if (!auth.service) {
+      onNeedAuth();
+      return;
+    }
     if (isSaved) {
       const entry = favoritesHook.findSavedTrack(trackId);
       if (entry) await favoritesHook.remove(entry.id);

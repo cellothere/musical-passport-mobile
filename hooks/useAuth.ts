@@ -3,7 +3,7 @@ import { Alert } from 'react-native';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fetchMe, fetchSpotifyToken, syncUser, API_BASE_URL } from '../services/api';
+import { fetchMe, fetchSpotifyToken, fetchAppleMe, syncUser, API_BASE_URL } from '../services/api';
 import type { SyncResult } from '../services/api';
 import type { SavedDiscovery } from './useFavorites';
 
@@ -57,7 +57,8 @@ export function useAuth() {
       } else if (service === 'apple-music') {
         const token = await AsyncStorage.getItem(STORAGE_KEY_APPLE);
         if (token) {
-          setState({ service: 'apple-music', accessToken: token, user: { displayName: 'Apple Music' }, topArtists: [], loading: false, syncData: null });
+          const { topArtists } = await fetchAppleMe(token).catch(() => ({ topArtists: [] }));
+          setState({ service: 'apple-music', accessToken: token, user: { displayName: 'Apple Music' }, topArtists, loading: false, syncData: null });
           return;
         }
       }
@@ -143,7 +144,8 @@ export function useAuth() {
           await AsyncStorage.removeItem(STORAGE_KEY_SPOTIFY);
           await AsyncStorage.setItem(STORAGE_KEY_APPLE, token);
           await AsyncStorage.setItem(STORAGE_KEY_SERVICE, 'apple-music');
-          setState({ service: 'apple-music', accessToken: token, user: { displayName: 'Apple Music' }, topArtists: [], loading: false, syncData: null });
+          const { topArtists } = await fetchAppleMe(token).catch(() => ({ topArtists: [] }));
+          setState({ service: 'apple-music', accessToken: token, user: { displayName: 'Apple Music' }, topArtists, loading: false, syncData: null });
         } else {
           throw new Error(error || 'Authorization failed');
         }
