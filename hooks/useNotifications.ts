@@ -38,16 +38,16 @@ async function scheduleDailyNotification() {
       body: `Explore ${country} - tap to discover`,
       data: { type: 'country_of_day', country },
     },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: 9,
-      minute: 0,
-    },
-    //for testing
-    //     trigger: {
-    //   type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-    //   seconds: 5,
+    // trigger: {
+    //   type: Notifications.SchedulableTriggerInputTypes.DAILY,
+    //   hour: 9,
+    //   minute: 0,
     // },
+    //for testing
+        trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 5,
+    },
   });
 }
 

@@ -26,7 +26,8 @@ import type { SavedDiscovery } from '../hooks/useFavorites';
 const FLAG_IMAGES: Record<string, any> = {
   'Republic of South Vietnam': require('../assets/SouthVietnam.png'),
   'Quebec': require('../assets/QuebecFlag.png'),
-  'East Germany': require('../assets/EastGermany.png')
+  'East Germany': require('../assets/EastGermany.png'),
+  'Zaire': require('../assets/ZaireFlag.png')
 };
 
 interface StampsHook {
@@ -44,7 +45,7 @@ interface FavoritesHook {
 
 interface Props {
   navigation: any;
-  route: { params: { country: string; decade?: string; savedData?: RecommendationResponse | TimeMachineResponse } };
+  route: { params: { country: string; decade?: string; savedData?: RecommendationResponse | TimeMachineResponse; highlightArtist?: string; highlightTrack?: string } };
   auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
   stampsHook: StampsHook;
   favoritesHook: FavoritesHook;
@@ -176,8 +177,11 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth }: {
 
 // ── Main screen ────────────────────────────────────────────
 export function RecommendationScreen({ navigation, route, auth, stampsHook, favoritesHook }: Props) {
-  const { country, decade: initialDecade, savedData } = route.params;
+  const { country, decade: initialDecade, savedData, highlightArtist, highlightTrack } = route.params;
   const { stamps, addStamp } = stampsHook;
+  const insets = useSafeAreaInsets();
+  const { currentTrackTitle } = useAudioPlayer();
+  const contentBottomPad = insets.bottom + 76 + (currentTrackTitle ? 72 : 0);
 
   const [selectedDecade, setSelectedDecade] = useState(initialDecade ?? '');
   const [decadePickerVisible, setDecadePickerVisible] = useState(false);
@@ -234,7 +238,9 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
     if (savedData) { setLoading(false); return; }
     try {
       if (pendingFetch.current) await pendingFetch.current;
-      if (pendingResult.current) {
+      if (pendingError.current) {
+        setError(pendingError.current);
+      } else if (pendingResult.current) {
         const data = pendingResult.current;
         if ('tracks' in data) {
           setTmData(data);
@@ -244,6 +250,8 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
           addStamp(country);
         }
         haptics.success();
+      } else {
+        setError('Something went wrong. Please try again.');
       }
     } catch {
       setError(pendingError.current ?? 'Something went wrong');
@@ -321,7 +329,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
               onNeedAuth={undefined}
             />
           ))}
-          <View style={styles.bottomPad} />
+          <View style={{ height: contentBottomPad }} />
         </ScrollView>
       ) : recs ? (
         // ── Explore mode ─────────────────────────────────────
@@ -356,7 +364,9 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
             <Text style={styles.sectionHeading}>Artists to discover</Text>
             <Text style={styles.sectionHint}>Tap any artist to reveal tracks</Text>
           </View>
-          {(recs.artists || []).map((artist, i) => (
+          {(recs.artists || []).map((artist, i) => {
+            const isHighlighted = !!highlightArtist && artist.name.toLowerCase() === highlightArtist.toLowerCase();
+            return (
             <ArtistCard
               key={i}
               artist={artist}
@@ -365,15 +375,18 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
               favoritesHook={favoritesHook}
               country={country}
               onNeedAuth={undefined}
+              autoExpand={isHighlighted}
+              highlightTrack={isHighlighted ? highlightTrack : undefined}
             />
-          ))}
+          );
+          })}
           {recs.didYouKnow && selectedDecade && (
             <View style={styles.dyk}>
               <Text style={styles.dykLabel}>💡 Did you know</Text>
               <Text style={styles.dykText}>{recs.didYouKnow}</Text>
             </View>
           )}
-          <View style={styles.bottomPad} />
+          <View style={{ height: contentBottomPad }} />
         </ScrollView>
       ) : null}
 

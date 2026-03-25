@@ -8,6 +8,7 @@ import { Colors } from '../constants/colors';
 import * as Haptics from 'expo-haptics';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
+import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 
 type FullAuth = AuthState & {
   loginSpotify: () => void;
@@ -20,6 +21,7 @@ interface Props {
   auth: FullAuth;
   favorites: SavedDiscovery[];
   currentScreen?: string;
+  onShare?: () => void;
 }
 
 function ServiceModal({ visible, onClose, auth, onServiceChange }: {
@@ -88,9 +90,11 @@ function ServiceModal({ visible, onClose, auth, onServiceChange }: {
   );
 }
 
-export function FloatingNav({ navigation, auth, favorites, currentScreen }: Props) {
+export function FloatingNav({ navigation, auth, favorites, currentScreen, onShare }: Props) {
   const insets = useSafeAreaInsets();
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
+  const { currentTrackTitle } = useAudioPlayer();
+  const miniPlayerOffset = currentTrackTitle ? 72 : 0;
 
   const isConnected = auth.service === 'spotify' || auth.service === 'apple-music';
   const hasInsights = auth.service === 'spotify' && auth.topArtists?.length > 0 && currentScreen !== 'Insights';
@@ -100,8 +104,18 @@ export function FloatingNav({ navigation, auth, favorites, currentScreen }: Prop
 
   return (
     <>
-      {/* Top-right: insights + search */}
+      {/* Top-right: share + insights + search */}
       <View style={[styles.topRightBtns, { top: insets.top + 5 }]}>
+        {onShare && (
+          <TouchableOpacity
+            style={styles.shareBtn}
+            onPress={() => { haptic(); onShare(); }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 16, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="share-outline" size={22} color={Colors.blue} />
+          </TouchableOpacity>
+        )}
         {hasInsights && (
           <TouchableOpacity
             style={styles.dnaBtn}
@@ -125,7 +139,7 @@ export function FloatingNav({ navigation, auth, favorites, currentScreen }: Prop
       </View>
 
       {/* Bottom-left: service button */}
-      <View style={[styles.floatingBtnLeft, { bottom: insets.bottom + 12 }]}>
+      <View style={[styles.floatingBtnLeft, { bottom: insets.bottom + 12 + miniPlayerOffset }]}>
         {auth.loading ? (
           <ActivityIndicator size="small" color={Colors.gold} />
         ) : auth.service ? (
@@ -144,7 +158,7 @@ export function FloatingNav({ navigation, auth, favorites, currentScreen }: Prop
       {/* Bottom-right: saved discoveries */}
       {isConnected && favorites.length > 0 && (
         <TouchableOpacity
-          style={[styles.floatingBtnRight, { bottom: insets.bottom + 12 }]}
+          style={[styles.floatingBtnRight, { bottom: insets.bottom + 12 + miniPlayerOffset }]}
           onPress={() => navigation.navigate('Saved')}
           activeOpacity={0.7}
         >
@@ -170,6 +184,10 @@ const styles = StyleSheet.create({
     position: 'absolute', right: 20,
     flexDirection: 'row', gap: 10,
     zIndex: 20,
+  },
+  shareBtn: {
+    borderWidth: 1, borderColor: Colors.blueBorder,
+    borderRadius: 20, backgroundColor: Colors.blueBg, padding: 7,
   },
   dnaBtn: {
     borderWidth: 1, borderColor: Colors.purpleBorder,

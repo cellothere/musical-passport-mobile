@@ -1,16 +1,17 @@
 import React from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Linking,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Linking, ActivityIndicator,
 } from 'react-native';
 
-const HEART_ICON = require('../assets/favorite-music-heart-icon-png.png');
-import { SafeAreaView } from 'react-native-safe-area-context';
+import HEART_ICON from '../assets/favorite-music-heart-icon-png.png';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { FLAGS } from '../constants/flags';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 import type { AuthState } from '../hooks/useAuth';
 import { FloatingNav } from '../components/FloatingNav';
+import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 
 interface FavoritesHook {
   favorites: SavedDiscovery[];
@@ -23,15 +24,15 @@ interface Props {
   auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
 }
 
-function formatDate(ts: number) {
-  const d = new Date(ts);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
 function TrackCard({ item, onRemove }: { item: SavedDiscovery; onRemove: () => void }) {
   const track = (item.data as any).track ?? {};
   const genre = (item.data as any).genre ?? '';
   const country = item.country;
+  const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
+
+  const trackId = track.spotifyId || track.appleId || track.previewUrl || track.title;
+  const isThisTrack = currentTrackId === trackId;
+  const canPlay = !!track.previewUrl;
 
   const openUrl = track.spotifyUrl
     ?? (track.spotifyId ? `https://open.spotify.com/track/${track.spotifyId}` : null)
@@ -51,10 +52,26 @@ function TrackCard({ item, onRemove }: { item: SavedDiscovery; onRemove: () => v
               </View>
             ) : null}
             <Text style={styles.countryText}>{FLAGS[country] ?? '🌐'} {country}</Text>
-            <Text style={styles.dateText}>{formatDate(item.savedAt)}</Text>
           </View>
         </View>
         <View style={styles.cardActions}>
+          {canPlay && (
+            <TouchableOpacity
+              style={[styles.playBtn, isThisTrack && styles.playBtnActive]}
+              onPress={() => play(trackId, track.previewUrl, track.title, track.artist)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              {isThisTrack && isLoading ? (
+                <ActivityIndicator size="small" color={Colors.gold} />
+              ) : (
+                <Ionicons
+                  name={isThisTrack && isPlaying ? 'pause' : 'play'}
+                  size={18}
+                  color={isThisTrack ? Colors.gold : Colors.text2}
+                />
+              )}
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.openBtn}
             onPress={() => Linking.openURL(openUrl)}
@@ -77,6 +94,9 @@ function TrackCard({ item, onRemove }: { item: SavedDiscovery; onRemove: () => v
 
 export function SavedScreen({ navigation, favoritesHook, auth }: Props) {
   const tracks = favoritesHook.favorites.filter(f => f.type === 'track');
+  const insets = useSafeAreaInsets();
+  const { currentTrackTitle } = useAudioPlayer();
+  const contentBottomPad = insets.bottom + 76 + (currentTrackTitle ? 72 : 0);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -112,7 +132,7 @@ export function SavedScreen({ navigation, favoritesHook, auth }: Props) {
               onRemove={() => favoritesHook.remove(item.id)}
             />
           ))}
-          <View style={{ height: 48 }} />
+          <View style={{ height: contentBottomPad }} />
         </ScrollView>
       )}
       <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} />
@@ -163,8 +183,13 @@ const styles = StyleSheet.create({
   },
   genreBadgeText: { color: Colors.purple, fontSize: 11, fontWeight: '600' },
   countryText: { color: Colors.text3, fontSize: 11 },
-  dateText: { color: Colors.text3, fontSize: 11 },
   cardActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  playBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.border2,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  playBtnActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
   openBtn: {
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: Colors.blueBg, borderWidth: 1, borderColor: Colors.blueBorder,

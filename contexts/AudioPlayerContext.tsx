@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useRef, useCallback } from 'react';
-import { useAudioPlayer as useExpoAudioPlayer, AudioPlayer, setAudioModeAsync } from 'expo-audio';
+import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
+import { useAudioPlayer as useExpoAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 
 interface AudioPlayerState {
   currentTrackId: string | null;
@@ -31,6 +31,19 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   // expo-audio hook — source is replaced dynamically when a track is played
   const player = useExpoAudioPlayer(undefined);
+  const playerStatus = useAudioPlayerStatus(player);
+
+  // Detect natural end of track — reset to start and show play button
+  useEffect(() => {
+    if (!currentIdRef.current) return;
+    if (!playerStatus.playing) {
+      setState(s => {
+        if (!s.isPlaying) return s; // already paused by user, no-op
+        player.seekTo(0);
+        return { ...s, isPlaying: false };
+      });
+    }
+  }, [playerStatus.playing]);
 
   const stop = useCallback(() => {
     player.pause();

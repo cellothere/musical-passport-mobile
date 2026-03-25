@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  ActivityIndicator, Linking,
+  ActivityIndicator, Linking, Share,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { fetchGenreSpotlight, Track } from '../services/api';
@@ -35,11 +35,23 @@ interface Props {
 
 export function GenreSpotlightScreen({ navigation, route, service, accessToken, favoritesHook, auth }: Props) {
   const { genre, country } = route.params;
+  const insets = useSafeAreaInsets();
+  const { currentTrackTitle } = useAudioPlayer();
+  const contentBottomPad = insets.bottom + 76 + (currentTrackTitle ? 72 : 0);
   const [loading, setLoading] = useState(true);
   const [explanation, setExplanation] = useState('');
   const [tracks, setTracks] = useState<Track[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
+
+  const shareGenre = async () => {
+    haptics.light();
+    const deepLink = `musical-passport://genre/${encodeURIComponent(genre)}?country=${encodeURIComponent(country)}`;
+    await Share.share({
+      title: `${genre} – ${country}`,
+      message: `Check out this genre I discovered on Musical Passport! \n\n🎵${genre} from ${country} \n\n${deepLink}`,
+    });
+  };
 
   useEffect(() => {
     fetchGenreSpotlight(genre, country, resolveService(service), accessToken || undefined)
@@ -97,10 +109,10 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
             />
           ))}
 
-          <View style={styles.bottomPad} />
+          <View style={{ height: contentBottomPad }} />
         </ScrollView>
       )}
-      <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} />
+      <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} onShare={!loading && !error ? shareGenre : undefined} />
       <ServiceModal visible={serviceModalVisible} onClose={() => setServiceModalVisible(false)} auth={auth} />
     </SafeAreaView>
   );
@@ -198,6 +210,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4 },
   headerMid: { flex: 1 },
+  shareBtn: { padding: 4 },
   heartBtn: { padding: 4 },
   headerGenre: { color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
   headerCountry: { color: Colors.text3, fontSize: 13, marginTop: 2 },

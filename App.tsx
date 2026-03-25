@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -21,6 +21,7 @@ import { MiniPlayer } from './components/MiniPlayer';
 import { SplashAnimation } from './components/SplashAnimation';
 import { useNotifications } from './hooks/useNotifications';
 import * as Notifications from 'expo-notifications';
+import * as Linking from 'expo-linking';
 import { navigationRef } from './utils/navigationRef';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -41,6 +42,36 @@ function AppNavigator() {
     });
     return () => sub.remove();
   }, []);
+
+  const pendingUrl = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Handle deep link when app is already open
+    const sub = Linking.addEventListener('url', ({ url }) => handleDeepLink(url));
+    // Store cold-start URL — navigate once nav is ready (see onReady below)
+    Linking.getInitialURL().then(url => { if (url) pendingUrl.current = url; });
+    return () => sub.remove();
+  }, []);
+
+  function handleDeepLink(url: string) {
+    const parsed = Linking.parse(url);
+    const path = decodeURIComponent((parsed.path ?? '').replace(/^\//, ''));
+
+    // musical-passport://country/Brazil → hostname='country', path='Brazil'
+    if (parsed.hostname === 'country') {
+      if (!path) return;
+      const artist = parsed.queryParams?.artist as string | undefined;
+      const track = parsed.queryParams?.track as string | undefined;
+      navigationRef.navigate('Recommendations', { country: path, highlightArtist: artist, highlightTrack: track });
+    }
+
+    // musical-passport://genre/Bossa%20Nova?country=Brazil → hostname='genre', path='Bossa Nova'
+    if (parsed.hostname === 'genre') {
+      if (!path) return;
+      const country = decodeURIComponent((parsed.queryParams?.country as string) ?? '');
+      navigationRef.navigate('GenreSpotlight', { genre: path, country });
+    }
+  }
   const spotifyToken = auth.service === 'spotify' ? auth.accessToken : null;
   const stampsHook = useStamps(spotifyToken, auth.syncData?.stamps ?? []);
   const favoritesHook = useFavorites(spotifyToken, auth.syncData?.favorites ?? []);
@@ -48,6 +79,7 @@ function AppNavigator() {
   return (
     <NavigationContainer
       ref={navigationRef}
+      onReady={() => { if (pendingUrl.current) { handleDeepLink(pendingUrl.current); pendingUrl.current = null; } }}
       theme={{
         dark: true,
         colors: {

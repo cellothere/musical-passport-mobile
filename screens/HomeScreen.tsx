@@ -16,7 +16,8 @@ import type { SavedDiscovery } from '../hooks/useFavorites';
 const FLAG_IMAGES: Record<string, any> = {
   'Republic of South Vietnam': require('../assets/SouthVietnam.png'),
   'Quebec': require('../assets/QuebecFlag.png'),
-  'East Germany': require('../assets/EastGermany.png')
+  'East Germany': require('../assets/EastGermany.png'),
+  'Zaire': require('../assets/ZaireFlag.png')
 };
 
 const ALL_COUNTRIES = getAllCountries();

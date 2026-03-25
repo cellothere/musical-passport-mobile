@@ -153,7 +153,7 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
         </View>
         <TouchableOpacity
           onPress={() => Share.share({
-            message: `${todayEntry.flag} Today's Musical Passport destination is ${todayEntry.country}!\n\nExplore music from around the world 🌍`,
+            message: `${todayEntry.flag} Today's Musical Passport destination is ${todayEntry.country}!\n\nExplore it 👉 musical-passport://country/${encodeURIComponent(todayEntry.country)}`,
           })}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
