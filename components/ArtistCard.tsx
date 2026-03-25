@@ -5,6 +5,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { fetchArtistTracks, Track } from '../services/api';
+import { resolveService } from '../utils/defaultService';
 import type { Artist } from '../services/api';
 import type { AuthService } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
@@ -46,7 +47,7 @@ export function ArtistCard({ artist, service, accessToken, showSimilarTo = true,
     if (tracks.length > 0 || error) { setExpanded(true); return; }
     setLoading(true);
     try {
-      const data = await fetchArtistTracks(artist.name, service || 'spotify', accessToken || undefined);
+      const data = await fetchArtistTracks(artist.name, resolveService(service), accessToken || undefined);
       setTracks(data.tracks);
       setExpanded(true);
       setError(null);

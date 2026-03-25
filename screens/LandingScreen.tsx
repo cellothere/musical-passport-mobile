@@ -6,11 +6,27 @@ import { Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
+import { FLAGS } from '../constants/flags';
 import { getAllCountries, MUSIC_REGIONS } from '../constants/regions';
 import { haptics } from '../utils/haptics';
 import { ServiceModal } from '../components/ServiceModal';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
+
+// Curated list for Country of the Day — one per day, cycles through
+const DAILY_COUNTRIES = [
+  'Brazil', 'Japan', 'Nigeria', 'Cuba', 'Ethiopia', 'Colombia', 'Jamaica',
+  'Iran', 'Mali', 'South Korea', 'Portugal', 'Iceland', 'Greece', 'Algeria',
+  'India', 'Senegal', 'Vietnam', 'Argentina', 'Ghana', 'Turkey', 'Lebanon',
+  'Morocco', 'Peru', 'Georgia', 'Mongolia', 'Cambodia', 'Cape Verde', 'Cuba',
+  'Trinidad & Tobago', 'Armenia', 'Azerbaijan', 'Laos', 'Papua New Guinea',
+];
+
+function getTodaysCountry(): { country: string; flag: string } {
+  const day = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+  const country = DAILY_COUNTRIES[day % DAILY_COUNTRIES.length];
+  return { country, flag: FLAGS[country] ?? '🌐' };
+}
 
 interface Props {
   navigation: any;
@@ -24,6 +40,7 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
   const { favorites } = favoritesHook;
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const isConnected = auth.service === 'spotify' || auth.service === 'apple-music';
+  const todayEntry = useRef(getTodaysCountry()).current;
 
   const prevService = useRef(auth.service);
   useEffect(() => {
@@ -85,16 +102,14 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
             <Ionicons name="analytics-outline" size={36} color={Colors.purple} />
           </TouchableOpacity>
         )}
-        {isConnected && (
-          <TouchableOpacity
-            style={styles.searchBtn}
-            onPress={() => { haptics.light(); navigation.navigate('ArtistSearch'); }}
-            activeOpacity={0.7}
-            hitSlop={{ top: 16, bottom: 12, left: 12, right: 12 }}
-          >
-            <Ionicons name="search" size={36} color={Colors.green} />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={styles.searchBtn}
+          onPress={() => { haptics.light(); navigation.navigate('ArtistSearch'); }}
+          activeOpacity={0.7}
+          hitSlop={{ top: 16, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="search" size={36} color={Colors.green} />
+        </TouchableOpacity>
       </View>
 
       {/* Globe */}
@@ -116,6 +131,19 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
         </View>
       </View>
 
+      {/* Country of the Day */}
+      <TouchableOpacity
+        style={styles.dailyCard}
+        onPress={() => { haptics.light(); navigation.navigate('Recommendations', { country: todayEntry.country }); }}
+        activeOpacity={0.8}
+      >
+        <View style={styles.dailyCardLeft}>
+          <Text style={styles.dailyLabel}>Country of the Day</Text>
+          <Text style={styles.dailyCountry}>{todayEntry.flag}  {todayEntry.country}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={Colors.gold} />
+      </TouchableOpacity>
+
       {/* Bottom-left: service button */}
       <View style={styles.floatingBtnLeft}>
         {auth.loading ? (
@@ -134,7 +162,7 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
       </View>
 
       {/* Bottom-right: saved discoveries */}
-      {isConnected && favorites.length > 0 && (
+      {favorites.length > 0 && (
         <TouchableOpacity
           style={styles.floatingBtnRight}
           onPress={() => navigation.navigate('Saved')}
@@ -211,6 +239,25 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   surpriseBtnText: { color: Colors.bg, fontSize: 15, fontWeight: '800', letterSpacing: -0.2 },
+
+  dailyCard: {
+    position: 'absolute',
+    bottom: 108,
+    left: 20, right: 20,
+    backgroundColor: Colors.surface,
+    borderWidth: 1, borderColor: Colors.goldBorder,
+    borderRadius: 16,
+    paddingHorizontal: 18, paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center',
+  },
+  dailyCardLeft: { flex: 1 },
+  dailyLabel: {
+    color: Colors.gold, fontSize: 10, fontWeight: '700',
+    letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4,
+  },
+  dailyCountry: {
+    color: Colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.3,
+  },
 
   floatingBtnLeft: {
     position: 'absolute', bottom: 32, left: 24,

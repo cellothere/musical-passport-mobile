@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { fetchGenreSpotlight, Track } from '../services/api';
+import { resolveService } from '../utils/defaultService';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import type { AuthService, AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
@@ -41,7 +42,7 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
 
   useEffect(() => {
-    fetchGenreSpotlight(genre, country, service || 'spotify', accessToken || undefined)
+    fetchGenreSpotlight(genre, country, resolveService(service), accessToken || undefined)
       .then(data => {
         setExplanation(data.explanation);
         setTracks(data.tracks);
@@ -93,8 +94,6 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
               genre={genre}
               country={country}
               favoritesHook={favoritesHook}
-              auth={auth}
-              onNeedAuth={() => setServiceModalVisible(true)}
             />
           ))}
 
@@ -107,14 +106,12 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
   );
 }
 
-function SpotlightTrack({ track, index, genre, country, favoritesHook, auth, onNeedAuth }: {
+function SpotlightTrack({ track, index, genre, country, favoritesHook }: {
   track: Track;
   index: number;
   genre: string;
   country: string;
   favoritesHook: FavoritesHook;
-  auth: Props['auth'];
-  onNeedAuth: () => void;
 }) {
   const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
   const trackId = track.spotifyId || track.appleId || `${track.title}-${track.artist ?? ''}`;
@@ -133,10 +130,6 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, auth, onN
 
   const isSaved = favoritesHook.isTrackSaved(trackId);
   const toggleSave = async () => {
-    if (!auth.service) {
-      onNeedAuth();
-      return;
-    }
     if (isSaved) {
       const entry = favoritesHook.findSavedTrack(trackId);
       if (entry) await favoritesHook.remove(entry.id);

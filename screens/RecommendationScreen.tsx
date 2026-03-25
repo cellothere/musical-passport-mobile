@@ -14,6 +14,7 @@ import {
   fetchRecommendations, fetchTimeMachine,
   RecommendationResponse, TimeMachineResponse, Track,
 } from '../services/api';
+import { resolveService } from '../utils/defaultService';
 import { ArtistCard } from '../components/ArtistCard';
 import { GlobeOverlay } from '../components/GlobeOverlay';
 import { FloatingNav } from '../components/FloatingNav';
@@ -210,7 +211,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
     pendingError.current = null;
 
     const promise = d
-      ? fetchTimeMachine(c, d, auth.service || 'spotify', auth.accessToken || undefined)
+      ? fetchTimeMachine(c, d, resolveService(auth.service), auth.accessToken || undefined)
       : fetchRecommendations(c, auth.accessToken || undefined);
 
     pendingFetch.current = promise
@@ -312,7 +313,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
               index={i + 1}
               favoritesHook={favoritesHook}
               country={country}
-              onNeedAuth={!auth.service ? () => setServiceModalVisible(true) : undefined}
+              onNeedAuth={undefined}
             />
           ))}
           <View style={styles.bottomPad} />
@@ -358,7 +359,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
               accessToken={auth.accessToken}
               favoritesHook={favoritesHook}
               country={country}
-              onNeedAuth={!auth.service ? () => setServiceModalVisible(true) : undefined}
+              onNeedAuth={undefined}
             />
           ))}
           {recs.didYouKnow && selectedDecade && (

@@ -218,7 +218,7 @@ export function ArtistSearchScreen({ navigation, service, accessToken, favorites
                 showSimilarTo={false}
                 favoritesHook={favoritesHook}
                 country={match.country}
-                onNeedAuth={!auth.service ? () => setServiceModalVisible(true) : undefined}
+                onNeedAuth={undefined}
               />
             </View>
           ))}

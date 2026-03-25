@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LandingScreen } from './screens/LandingScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { RecommendationScreen } from './screens/RecommendationScreen';
@@ -16,40 +16,14 @@ import { Colors } from './constants/colors';
 import { useAuth } from './hooks/useAuth';
 import { useStamps } from './hooks/useStamps';
 import { useFavorites } from './hooks/useFavorites';
-import { AudioPlayerProvider, useAudioPlayer } from './contexts/AudioPlayerContext';
+import { AudioPlayerProvider } from './contexts/AudioPlayerContext';
+import { MiniPlayer } from './components/MiniPlayer';
 import { SplashAnimation } from './components/SplashAnimation';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const Stack = createStackNavigator();
 
-function MiniPlayer() {
-  const { currentTrackTitle, currentTrackArtist, isPlaying, isLoading, togglePlay, stop } = useAudioPlayer();
-  const insets = useSafeAreaInsets();
-
-  if (!currentTrackTitle) return null;
-
-  return (
-    <View style={[styles.miniPlayer, { paddingBottom: insets.bottom + 8 }]}>
-      <View style={styles.miniPlayerInfo}>
-        <Text style={styles.miniPlayerTitle} numberOfLines={1}>{currentTrackTitle}</Text>
-        {currentTrackArtist && (
-          <Text style={styles.miniPlayerArtist} numberOfLines={1}>{currentTrackArtist}</Text>
-        )}
-      </View>
-      {isLoading ? (
-        <ActivityIndicator size="small" color={Colors.gold} style={styles.miniPlayerBtn} />
-      ) : (
-        <TouchableOpacity onPress={togglePlay} style={styles.miniPlayerBtn}>
-          <Text style={styles.miniPlayerBtnText}>{isPlaying ? '⏸' : '▶'}</Text>
-        </TouchableOpacity>
-      )}
-      <TouchableOpacity onPress={stop} style={styles.miniPlayerBtn}>
-        <Text style={styles.miniPlayerBtnText}>✕</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
 
 function AppNavigator() {
   const auth = useAuth();
@@ -147,33 +121,4 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
-  miniPlayer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface2,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border2,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    gap: 10,
-  },
-  miniPlayerInfo: { flex: 1 },
-  miniPlayerTitle: { color: Colors.text, fontSize: 14, fontWeight: '600' },
-  miniPlayerArtist: { color: Colors.text2, fontSize: 12, marginTop: 2 },
-  miniPlayerBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  miniPlayerBtnText: { color: Colors.gold, fontSize: 14 },
-});
+const styles = StyleSheet.create({});
