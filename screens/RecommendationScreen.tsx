@@ -34,12 +34,10 @@ interface StampsHook {
 }
 
 interface FavoritesHook {
-  isSaved: (country: string, type: SavedDiscovery['type'], decade?: string) => boolean;
+  isTrackSaved: (trackId: string) => boolean;
+  findSavedTrack: (trackId: string) => SavedDiscovery | undefined;
   save: (item: Omit<SavedDiscovery, 'id' | 'savedAt'>) => Promise<void>;
   remove: (id: string) => Promise<void>;
-  findSaved: (country: string, type: SavedDiscovery['type'], decade?: string) => SavedDiscovery | undefined;
-  isArtistSaved: (name: string) => boolean;
-  findSavedArtist: (name: string) => SavedDiscovery | undefined;
   favorites: SavedDiscovery[];
 }
 
@@ -102,10 +100,27 @@ function DecadePickerModal({ visible, selected, onClose, onSelect }: {
 }
 
 // ── Track row (for time-machine mode) ─────────────────────
-function TrackRow({ track, index }: { track: Track; index: number }) {
+function TrackRow({ track, index, favoritesHook, country, onNeedAuth }: {
+  track: Track;
+  index: number;
+  favoritesHook?: FavoritesHook;
+  country?: string;
+  onNeedAuth?: () => void;
+}) {
   const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
   const trackId = track.spotifyId || track.appleId || track.previewUrl || `${track.title}-${index}`;
   const isThisTrack = currentTrackId === trackId;
+  const isSaved = favoritesHook?.isTrackSaved(trackId) ?? false;
+  const toggleSave = async () => {
+    if (onNeedAuth) { onNeedAuth(); return; }
+    if (!favoritesHook) return;
+    if (isSaved) {
+      const entry = favoritesHook.findSavedTrack(trackId);
+      if (entry) await favoritesHook.remove(entry.id);
+    } else {
+      await favoritesHook.save({ type: 'track', country: country ?? '', data: { trackId, track, genre: '', country: country ?? '' } });
+    }
+  };
 
   const openUrl = track.spotifyUrl
     ?? (track.spotifyId ? `https://open.spotify.com/track/${track.spotifyId}` : null)
@@ -143,6 +158,11 @@ function TrackRow({ track, index }: { track: Track; index: number }) {
               ? <ActivityIndicator size="small" color={Colors.gold} />
               : <Ionicons name={isThisTrack && isPlaying ? 'pause' : 'play'} size={18} color={isThisTrack ? Colors.gold : Colors.text2} />
             }
+          </TouchableOpacity>
+        )}
+        {favoritesHook && (
+          <TouchableOpacity style={[styles.heartBtn, isSaved && styles.heartBtnActive]} onPress={toggleSave}>
+            <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
           </TouchableOpacity>
         )}
         <TouchableOpacity style={styles.openBtn} onPress={() => Linking.openURL(openUrl)}>
@@ -237,19 +257,6 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
   const isStamped = stamps.has(country);
   const flag = FLAGS[country] ?? '🌐';
 
-  const isArtistSaved = (artistName: string) => favoritesHook.isArtistSaved(artistName);
-  const toggleArtistSave = async (artist: import('../services/api').Artist) => {
-    if (!auth.service) {
-      setServiceModalVisible(true);
-      return;
-    }
-    if (favoritesHook.isArtistSaved(artist.name)) {
-      const entry = favoritesHook.findSavedArtist(artist.name);
-      if (entry) await favoritesHook.remove(entry.id);
-    } else {
-      await favoritesHook.save({ type: 'artist', country, data: { name: artist.name, artist, country } });
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -299,7 +306,14 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
           </View>
           <Text style={styles.tracksHeading}>Essential tracks</Text>
           {tmData.tracks.map((track, i) => (
-            <TrackRow key={i} track={track} index={i + 1} />
+            <TrackRow
+              key={i}
+              track={track}
+              index={i + 1}
+              favoritesHook={favoritesHook}
+              country={country}
+              onNeedAuth={!auth.service ? () => setServiceModalVisible(true) : undefined}
+            />
           ))}
           <View style={styles.bottomPad} />
         </ScrollView>
@@ -342,8 +356,9 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
               artist={artist}
               service={auth.service}
               accessToken={auth.accessToken}
-              isSaved={isArtistSaved(artist.name)}
-              onToggleSave={() => toggleArtistSave(artist)}
+              favoritesHook={favoritesHook}
+              country={country}
+              onNeedAuth={!auth.service ? () => setServiceModalVisible(true) : undefined}
             />
           ))}
           {recs.didYouKnow && selectedDecade && (
@@ -419,7 +434,6 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4 },
   backIcon: { color: Colors.blue, fontSize: 32, lineHeight: 32, fontWeight: '300' },
-  heartBtn: { padding: 4 },
   headerMid: { flex: 1 },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   countryFlag: { fontSize: 26 },
@@ -490,6 +504,14 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   playBtnActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
+  heartBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(240,101,101,0.08)', borderWidth: 1, borderColor: 'rgba(240,101,101,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  heartBtnActive: {
+    backgroundColor: 'rgba(240,101,101,0.18)', borderColor: 'rgba(240,101,101,0.4)',
+  },
   openBtn: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: Colors.blueBg, borderWidth: 1, borderColor: Colors.blueBorder,

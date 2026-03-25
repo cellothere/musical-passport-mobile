@@ -7,16 +7,25 @@ import { Colors } from '../constants/colors';
 import { fetchArtistTracks, Track } from '../services/api';
 import type { Artist } from '../services/api';
 import type { AuthService } from '../hooks/useAuth';
+import type { SavedDiscovery } from '../hooks/useFavorites';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import * as WebBrowser from 'expo-web-browser';
+
+interface TrackFavoritesHook {
+  isTrackSaved: (trackId: string) => boolean;
+  findSavedTrack: (trackId: string) => SavedDiscovery | undefined;
+  save: (item: Omit<SavedDiscovery, 'id' | 'savedAt'>) => Promise<void>;
+  remove: (id: string) => Promise<void>;
+}
 
 interface Props {
   artist: Artist;
   service: AuthService;
   accessToken: string | null;
   showSimilarTo?: boolean;
-  isSaved?: boolean;
-  onToggleSave?: () => void;
+  favoritesHook?: TrackFavoritesHook;
+  country?: string;
+  onNeedAuth?: () => void;
 }
 
 function eraColors(era: string): { bg: string; border: string; text: string } {
@@ -26,7 +35,7 @@ function eraColors(era: string): { bg: string; border: string; text: string } {
   return { bg: Colors.purpleBg, border: Colors.purpleBorder, text: Colors.purple };
 }
 
-export function ArtistCard({ artist, service, accessToken, showSimilarTo = true, isSaved, onToggleSave }: Props) {
+export function ArtistCard({ artist, service, accessToken, showSimilarTo = true, favoritesHook, country, onNeedAuth }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -65,14 +74,6 @@ export function ArtistCard({ artist, service, accessToken, showSimilarTo = true,
             <View style={[styles.eraBadge, { backgroundColor: era.bg, borderColor: era.border }]}>
               <Text style={[styles.eraText, { color: era.text }]}>{artist.era}</Text>
             </View>
-            {onToggleSave && (
-              <TouchableOpacity
-                onPress={onToggleSave}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={20} color={isSaved ? Colors.red : Colors.text3} />
-              </TouchableOpacity>
-            )}
           </View>
           {loading ? (
             <ActivityIndicator size="small" color={Colors.gold} style={styles.spinner} />
@@ -89,7 +90,17 @@ export function ArtistCard({ artist, service, accessToken, showSimilarTo = true,
           ) : tracks.length === 0 ? (
             <Text style={styles.noTracks}>No tracks found</Text>
           ) : (
-            tracks.map((track, i) => <TrackRow key={i} index={i + 1} track={track} />)
+            tracks.map((track, i) => (
+              <TrackRow
+                key={i}
+                index={i + 1}
+                track={track}
+                favoritesHook={favoritesHook}
+                country={country}
+                onNeedAuth={onNeedAuth}
+                artistGenre={artist.genre}
+              />
+            ))
           )}
         </View>
       )}
@@ -97,9 +108,27 @@ export function ArtistCard({ artist, service, accessToken, showSimilarTo = true,
   );
 }
 
-function TrackRow({ track, index }: { track: Track; index: number }) {
+function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenre }: {
+  track: Track;
+  index: number;
+  favoritesHook?: TrackFavoritesHook;
+  country?: string;
+  onNeedAuth?: () => void;
+  artistGenre?: string;
+}) {
   const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
   const trackId = track.spotifyId || track.appleId || track.previewUrl || `${track.title}-${index}`;
+  const isSaved = favoritesHook?.isTrackSaved(trackId) ?? false;
+  const toggleSave = async () => {
+    if (onNeedAuth) { onNeedAuth(); return; }
+    if (!favoritesHook) return;
+    if (isSaved) {
+      const entry = favoritesHook.findSavedTrack(trackId);
+      if (entry) await favoritesHook.remove(entry.id);
+    } else {
+      await favoritesHook.save({ type: 'track', country: country ?? '', data: { trackId, track, genre: artistGenre ?? '', country: country ?? '' } });
+    }
+  };
   const isThisTrack = currentTrackId === trackId;
 
   const openUrl = track.spotifyUrl
@@ -147,6 +176,11 @@ function TrackRow({ track, index }: { track: Track; index: number }) {
                 {isThisTrack && isPlaying ? '⏸' : '▶'}
               </Text>
             )}
+          </TouchableOpacity>
+        )}
+        {favoritesHook && (
+          <TouchableOpacity style={[styles.heartBtn, isSaved && styles.heartBtnActive]} onPress={toggleSave}>
+            <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
           </TouchableOpacity>
         )}
         <TouchableOpacity style={styles.openBtn} onPress={openTrack}>
@@ -245,6 +279,20 @@ const styles = StyleSheet.create({
   },
   playBtnText: { color: Colors.text2, fontSize: 16 },
   playBtnTextActive: { color: Colors.gold },
+  heartBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(240,101,101,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(240,101,101,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heartBtnActive: {
+    backgroundColor: 'rgba(240,101,101,0.18)',
+    borderColor: 'rgba(240,101,101,0.4)',
+  },
   openBtn: {
     width: 44,
     height: 44,

@@ -16,8 +16,6 @@ import { ServiceModal } from '../components/ServiceModal';
 import { haptics } from '../utils/haptics';
 
 interface FavoritesHook {
-  isGenreSaved: (genre: string, country: string) => boolean;
-  findSavedGenre: (genre: string, country: string) => SavedDiscovery | undefined;
   isTrackSaved: (trackId: string) => boolean;
   findSavedTrack: (trackId: string) => SavedDiscovery | undefined;
   save: (item: Omit<SavedDiscovery, 'id' | 'savedAt'>) => Promise<void>;
@@ -53,20 +51,6 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
       .finally(() => setLoading(false));
   }, [genre, country]);
 
-  const isSaved = favoritesHook.isGenreSaved(genre, country);
-  const toggleSave = async () => {
-    if (!auth.service) {
-      setServiceModalVisible(true);
-      return;
-    }
-    if (isSaved) {
-      const entry = favoritesHook.findSavedGenre(genre, country);
-      if (entry) await favoritesHook.remove(entry.id);
-    } else {
-      await favoritesHook.save({ type: 'genre', country, data: { genre, country, explanation, tracks } });
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -81,14 +65,6 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
           <Text style={styles.headerGenre}>{genre}</Text>
           <Text style={styles.headerCountry}>{country}</Text>
         </View>
-        {!loading && !error && (
-          <TouchableOpacity
-            onPress={toggleSave}
-            style={styles.heartBtn}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-          </TouchableOpacity>
-        )}
       </View>
 
       {loading ? (

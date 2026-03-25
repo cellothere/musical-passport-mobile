@@ -18,8 +18,8 @@ import type { AuthService, AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 
 interface FavoritesHook {
-  isArtistSaved: (artistName: string) => boolean;
-  findSavedArtist: (artistName: string) => SavedDiscovery | undefined;
+  isTrackSaved: (trackId: string) => boolean;
+  findSavedTrack: (trackId: string) => SavedDiscovery | undefined;
   save: (item: Omit<SavedDiscovery, 'id' | 'savedAt'>) => Promise<void>;
   remove: (id: string) => Promise<void>;
   favorites: SavedDiscovery[];
@@ -205,38 +205,23 @@ export function ArtistSearchScreen({ navigation, service, accessToken, favorites
             <Text style={styles.sonicSummary}>{sonicSummary}</Text>
           ) : null}
 
-          {matches.map((match, i) => {
-            const isSaved = favoritesHook.isArtistSaved(match.name);
-            const toggleSave = async () => {
-              if (!auth.service) {
-                setServiceModalVisible(true);
-                return;
-              }
-              if (isSaved) {
-                const entry = favoritesHook.findSavedArtist(match.name);
-                if (entry) await favoritesHook.remove(entry.id);
-              } else {
-                await favoritesHook.save({ type: 'artist', country: match.country, decade: match.era, data: match });
-              }
-            };
-            return (
-              <View key={i} style={styles.matchWrapper}>
-                <View style={styles.matchMeta}>
-                  <Text style={styles.matchFlag}>{flagEmoji(match.countryCode)}</Text>
-                  <Text style={styles.matchCountry}>{match.country}</Text>
-                  <TouchableOpacity onPress={toggleSave} style={styles.matchHeart} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
-                  </TouchableOpacity>
-                </View>
-                <ArtistCard
-                  artist={matchToArtist(match)}
-                  service={service}
-                  accessToken={accessToken}
-                  showSimilarTo={false}
-                />
+          {matches.map((match, i) => (
+            <View key={i} style={styles.matchWrapper}>
+              <View style={styles.matchMeta}>
+                <Text style={styles.matchFlag}>{flagEmoji(match.countryCode)}</Text>
+                <Text style={styles.matchCountry}>{match.country}</Text>
               </View>
-            );
-          })}
+              <ArtistCard
+                artist={matchToArtist(match)}
+                service={service}
+                accessToken={accessToken}
+                showSimilarTo={false}
+                favoritesHook={favoritesHook}
+                country={match.country}
+                onNeedAuth={!auth.service ? () => setServiceModalVisible(true) : undefined}
+              />
+            </View>
+          ))}
           <View style={styles.bottomPad} />
         </ScrollView>
       )}
@@ -403,14 +388,6 @@ const styles = StyleSheet.create({
   },
   matchFlag: { fontSize: 20 },
   matchCountry: { flex: 1, color: Colors.text3, fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6 },
-  matchHeart: { padding: 4 },
-  matchReason: {
-    color: Colors.text2,
-    fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 8,
-    paddingHorizontal: 2,
-  },
 
   bottomPad: { height: 48 },
 });

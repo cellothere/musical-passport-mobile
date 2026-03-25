@@ -1,17 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetchFavorites, apiSaveFavorite, apiRemoveFavorite } from '../services/api';
-import type { RecommendationResponse, TimeMachineResponse } from '../services/api';
 
 const LOCAL_KEY = '@musical_passport_favorites';
 
 export interface SavedDiscovery {
   id: string;
-  type: 'recommendation' | 'timemachine' | 'artist' | 'genre' | 'track';
+  type: 'track';
   country: string;
   decade?: string;
   savedAt: number;
-  data: RecommendationResponse | TimeMachineResponse | Record<string, any>;
+  data: Record<string, any>;
 }
 
 export function useFavorites(accessToken: string | null = null, initialFavorites: SavedDiscovery[] = []) {
@@ -67,30 +66,6 @@ export function useFavorites(accessToken: string | null = null, initialFavorites
     setFavorites(prev => prev.filter(f => f.id !== id));
   }, [accessToken]);
 
-  const isSaved = useCallback((country: string, type: SavedDiscovery['type'], decade?: string) =>
-    favorites.some(f => f.country === country && f.type === type && (!decade || f.decade === decade)),
-    [favorites]);
-
-  const findSaved = useCallback((country: string, type: SavedDiscovery['type'], decade?: string) =>
-    favorites.find(f => f.country === country && f.type === type && (!decade || f.decade === decade)),
-    [favorites]);
-
-  const isArtistSaved = useCallback((artistName: string) =>
-    favorites.some(f => f.type === 'artist' && (f.data as any)?.name === artistName),
-    [favorites]);
-
-  const findSavedArtist = useCallback((artistName: string) =>
-    favorites.find(f => f.type === 'artist' && (f.data as any)?.name === artistName),
-    [favorites]);
-
-  const isGenreSaved = useCallback((genre: string, country: string) =>
-    favorites.some(f => f.type === 'genre' && f.country === country && (f.data as any)?.genre === genre),
-    [favorites]);
-
-  const findSavedGenre = useCallback((genre: string, country: string) =>
-    favorites.find(f => f.type === 'genre' && f.country === country && (f.data as any)?.genre === genre),
-    [favorites]);
-
   const isTrackSaved = useCallback((trackId: string) =>
     favorites.some(f => f.type === 'track' && (f.data as any)?.trackId === trackId),
     [favorites]);
@@ -99,5 +74,5 @@ export function useFavorites(accessToken: string | null = null, initialFavorites
     favorites.find(f => f.type === 'track' && (f.data as any)?.trackId === trackId),
     [favorites]);
 
-  return { favorites, save, remove, isSaved, findSaved, isArtistSaved, findSavedArtist, isGenreSaved, findSavedGenre, isTrackSaved, findSavedTrack };
+  return { favorites, save, remove, isTrackSaved, findSavedTrack };
 }
