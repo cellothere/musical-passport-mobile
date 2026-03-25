@@ -160,13 +160,9 @@ export interface InsightsBlindSpot {
   region: string;
   percentage: number;
   gatewayCountry: string;
-  teaser: string;
 }
 
 export interface InsightsResponse {
-  archetype: string;
-  archetypeDescription: string;
-  summary: string;
   picks: InsightsPick[];
   dna: InsightsDNA[];
   topEras: Array<{ decade: string; percentage: number }>;
@@ -212,12 +208,9 @@ export interface ArtistMatch {
   countryCode: string;
   genre: string;
   era: string;
-  description: string;
-  similarityReason: string;
 }
 
 export interface SimilarArtistsResponse {
-  baseArtist: string;
   sonicSummary: string;
   artists: ArtistMatch[];
 }
