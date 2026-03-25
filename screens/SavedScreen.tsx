@@ -3,7 +3,8 @@ import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Linking, ActivityIndicator,
 } from 'react-native';
 
-import HEART_ICON from '../assets/favorite-music-heart-icon-png.png';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const HEART_ICON = require('../assets/favorite-music-heart-icon-png.png');
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';

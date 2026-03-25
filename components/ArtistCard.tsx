@@ -31,6 +31,7 @@ interface Props {
   onNeedAuth?: () => void;
   autoExpand?: boolean;
   highlightTrack?: string;
+  onSearchSimilar?: (name: string) => void;
 }
 
 function eraColors(era: string): { bg: string; border: string; text: string } {
@@ -40,7 +41,7 @@ function eraColors(era: string): { bg: string; border: string; text: string } {
   return { bg: Colors.purpleBg, border: Colors.purpleBorder, text: Colors.purple };
 }
 
-export function ArtistCard({ artist, service, accessToken, showSimilarTo = true, favoritesHook, country, onNeedAuth, autoExpand, highlightTrack }: Props) {
+export function ArtistCard({ artist, service, accessToken, showSimilarTo = true, favoritesHook, country, onNeedAuth, autoExpand, highlightTrack, onSearchSimilar }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -75,7 +76,21 @@ export function ArtistCard({ artist, service, accessToken, showSimilarTo = true,
         <View style={styles.cardLeft}>
           <Text style={styles.artistName}>{artist.name}</Text>
           <Text style={styles.artistGenre}>{artist.genre}</Text>
-          {showSimilarTo && artist.similarTo ? <Text style={styles.similarTo}>Because you like {artist.similarTo}</Text> : null}
+          {showSimilarTo && artist.similarTo ? (
+            onSearchSimilar ? (
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation(); onSearchSimilar(artist.similarTo!); }}
+                activeOpacity={0.7}
+                hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+              >
+                <Text style={[styles.similarTo, styles.similarToTappable]}>
+                  Because you like {artist.similarTo} →
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.similarTo}>Because you like {artist.similarTo}</Text>
+            )
+          ) : null}
         </View>
         
         <View style={styles.cardRight}>
@@ -250,11 +265,8 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
         {track.artist && <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>}
       </View>
       <View style={styles.trackActions}>
-        {canPlay && (
-          <TouchableOpacity
-            style={styles.playBtn}
-            onPress={handlePlay}
-          >
+        {canPlay ? (
+          <TouchableOpacity style={styles.playBtn} onPress={handlePlay}>
             {isThisTrack && isLoading ? (
               <ActivityIndicator size="small" color={Colors.gold} />
             ) : (
@@ -265,6 +277,10 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
               />
             )}
           </TouchableOpacity>
+        ) : (
+          <View style={styles.playBtnDisabled}>
+            <Ionicons name="play" size={20} color={Colors.text3} />
+          </View>
         )}
         {favoritesHook && (
           <TouchableOpacity style={[styles.heartBtn, isSaved && styles.heartBtnActive]} onPress={toggleSave}>
@@ -297,6 +313,7 @@ const styles = StyleSheet.create({
   artistName: { color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.2 },
   artistGenre: { color: Colors.text2, fontSize: 15 },
   similarTo: { color: Colors.text3, fontSize: 14, fontStyle: 'italic' },
+  similarToTappable: { color: Colors.blue, fontStyle: 'italic' },
 
   cardRight: { alignItems: 'flex-end', gap: 10 },
   cardRightTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -360,6 +377,17 @@ const styles = StyleSheet.create({
     borderColor: Colors.goldBorder,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  playBtnDisabled: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.surface2,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.4,
   },
   heartBtn: {
     width: 44,

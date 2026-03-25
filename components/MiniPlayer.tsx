@@ -65,7 +65,8 @@ const eqStyles = StyleSheet.create({
 
 // ── Mini Player ───────────────────────────────────────────
 export function MiniPlayer() {
-  const { currentTrackTitle, currentTrackArtist, isPlaying, isLoading, togglePlay, stop } = useAudioPlayer();
+  const { currentTrackTitle, currentTrackArtist, isPlaying, isLoading, togglePlay, stop, currentTime, duration } = useAudioPlayer();
+  const progress = duration > 0 ? Math.min(currentTime / duration, 1) : 0;
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(100)).current;
   const isVisible = !!currentTrackTitle;
@@ -87,8 +88,10 @@ export function MiniPlayer() {
         { paddingBottom: insets.bottom + 6, transform: [{ translateY: slideAnim }] },
       ]}
     >
-      {/* Gold accent line at top */}
-      <View style={styles.accentLine} />
+      {/* Progress bar */}
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+      </View>
 
       <View style={styles.inner}>
         {/* Left: equalizer + track info */}
@@ -136,10 +139,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
-  accentLine: {
+  progressTrack: {
+    height: 2,
+    backgroundColor: Colors.border2,
+    width: '100%',
+  },
+  progressFill: {
     height: 2,
     backgroundColor: Colors.gold,
-    opacity: 0.7,
   },
   inner: {
     flexDirection: 'row',

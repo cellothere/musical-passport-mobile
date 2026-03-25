@@ -163,7 +163,7 @@ export default function App() {
       <AudioPlayerProvider>
         <AppNavigator />
       </AudioPlayerProvider>
-      {!splashDone && <SplashAnimation onDone={() => setSplashDone(true)} />}
+{!splashDone && <SplashAnimation onDone={() => setSplashDone(true)} />}
     </SafeAreaProvider>
   );
 }

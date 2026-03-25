@@ -80,7 +80,7 @@ export function InsightsScreen({ navigation, auth, updateSyncData, favoritesHook
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.purple} />
+          <ActivityIndicator size="large" color={Colors.gold} />
           <Text style={styles.loadingText}>Analyzing your taste…</Text>
         </View>
       ) : !auth.topArtists.length ? (

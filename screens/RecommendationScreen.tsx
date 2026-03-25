@@ -151,7 +151,7 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth }: {
         {track.artist && <Text style={styles.trackArtist}>{track.artist}</Text>}
       </View>
       <View style={styles.trackActions}>
-        {canPlay && (
+        {canPlay ? (
           <TouchableOpacity
             style={[styles.playBtn, isThisTrack && styles.playBtnActive]}
             onPress={handlePlay}
@@ -161,6 +161,10 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth }: {
               : <Ionicons name={isThisTrack && isPlaying ? 'pause' : 'play'} size={18} color={isThisTrack ? Colors.gold : Colors.text2} />
             }
           </TouchableOpacity>
+        ) : (
+          <View style={[styles.playBtn, styles.playBtnDisabled]}>
+            <Ionicons name="play" size={18} color={Colors.text3} />
+          </View>
         )}
         {favoritesHook && (
           <TouchableOpacity style={[styles.heartBtn, isSaved && styles.heartBtnActive]} onPress={toggleSave}>
@@ -201,10 +205,13 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
   const [loading, setLoading] = useState(!savedData);
   const [error, setError] = useState<string | null>(null);
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
+  const [dykExpanded, setDykExpanded] = useState(false);
 
   const pendingFetch = useRef<Promise<any> | null>(null);
   const pendingResult = useRef<any>(null);
   const pendingError = useRef<string | null>(null);
+  const exploreScrollRef = useRef<any>(null);
+  const highlightedY = useRef<number | null>(null);
 
   const fetchContent = (c: string, d: string) => {
     setLoading(true);
@@ -213,6 +220,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
     setTmData(null);
     pendingResult.current = null;
     pendingError.current = null;
+    setDykExpanded(false);
 
     const promise = d
       ? fetchTimeMachine(c, d, resolveService(auth.service), auth.accessToken || undefined)
@@ -232,6 +240,17 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
   useEffect(() => {
     if (!savedData) fetchContent(country, initialDecade ?? '');
   }, []);
+
+  // Scroll to highlighted artist after expand animation settles
+  useEffect(() => {
+    if (!highlightArtist || !recs) return;
+    const timer = setTimeout(() => {
+      if (highlightedY.current !== null) {
+        exploreScrollRef.current?.scrollTo({ y: Math.max(0, highlightedY.current - 100), animated: true });
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [recs]);
 
   const handleGlobeDone = async () => {
     setGlobeVisible(false);
@@ -333,7 +352,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
         </ScrollView>
       ) : recs ? (
         // ── Explore mode ─────────────────────────────────────
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={exploreScrollRef} style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {recs.genres?.length > 0 && (
             <View style={styles.genresRow}>
               <View style={styles.genres}>
@@ -367,24 +386,40 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
           {(recs.artists || []).map((artist, i) => {
             const isHighlighted = !!highlightArtist && artist.name.toLowerCase() === highlightArtist.toLowerCase();
             return (
-            <ArtistCard
-              key={i}
-              artist={artist}
-              service={auth.service}
-              accessToken={auth.accessToken}
-              favoritesHook={favoritesHook}
-              country={country}
-              onNeedAuth={undefined}
-              autoExpand={isHighlighted}
-              highlightTrack={isHighlighted ? highlightTrack : undefined}
-            />
-          );
+              <View
+                key={i}
+                onLayout={isHighlighted ? (e) => { highlightedY.current = e.nativeEvent.layout.y; } : undefined}
+              >
+                <ArtistCard
+                  artist={artist}
+                  service={auth.service}
+                  accessToken={auth.accessToken}
+                  favoritesHook={favoritesHook}
+                  country={country}
+                  onNeedAuth={undefined}
+                  autoExpand={isHighlighted}
+                  highlightTrack={isHighlighted ? highlightTrack : undefined}
+                  onSearchSimilar={(name) => navigation.navigate('ArtistSearch', { prefillArtist: name })}
+                />
+              </View>
+            );
           })}
-          {recs.didYouKnow && selectedDecade && (
-            <View style={styles.dyk}>
-              <Text style={styles.dykLabel}>💡 Did you know</Text>
-              <Text style={styles.dykText}>{recs.didYouKnow}</Text>
-            </View>
+          {recs.didYouKnow && (
+            <TouchableOpacity
+              style={styles.dyk}
+              onPress={() => { haptics.light(); setDykExpanded(e => !e); }}
+              activeOpacity={0.8}
+            >
+              <View style={styles.dykHeader}>
+                <Text style={styles.dykLabel}>💡 Did you know</Text>
+                <Ionicons
+                  name={dykExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={Colors.gold}
+                />
+              </View>
+              {dykExpanded && <Text style={styles.dykText}>{recs.didYouKnow}</Text>}
+            </TouchableOpacity>
           )}
           <View style={{ height: contentBottomPad }} />
         </ScrollView>
@@ -495,8 +530,9 @@ const styles = StyleSheet.create({
   sectionHeading: { color: Colors.text, fontSize: 15, fontWeight: '600', marginBottom: 3 },
   sectionHint: { color: Colors.text3, fontSize: 13 },
   dyk: { backgroundColor: Colors.goldBg, borderRadius: 14, padding: 16, marginTop: 10 },
-  dykLabel: { color: Colors.gold, fontSize: 12, fontWeight: '700', letterSpacing: 0.3, marginBottom: 8 },
-  dykText: { color: Colors.text, fontSize: 15, lineHeight: 23 },
+  dykHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dykLabel: { color: Colors.gold, fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
+  dykText: { color: Colors.text, fontSize: 15, lineHeight: 23, marginTop: 10 },
 
   // Time Machine mode
   genreBadgeWrap: { marginBottom: 14 },
@@ -523,6 +559,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   playBtnActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
+  playBtnDisabled: { opacity: 0.35 },
   heartBtn: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: 'rgba(240,101,101,0.08)', borderWidth: 1, borderColor: 'rgba(240,101,101,0.2)',

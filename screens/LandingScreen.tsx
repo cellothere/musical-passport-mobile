@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, PanResponder, Animated, Share,
+  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, PanResponder,
 } from 'react-native';
 import { Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -65,17 +65,6 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
     navigation.navigate('Explore');
   };
 
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.06, duration: 900, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, []);
 
   const handleSurprise = () => {
     haptics.launch();
@@ -100,6 +89,16 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Top-left: Country of the Day pill */}
+      <TouchableOpacity
+        style={styles.dailyPill}
+        onPress={() => { haptics.light(); recordCountryOfDayHit(todayDate).catch(() => {}); navigation.navigate('Recommendations', { country: todayEntry.country }); }}
+        activeOpacity={0.75}
+      >
+        <Text style={styles.dailyPillFlag}>{todayEntry.flag}</Text>
+        <Text style={styles.dailyPillLabel}>Today</Text>
+      </TouchableOpacity>
+
       {/* Top-right icon buttons */}
       <View style={styles.topRightBtns}>
         {hasInsights && (
@@ -131,36 +130,9 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
             style={styles.globeImage}
             resizeMode="contain"
           />
-          <Animated.View style={{ transform: [{ scale: pulseAnim }], marginTop: 8 }}>
-            <TouchableOpacity style={styles.surpriseBtn} onPress={handleSurprise} activeOpacity={0.8}>
-              <Ionicons name="shuffle" size={16} color={Colors.bg} />
-              <Text style={styles.surpriseBtnText}>Surprise Me</Text>
-              <Ionicons name="arrow-up" size={15} color={Colors.bg} />
-            </TouchableOpacity>
-          </Animated.View>
+          <Text style={styles.swipeHint}>or swipe up</Text>
         </View>
       </View>
-
-      {/* Country of the Day */}
-      <TouchableOpacity
-        style={styles.dailyCard}
-        onPress={() => { haptics.light(); recordCountryOfDayHit(todayDate).catch(() => {}); navigation.navigate('Recommendations', { country: todayEntry.country }); }}
-        activeOpacity={0.8}
-      >
-        <View style={styles.dailyCardLeft}>
-          <Text style={styles.dailyLabel}>Country of the Day</Text>
-          <Text style={styles.dailyCountry}>{todayEntry.flag}  {todayEntry.country}</Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => Share.share({
-            message: `${todayEntry.flag} Today's Musical Passport destination is ${todayEntry.country}!\n\nExplore it 👉 musical-passport://country/${encodeURIComponent(todayEntry.country)}`,
-          })}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="share-outline" size={20} color={Colors.text3} />
-        </TouchableOpacity>
-        <Ionicons name="chevron-forward" size={18} color={Colors.gold} style={{ marginLeft: 8 }} />
-      </TouchableOpacity>
 
       {/* Bottom-left: service button */}
       <View style={styles.floatingBtnLeft}>
@@ -248,33 +220,27 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  surpriseBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    backgroundColor: Colors.gold,
-    borderRadius: 24, paddingHorizontal: 22, paddingVertical: 12,
-    shadowColor: Colors.gold, shadowOpacity: 0.2,
-    shadowRadius: 6, shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
+  swipeHint: {
+    color: Colors.text3,
+    fontSize: 15,
+    fontWeight: '500',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginTop: 4,
   },
-  surpriseBtnText: { color: Colors.bg, fontSize: 15, fontWeight: '800', letterSpacing: -0.2 },
 
-  dailyCard: {
-    position: 'absolute',
-    bottom: 108,
-    left: 20, right: 20,
+  dailyPill: {
+    position: 'absolute', top: 56, left: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 7,
     backgroundColor: Colors.surface,
     borderWidth: 1, borderColor: Colors.goldBorder,
-    borderRadius: 16,
-    paddingHorizontal: 18, paddingVertical: 14,
-    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7,
+    zIndex: 10,
   },
-  dailyCardLeft: { flex: 1 },
-  dailyLabel: {
-    color: Colors.gold, fontSize: 10, fontWeight: '700',
-    letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4,
-  },
-  dailyCountry: {
-    color: Colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.3,
+  dailyPillFlag: { fontSize: 20 },
+  dailyPillLabel: {
+    color: Colors.gold, fontSize: 12, fontWeight: '700',
+    letterSpacing: 0.5,
   },
 
   floatingBtnLeft: {

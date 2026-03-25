@@ -82,7 +82,7 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
 
       {loading ? (
         <View style={styles.loadingState}>
-          <ActivityIndicator size="large" color={Colors.purple} />
+          <ActivityIndicator size="large" color={Colors.gold} />
           <Text style={styles.loadingText}>Loading genre spotlight…</Text>
         </View>
       ) : error ? (
@@ -169,21 +169,25 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook }: {
         {track.artist && <Text style={styles.trackArtist}>{track.artist}</Text>}
       </View>
       <View style={styles.trackActions}>
-        {canPlay && (
+        {canPlay ? (
           <TouchableOpacity
             style={[styles.playBtn, isThisTrack && styles.playBtnActive]}
             onPress={handlePlay}
           >
             {isThisTrack && isLoading ? (
-              <ActivityIndicator size="small" color={Colors.purple} />
+              <ActivityIndicator size="small" color={Colors.gold} />
             ) : (
               <Ionicons
                 name={isThisTrack && isPlaying ? 'pause' : 'play'}
                 size={18}
-                color={isThisTrack ? Colors.purple : Colors.text2}
+                color={isThisTrack ? Colors.gold : Colors.text2}
               />
             )}
           </TouchableOpacity>
+        ) : (
+          <View style={[styles.playBtn, styles.playBtnDisabled]}>
+            <Ionicons name="play" size={18} color={Colors.text3} />
+          </View>
         )}
         <TouchableOpacity style={styles.heartTrackBtn} onPress={toggleSave}>
           <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
@@ -261,7 +265,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.border2,
     alignItems: 'center', justifyContent: 'center',
   },
-  playBtnActive: { backgroundColor: Colors.purpleBg, borderColor: Colors.purpleBorder },
+  playBtnActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
+  playBtnDisabled: { opacity: 0.35 },
   heartTrackBtn: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: 'rgba(240,101,101,0.08)', borderWidth: 1, borderColor: 'rgba(240,101,101,0.2)',

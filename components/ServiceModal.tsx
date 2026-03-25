@@ -30,7 +30,6 @@ export function ServiceModal({ visible, onClose, auth }: Props) {
                 <View style={styles.rowIconWrap}><FontAwesome5 name="apple" size={20} color={Colors.text} /></View>
                 <View style={styles.rowTextWrap}>
                   <Text style={styles.rowLabel}>Connect Apple Music</Text>
-                  <Text style={styles.rowSub}>Recommended</Text>
                 </View>
                 <Text style={styles.rowArrow}>›</Text>
               </TouchableOpacity>

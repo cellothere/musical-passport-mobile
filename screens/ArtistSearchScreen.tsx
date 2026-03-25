@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
@@ -27,6 +28,7 @@ interface FavoritesHook {
 
 interface Props {
   navigation: any;
+  route?: { params?: { prefillArtist?: string } };
   service: AuthService;
   accessToken: string | null;
   favoritesHook: FavoritesHook;
@@ -46,15 +48,36 @@ function formatFollowers(n: number): string {
   return `${n} followers`;
 }
 
-export function ArtistSearchScreen({ navigation, service, accessToken, favoritesHook, auth }: Props) {
-  const [query, setQuery] = useState('');
+export function ArtistSearchScreen({ navigation, route, service, accessToken, favoritesHook, auth }: Props) {
+  const prefill = route?.params?.prefillArtist ?? '';
+  const [query, setQuery] = useState(prefill);
   const [phase, setPhase] = useState<Phase>('search');
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [foundArtist, setFoundArtist] = useState<FoundArtist | null>(null);
   const [sonicSummary, setSonicSummary] = useState('');
   const [matches, setMatches] = useState<ArtistMatch[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<string[]>([]);
   const inputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem('artist_search_history')
+      .then(val => { if (val) setHistory(JSON.parse(val)); })
+      .catch(() => {});
+  }, []);
+
+  // Auto-trigger search when arriving via cross-navigation
+  useEffect(() => {
+    if (prefill) {
+      handleSearch();
+    }
+  }, []);
+
+  const saveToHistory = async (name: string) => {
+    const updated = [name, ...history.filter(h => h.toLowerCase() !== name.toLowerCase())].slice(0, 6);
+    setHistory(updated);
+    await AsyncStorage.setItem('artist_search_history', JSON.stringify(updated)).catch(() => {});
+  };
 
   const handleSearch = async () => {
     const q = query.trim();
@@ -80,6 +103,7 @@ export function ArtistSearchScreen({ navigation, service, accessToken, favorites
       setMatches(data.artists);
       setPhase('results');
       haptics.success();
+      saveToHistory(foundArtist.name);
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
       setPhase('confirm');
@@ -137,6 +161,24 @@ export function ArtistSearchScreen({ navigation, service, accessToken, favorites
             </TouchableOpacity>
           </View>
           {error && <Text style={styles.errorBanner}>{error}</Text>}
+          {!query.trim() && history.length > 0 && (
+            <View style={styles.historyRow}>
+              <Text style={styles.historyLabel}>Recent</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.historyChips}>
+                {history.map((name, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={styles.historyChip}
+                    onPress={() => { setQuery(name); setTimeout(handleSearch, 50); }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="time-outline" size={13} color={Colors.text3} />
+                    <Text style={styles.historyChipText}>{name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
         </KeyboardAvoidingView>
       )}
 
@@ -175,7 +217,7 @@ export function ArtistSearchScreen({ navigation, service, accessToken, favorites
       {/* Full loading state */}
       {phase === 'loading' && (
         <View style={styles.centerState}>
-          <ActivityIndicator size="large" color={Colors.green} />
+          <ActivityIndicator size="large" color={Colors.gold} />
           <Text style={styles.loadingTitle}>Searching the world…</Text>
           <Text style={styles.loadingSubtitle}>
             Asking our music expert to find artists similar to {foundArtist?.name} from around the world.
@@ -296,6 +338,20 @@ const styles = StyleSheet.create({
     marginTop: -4,
     marginBottom: 8,
   },
+
+  historyRow: { marginTop: -4, marginBottom: 8 },
+  historyLabel: {
+    color: Colors.text3, fontSize: 11, fontWeight: '700',
+    letterSpacing: 0.8, textTransform: 'uppercase',
+    marginHorizontal: 16, marginBottom: 8,
+  },
+  historyChips: { paddingHorizontal: 16, gap: 8 },
+  historyChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border2,
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7,
+  },
+  historyChipText: { color: Colors.text2, fontSize: 14 },
 
   confirmCard: {
     margin: 16,

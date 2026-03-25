@@ -13,6 +13,8 @@ interface AudioPlayerContextValue extends AudioPlayerState {
   play: (trackId: string, url: string, title: string, artist?: string) => Promise<void>;
   togglePlay: () => void;
   stop: () => void;
+  currentTime: number;
+  duration: number;
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextValue | null>(null);
@@ -85,7 +87,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [player]);
 
   return (
-    <AudioPlayerContext.Provider value={{ ...state, play, togglePlay, stop }}>
+    <AudioPlayerContext.Provider value={{ ...state, play, togglePlay, stop, currentTime: playerStatus.currentTime ?? 0, duration: playerStatus.duration ?? 0 }}>
       {children}
     </AudioPlayerContext.Provider>
   );
