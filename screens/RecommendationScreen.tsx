@@ -215,8 +215,13 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
       : fetchRecommendations(c, auth.accessToken || undefined);
 
     pendingFetch.current = promise
-      .then(data => { pendingResult.current = data; return data; })
-      .catch(err => { pendingError.current = err.message || 'Something went wrong'; throw err; });
+      .then(data => { pendingResult.current = data; })
+      .catch(err => {
+        const msg = err.message || '';
+        pendingError.current = msg.toLowerCase().includes('overload')
+          ? 'Our servers are busy right now. Try again in a moment.'
+          : msg || 'Something went wrong';
+      });
   };
 
   // Initial load — kick off fetch in parallel with globe animation

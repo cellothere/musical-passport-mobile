@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, PanResponder, Animated,
+  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, PanResponder, Animated, Share,
 } from 'react-native';
 import { Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,21 +10,22 @@ import { FLAGS } from '../constants/flags';
 import { getAllCountries, MUSIC_REGIONS } from '../constants/regions';
 import { haptics } from '../utils/haptics';
 import { ServiceModal } from '../components/ServiceModal';
+import { fetchCountryOfDay, recordCountryOfDayHit } from '../services/api';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 
-// Curated list for Country of the Day — one per day, cycles through
-const DAILY_COUNTRIES = [
+// Fallback for when API is unavailable
+const DAILY_COUNTRIES_FALLBACK = [
   'Brazil', 'Japan', 'Nigeria', 'Cuba', 'Ethiopia', 'Colombia', 'Jamaica',
   'Iran', 'Mali', 'South Korea', 'Portugal', 'Iceland', 'Greece', 'Algeria',
   'India', 'Senegal', 'Vietnam', 'Argentina', 'Ghana', 'Turkey', 'Lebanon',
-  'Morocco', 'Peru', 'Georgia', 'Mongolia', 'Cambodia', 'Cape Verde', 'Cuba',
+  'Morocco', 'Peru', 'Georgia', 'Mongolia', 'Cambodia', 'Cape Verde',
   'Trinidad & Tobago', 'Armenia', 'Azerbaijan', 'Laos', 'Papua New Guinea',
 ];
 
-function getTodaysCountry(): { country: string; flag: string } {
+function getFallbackCountry(): { country: string; flag: string } {
   const day = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
-  const country = DAILY_COUNTRIES[day % DAILY_COUNTRIES.length];
+  const country = DAILY_COUNTRIES_FALLBACK[day % DAILY_COUNTRIES_FALLBACK.length];
   return { country, flag: FLAGS[country] ?? '🌐' };
 }
 
@@ -40,7 +41,16 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
   const { favorites } = favoritesHook;
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const isConnected = auth.service === 'spotify' || auth.service === 'apple-music';
-  const todayEntry = useRef(getTodaysCountry()).current;
+  const [todayEntry, setTodayEntry] = useState(getFallbackCountry());
+  const todayDate = useRef(new Date().toISOString().slice(0, 10)).current;
+
+  useEffect(() => {
+    fetchCountryOfDay()
+      .then(({ country, date }) => {
+        setTodayEntry({ country, flag: FLAGS[country] ?? '🌐' });
+      })
+      .catch(() => {}); // keep fallback on error
+  }, []);
 
   const prevService = useRef(auth.service);
   useEffect(() => {
@@ -134,14 +144,22 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
       {/* Country of the Day */}
       <TouchableOpacity
         style={styles.dailyCard}
-        onPress={() => { haptics.light(); navigation.navigate('Recommendations', { country: todayEntry.country }); }}
+        onPress={() => { haptics.light(); recordCountryOfDayHit(todayDate).catch(() => {}); navigation.navigate('Recommendations', { country: todayEntry.country }); }}
         activeOpacity={0.8}
       >
         <View style={styles.dailyCardLeft}>
           <Text style={styles.dailyLabel}>Country of the Day</Text>
           <Text style={styles.dailyCountry}>{todayEntry.flag}  {todayEntry.country}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={Colors.gold} />
+        <TouchableOpacity
+          onPress={() => Share.share({
+            message: `${todayEntry.flag} Today's Musical Passport destination is ${todayEntry.country}!\n\nExplore music from around the world 🌍`,
+          })}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="share-outline" size={20} color={Colors.text3} />
+        </TouchableOpacity>
+        <Ionicons name="chevron-forward" size={18} color={Colors.gold} style={{ marginLeft: 8 }} />
       </TouchableOpacity>
 
       {/* Bottom-left: service button */}

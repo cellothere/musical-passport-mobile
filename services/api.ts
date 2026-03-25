@@ -59,6 +59,19 @@ async function apiFetch(path: string, options?: RequestInit) {
   return res;
 }
 
+export async function fetchCountryOfDay(): Promise<{ date: string; country: string }> {
+  const res = await apiFetch('/api/country-of-day');
+  if (!res.ok) throw new Error('Failed to fetch country of day');
+  return res.json();
+}
+
+export async function recordCountryOfDayHit(date: string): Promise<void> {
+  await apiFetch('/api/country-of-day/hit', {
+    method: 'POST',
+    body: JSON.stringify({ date }),
+  });
+}
+
 export async function fetchRecommendations(
   country: string,
   accessToken?: string

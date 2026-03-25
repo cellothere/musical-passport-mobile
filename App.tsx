@@ -19,6 +19,9 @@ import { useFavorites } from './hooks/useFavorites';
 import { AudioPlayerProvider } from './contexts/AudioPlayerContext';
 import { MiniPlayer } from './components/MiniPlayer';
 import { SplashAnimation } from './components/SplashAnimation';
+import { useNotifications } from './hooks/useNotifications';
+import * as Notifications from 'expo-notifications';
+import { navigationRef } from './utils/navigationRef';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -26,13 +29,25 @@ const Stack = createStackNavigator();
 
 
 function AppNavigator() {
+  useNotifications();
   const auth = useAuth();
+
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      if (data?.type === 'country_of_day' && data?.country) {
+        navigationRef.navigate('Recommendations', { country: data.country });
+      }
+    });
+    return () => sub.remove();
+  }, []);
   const spotifyToken = auth.service === 'spotify' ? auth.accessToken : null;
   const stampsHook = useStamps(spotifyToken, auth.syncData?.stamps ?? []);
   const favoritesHook = useFavorites(spotifyToken, auth.syncData?.favorites ?? []);
 
   return (
     <NavigationContainer
+      ref={navigationRef}
       theme={{
         dark: true,
         colors: {

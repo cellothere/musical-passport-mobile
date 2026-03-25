@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Linking,
+  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Linking, Share,
+  ActionSheetIOS, Platform, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
@@ -139,6 +140,29 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
 
   const openTrack = () => Linking.openURL(openUrl);
 
+  const shareTrack = () => {
+    const artist = track.artist ? ` by ${track.artist}` : '';
+    const from = country ? ` from ${country}` : '';
+    Share.share({
+      message: `🎵 Just discovered "${track.title}"${artist}${from} on Musical Passport!\n\nExplore music from around the world 🌍`,
+    });
+  };
+
+  const showMore = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ['Cancel', 'Share', 'Open in App'], cancelButtonIndex: 0 },
+        (i) => { if (i === 1) shareTrack(); if (i === 2) openTrack(); }
+      );
+    } else {
+      Alert.alert('Options', undefined, [
+        { text: 'Share', onPress: shareTrack },
+        { text: 'Open in App', onPress: openTrack },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  };
+
   // Spotify removed preview_url from most tracks in 2024.
   // Fall back to their embed player (30s preview, no login needed).
   const embedUrl = track.spotifyId
@@ -167,15 +191,17 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
       <View style={styles.trackActions}>
         {canPlay && (
           <TouchableOpacity
-            style={[styles.playBtn, isThisTrack && styles.playBtnActive]}
+            style={styles.playBtn}
             onPress={handlePlay}
           >
             {isThisTrack && isLoading ? (
               <ActivityIndicator size="small" color={Colors.gold} />
             ) : (
-              <Text style={[styles.playBtnText, isThisTrack && styles.playBtnTextActive]}>
-                {isThisTrack && isPlaying ? '⏸' : '▶'}
-              </Text>
+              <Ionicons
+                name={isThisTrack && isPlaying ? 'pause' : 'play'}
+                size={20}
+                color={Colors.gold}
+              />
             )}
           </TouchableOpacity>
         )}
@@ -184,8 +210,8 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
             <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={styles.openBtn} onPress={openTrack}>
-          <Text style={styles.openBtnText}>↗</Text>
+        <TouchableOpacity style={styles.moreBtn} onPress={showMore}>
+          <Text style={styles.moreBtnText}>•••</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -268,18 +294,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.surface2,
+    backgroundColor: Colors.goldBg,
     borderWidth: 1,
-    borderColor: Colors.border2,
+    borderColor: Colors.goldBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  playBtnActive: {
-    backgroundColor: Colors.goldBg,
-    borderColor: Colors.goldBorder,
-  },
-  playBtnText: { color: Colors.text2, fontSize: 16 },
-  playBtnTextActive: { color: Colors.gold },
   heartBtn: {
     width: 44,
     height: 44,
@@ -294,17 +314,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(240,101,101,0.18)',
     borderColor: 'rgba(240,101,101,0.4)',
   },
-  openBtn: {
+  moreBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.greenBg,
+    backgroundColor: Colors.surface2,
     borderWidth: 1,
-    borderColor: Colors.greenBorder,
+    borderColor: Colors.border2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  openBtnText: { color: Colors.green, fontSize: 16, fontWeight: '700' },
+  moreBtnText: { color: Colors.text3, fontSize: 11, fontWeight: '700', letterSpacing: 1 },
   errorText: { color: Colors.red, fontSize: 14, paddingVertical: 12 },
   noTracks: { color: Colors.text3, fontSize: 14, paddingVertical: 12 },
 });
