@@ -163,9 +163,9 @@ export function FloatingNav({ navigation, auth, favorites, currentScreen, onShar
           activeOpacity={0.7}
         >
           <Ionicons name="heart" size={22} color={Colors.red} />
-          <View style={styles.heartBadge}>
+          {/* <View style={styles.heartBadge}>
             <Text style={styles.heartBadgeText}>{favorites.length}</Text>
-          </View>
+          </View> */}
         </TouchableOpacity>
       )}
 

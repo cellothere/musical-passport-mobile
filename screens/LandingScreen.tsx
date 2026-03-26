@@ -159,9 +159,9 @@ export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: P
           activeOpacity={0.7}
         >
           <Ionicons name="heart" size={26} color={Colors.red} />
-          <View style={styles.heartBadge}>
+          {/* <View style={styles.heartBadge}>
             <Text style={styles.heartBadgeText}>{favorites.length}</Text>
-          </View>
+          </View> */}
         </TouchableOpacity>
       )}
 
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   },
 
   dailyPill: {
-    position: 'absolute', top: 56, left: 20,
+    position: 'absolute', top: 65, left: 20,
     flexDirection: 'row', alignItems: 'center', gap: 7,
     backgroundColor: Colors.surface,
     borderWidth: 1, borderColor: Colors.goldBorder,

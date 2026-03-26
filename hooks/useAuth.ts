@@ -4,6 +4,7 @@ import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchMe, fetchSpotifyToken, fetchAppleMe, syncUser, API_BASE_URL } from '../services/api';
+import { isExpertTester } from '../constants/expertTesters';
 import type { SyncResult } from '../services/api';
 import type { SavedDiscovery } from './useFavorites';
 
@@ -15,6 +16,8 @@ const SCOPES = ['user-top-read', 'user-read-private', 'user-read-email'];
 const STORAGE_KEY_SPOTIFY = '@musical_passport_spotify_token';
 const STORAGE_KEY_APPLE = '@musical_passport_apple_token';
 const STORAGE_KEY_SERVICE = '@musical_passport_service';
+const STORAGE_KEY_TESTER = '@musical_passport_is_tester';
+const STORAGE_KEY_TESTER_ID = '@musical_passport_tester_id';
 
 export type AuthService = 'spotify' | 'apple-music' | null;
 
@@ -25,6 +28,8 @@ export interface AuthState {
   topArtists: string[];
   loading: boolean;
   syncData: SyncResult | null;
+  isTester: boolean;
+  testerUserId: string | null;
 }
 
 export function useAuth() {
@@ -35,6 +40,8 @@ export function useAuth() {
     topArtists: [],
     loading: true,
     syncData: null,
+    isTester: false,
+    testerUserId: null,
   });
 
   const loginTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -50,19 +57,23 @@ export function useAuth() {
   // Restore session on mount
   useEffect(() => {
     async function restore() {
+      const storedTester = await AsyncStorage.getItem(STORAGE_KEY_TESTER);
+      const isTester = storedTester === 'true';
+      const testerUserId = await AsyncStorage.getItem(STORAGE_KEY_TESTER_ID);
+
       const service = await AsyncStorage.getItem(STORAGE_KEY_SERVICE);
       if (service === 'spotify') {
         const token = await AsyncStorage.getItem(STORAGE_KEY_SPOTIFY);
-        if (token) { await validateSpotifyToken(token); return; }
+        if (token) { await validateSpotifyToken(token, isTester, testerUserId); return; }
       } else if (service === 'apple-music') {
         const token = await AsyncStorage.getItem(STORAGE_KEY_APPLE);
         if (token) {
           const { topArtists } = await fetchAppleMe(token).catch(() => ({ topArtists: [] }));
-          setState({ service: 'apple-music', accessToken: token, user: { displayName: 'Apple Music' }, topArtists, loading: false, syncData: null });
+          setState({ service: 'apple-music', accessToken: token, user: { displayName: 'Apple Music' }, topArtists, loading: false, syncData: null, isTester, testerUserId });
           return;
         }
       }
-      setState(s => ({ ...s, loading: false }));
+      setState(s => ({ ...s, loading: false, isTester, testerUserId }));
     }
     restore();
   }, []);
@@ -80,21 +91,29 @@ export function useAuth() {
     }
   }, [response]);
 
-  async function validateSpotifyToken(token: string) {
+  async function validateSpotifyToken(token: string, existingTesterStatus = false, existingTesterUserId: string | null = null) {
     try {
       const data = await fetchMe(token);
       await AsyncStorage.setItem(STORAGE_KEY_SPOTIFY, token);
       await AsyncStorage.setItem(STORAGE_KEY_SERVICE, 'spotify');
+      // Persist expert tester status so it survives logout/reconnect
+      const isTester = isExpertTester(data.user.id) || existingTesterStatus;
+      const testerUserId = isTester ? (data.user.id ?? existingTesterUserId) : existingTesterUserId;
+      if (isTester) {
+        await AsyncStorage.setItem(STORAGE_KEY_TESTER, 'true');
+        if (testerUserId) await AsyncStorage.setItem(STORAGE_KEY_TESTER_ID, testerUserId);
+      }
       // Sync user to Supabase and retrieve their persisted data
       const syncData = await syncUser(token, {
         displayName: data.user.displayName,
         topArtists: data.topArtists,
       }).catch(() => null);
-      setState({ service: 'spotify', accessToken: token, user: data.user, topArtists: data.topArtists, loading: false, syncData });
+      setState({ service: 'spotify', accessToken: token, user: data.user, topArtists: data.topArtists, loading: false, syncData, isTester, testerUserId });
     } catch {
       await AsyncStorage.removeItem(STORAGE_KEY_SPOTIFY);
       await AsyncStorage.removeItem(STORAGE_KEY_SERVICE);
-      setState({ service: null, accessToken: null, user: null, topArtists: [], loading: false, syncData: null });
+      setState(s => ({ ...s, service: null, accessToken: null, user: null, topArtists: [], loading: false, syncData: null }));
+      // Note: intentionally keep isTester/testerUserId on auth failure so the flag persists
     }
   }
 
@@ -145,7 +164,7 @@ export function useAuth() {
           await AsyncStorage.setItem(STORAGE_KEY_APPLE, token);
           await AsyncStorage.setItem(STORAGE_KEY_SERVICE, 'apple-music');
           const { topArtists } = await fetchAppleMe(token).catch(() => ({ topArtists: [] }));
-          setState({ service: 'apple-music', accessToken: token, user: { displayName: 'Apple Music' }, topArtists, loading: false, syncData: null });
+          setState(s => ({ ...s, service: 'apple-music', accessToken: token, user: { displayName: 'Apple Music' }, topArtists, loading: false, syncData: null }));
         } else {
           throw new Error(error || 'Authorization failed');
         }
@@ -170,7 +189,8 @@ export function useAuth() {
     await AsyncStorage.removeItem(STORAGE_KEY_SPOTIFY);
     await AsyncStorage.removeItem(STORAGE_KEY_APPLE);
     await AsyncStorage.removeItem(STORAGE_KEY_SERVICE);
-    setState({ service: null, accessToken: null, user: null, topArtists: [], loading: false, syncData: null });
+    // Intentionally keep tester status on logout — it was earned by logging in once
+    setState(s => ({ ...s, service: null, accessToken: null, user: null, topArtists: [], loading: false, syncData: null }));
   }, []);
 
   const updateSyncData = useCallback((partial: Partial<NonNullable<AuthState['syncData']>>) => {

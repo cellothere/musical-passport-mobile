@@ -309,3 +309,21 @@ export async function apiAddStamp(accessToken: string, country: string) {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 }
+
+export interface TrackFlagPayload {
+  trackTitle: string;
+  trackArtist: string | null;
+  spotifyId: string | null;
+  appleId: string | null;
+  country: string;
+  genre: string | null;
+  comment: string | null;
+  userId: string | null;
+}
+
+export async function flagTrack(payload: TrackFlagPayload): Promise<void> {
+  await apiFetch('/api/flag-track', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}

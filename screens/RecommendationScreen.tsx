@@ -20,6 +20,7 @@ import { GlobeOverlay } from '../components/GlobeOverlay';
 import { FloatingNav } from '../components/FloatingNav';
 import { ServiceModal } from '../components/ServiceModal';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
+import { TrackOptionsSheet } from '../components/TrackOptionsSheet';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 
@@ -102,14 +103,18 @@ function DecadePickerModal({ visible, selected, onClose, onSelect }: {
 }
 
 // ── Track row (for time-machine mode) ─────────────────────
-function TrackRow({ track, index, favoritesHook, country, onNeedAuth }: {
+function TrackRow({ track, index, favoritesHook, country, genre, onNeedAuth, isTester, testerUserId }: {
   track: Track;
   index: number;
   favoritesHook?: FavoritesHook;
   country?: string;
+  genre?: string;
   onNeedAuth?: () => void;
+  isTester?: boolean;
+  testerUserId?: string | null;
 }) {
   const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
+  const [optionsVisible, setOptionsVisible] = useState(false);
   const trackId = track.spotifyId || track.appleId || track.previewUrl || `${track.title}-${index}`;
   const isThisTrack = currentTrackId === trackId;
   const isSaved = favoritesHook?.isTrackSaved(trackId) ?? false;
@@ -171,10 +176,20 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth }: {
             <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={styles.openBtn} onPress={() => Linking.openURL(openUrl)}>
-          <Ionicons name="open-outline" size={18} color={Colors.blue} />
+        <TouchableOpacity style={styles.openBtn} onPress={() => setOptionsVisible(true)}>
+          <Ionicons name="ellipsis-horizontal" size={18} color={Colors.text2} />
         </TouchableOpacity>
       </View>
+      <TrackOptionsSheet
+        visible={optionsVisible}
+        onClose={() => setOptionsVisible(false)}
+        track={track}
+        country={country ?? ''}
+        openUrl={openUrl}
+        isExpertTester={isTester ?? false}
+        userId={testerUserId ?? undefined}
+        genre={genre}
+      />
     </View>
   );
 }
@@ -345,7 +360,10 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
               index={i + 1}
               favoritesHook={favoritesHook}
               country={country}
+              genre={tmData.genre}
               onNeedAuth={undefined}
+              isTester={auth.isTester}
+              testerUserId={auth.testerUserId}
             />
           ))}
           <View style={{ height: contentBottomPad }} />
@@ -400,6 +418,8 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
                   autoExpand={isHighlighted}
                   highlightTrack={isHighlighted ? highlightTrack : undefined}
                   onSearchSimilar={(name) => navigation.navigate('ArtistSearch', { prefillArtist: name })}
+                  isTester={auth.isTester}
+                  testerUserId={auth.testerUserId}
                 />
               </View>
             );

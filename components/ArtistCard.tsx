@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Linking, Share,
-  Modal,
+  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { fetchArtistTracks, Track } from '../services/api';
 import { resolveService } from '../utils/defaultService';
@@ -12,6 +10,7 @@ import type { Artist } from '../services/api';
 import type { AuthService } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
+import { TrackOptionsSheet } from './TrackOptionsSheet';
 import * as WebBrowser from 'expo-web-browser';
 
 interface TrackFavoritesHook {
@@ -32,6 +31,8 @@ interface Props {
   autoExpand?: boolean;
   highlightTrack?: string;
   onSearchSimilar?: (name: string) => void;
+  isTester?: boolean;
+  testerUserId?: string | null;
 }
 
 function eraColors(era: string): { bg: string; border: string; text: string } {
@@ -41,7 +42,7 @@ function eraColors(era: string): { bg: string; border: string; text: string } {
   return { bg: Colors.purpleBg, border: Colors.purpleBorder, text: Colors.purple };
 }
 
-export function ArtistCard({ artist, service, accessToken, showSimilarTo = true, favoritesHook, country, onNeedAuth, autoExpand, highlightTrack, onSearchSimilar }: Props) {
+export function ArtistCard({ artist, service, accessToken, showSimilarTo = true, favoritesHook, country, onNeedAuth, autoExpand, highlightTrack, onSearchSimilar, isTester, testerUserId }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -124,6 +125,8 @@ export function ArtistCard({ artist, service, accessToken, showSimilarTo = true,
                 onNeedAuth={onNeedAuth}
                 artistGenre={artist.genre}
                 highlighted={!!highlightTrack && track.title.toLowerCase() === highlightTrack.toLowerCase()}
+                isTester={isTester}
+                testerUserId={testerUserId}
               />
             ))
           )}
@@ -133,56 +136,8 @@ export function ArtistCard({ artist, service, accessToken, showSimilarTo = true,
   );
 }
 
-function TrackOptionsSheet({ visible, onClose, title, artist, onShare, onOpen }: {
-  visible: boolean;
-  onClose: () => void;
-  title: string;
-  artist?: string | null;
-  onShare: () => void;
-  onOpen: () => void;
-}) {
-  const insets = useSafeAreaInsets();
-  const handle = (action: () => void) => { onClose(); setTimeout(action, 200); };
 
-  return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <TouchableOpacity style={sheetStyles.backdrop} activeOpacity={1} onPress={onClose}>
-        <View style={[sheetStyles.sheet, { paddingBottom: insets.bottom + 12 }]}>
-          <View style={sheetStyles.handle} />
-          <View style={sheetStyles.trackMeta}>
-            <Text style={sheetStyles.trackMetaTitle} numberOfLines={1}>{title}</Text>
-            {artist ? <Text style={sheetStyles.trackMetaArtist} numberOfLines={1}>{artist}</Text> : null}
-          </View>
-          <View style={sheetStyles.sep} />
-          <TouchableOpacity style={sheetStyles.row} onPress={() => handle(onShare)} activeOpacity={0.7}>
-            <View style={[sheetStyles.iconWrap, { backgroundColor: Colors.blueBg, borderColor: Colors.blueBorder }]}>
-              <Ionicons name="share-outline" size={20} color={Colors.blue} />
-            </View>
-            <Text style={sheetStyles.rowLabel}>Share</Text>
-            <Ionicons name="chevron-forward" size={16} color={Colors.text3} />
-          </TouchableOpacity>
-          <View style={sheetStyles.sep} />
-          <TouchableOpacity style={sheetStyles.row} onPress={() => handle(onOpen)} activeOpacity={0.7}>
-            <View style={[sheetStyles.iconWrap, { backgroundColor: Colors.greenBg, borderColor: Colors.greenBorder }]}>
-              <Ionicons name="musical-notes-outline" size={20} color={Colors.green} />
-            </View>
-            <Text style={sheetStyles.rowLabel}>Open in App</Text>
-            <Ionicons name="chevron-forward" size={16} color={Colors.text3} />
-          </TouchableOpacity>
-          <View style={sheetStyles.sep} />
-          <TouchableOpacity style={sheetStyles.row} onPress={onClose} activeOpacity={0.7}>
-            <View style={[sheetStyles.iconWrap, { backgroundColor: Colors.surface2, borderColor: Colors.border2 }]}>
-              <Ionicons name="close" size={20} color={Colors.text3} />
-            </View>
-            <Text style={[sheetStyles.rowLabel, { color: Colors.text2 }]}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  );
-}
-
-function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenre, highlighted }: {
+function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenre, highlighted, isTester, testerUserId }: {
   track: Track;
   index: number;
   favoritesHook?: TrackFavoritesHook;
@@ -190,6 +145,8 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
   onNeedAuth?: () => void;
   artistGenre?: string;
   highlighted?: boolean;
+  isTester?: boolean;
+  testerUserId?: string | null;
 }) {
   const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
   const [optionsVisible, setOptionsVisible] = useState(false);
@@ -211,23 +168,6 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
     ?? (track.spotifyId ? `https://open.spotify.com/track/${track.spotifyId}` : null)
     ?? (track.appleId ? `https://music.apple.com/us/song/${track.appleId}` : null)
     ?? `https://open.spotify.com/search/${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
-
-  const openTrack = () => Linking.openURL(openUrl);
-
-  const shareTrack = () => {
-    const artistStr = track.artist ? ` by ${track.artist}` : '';
-    const from = country ? ` from ${country}` : '';
-    let deepLink = '';
-    if (country) {
-      const params = new URLSearchParams();
-      if (track.artist) params.set('artist', track.artist);
-      params.set('track', track.title);
-      deepLink = `\n\nListen on Musical Passport 👉 musical-passport://country/${encodeURIComponent(country)}?${params.toString()}`;
-    }
-    Share.share({
-      message: `🎵 Just discovered "${track.title}"${artistStr}${from} on Musical Passport!${deepLink}`,
-    });
-  };
 
   const showMore = () => setOptionsVisible(true);
 
@@ -254,10 +194,12 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
       <TrackOptionsSheet
         visible={optionsVisible}
         onClose={() => setOptionsVisible(false)}
-        title={track.title}
-        artist={track.artist}
-        onShare={shareTrack}
-        onOpen={openTrack}
+        track={track}
+        country={country ?? ''}
+        genre={artistGenre}
+        openUrl={openUrl}
+        isExpertTester={isTester ?? false}
+        userId={testerUserId ?? undefined}
       />
       <Text style={styles.trackNumber}>{index}</Text>
       <View style={styles.trackInfo}>
@@ -424,28 +366,3 @@ const styles = StyleSheet.create({
   noTracks: { color: Colors.text3, fontSize: 14, paddingVertical: 12 },
 });
 
-const sheetStyles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: Colors.bg,
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingTop: 12,
-  },
-  handle: {
-    width: 36, height: 4, borderRadius: 2,
-    backgroundColor: Colors.border2, alignSelf: 'center', marginBottom: 16,
-  },
-  trackMeta: { paddingHorizontal: 20, paddingBottom: 14 },
-  trackMetaTitle: { color: Colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
-  trackMetaArtist: { color: Colors.text2, fontSize: 14, marginTop: 3 },
-  sep: { height: 1, backgroundColor: Colors.border, marginLeft: 20 },
-  row: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 16, gap: 14,
-  },
-  iconWrap: {
-    width: 40, height: 40, borderRadius: 20,
-    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
-  },
-  rowLabel: { flex: 1, color: Colors.text, fontSize: 16, fontWeight: '500' },
-});

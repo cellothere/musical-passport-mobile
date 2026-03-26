@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  ActivityIndicator, Linking, Share,
+  ActivityIndicator, Share,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { Colors } from '../constants/colors';
 import { fetchGenreSpotlight, Track } from '../services/api';
 import { resolveService } from '../utils/defaultService';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
+import { TrackOptionsSheet } from '../components/TrackOptionsSheet';
 import type { AuthService, AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 import { FloatingNav } from '../components/FloatingNav';
@@ -106,6 +107,8 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
               genre={genre}
               country={country}
               favoritesHook={favoritesHook}
+              isTester={auth.isTester}
+              testerUserId={auth.testerUserId ?? null}
             />
           ))}
 
@@ -118,14 +121,17 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
   );
 }
 
-function SpotlightTrack({ track, index, genre, country, favoritesHook }: {
+function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester, testerUserId }: {
   track: Track;
   index: number;
   genre: string;
   country: string;
   favoritesHook: FavoritesHook;
+  isTester: boolean;
+  testerUserId: string | null;
 }) {
   const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
+  const [optionsVisible, setOptionsVisible] = useState(false);
   const trackId = track.spotifyId || track.appleId || `${track.title}-${track.artist ?? ''}`;
   const isThisTrack = currentTrackId === trackId;
 
@@ -192,10 +198,20 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook }: {
         <TouchableOpacity style={styles.heartTrackBtn} onPress={toggleSave}>
           <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.openBtn} onPress={() => Linking.openURL(openUrl)}>
-          <Ionicons name="open-outline" size={18} color={Colors.blue} />
+        <TouchableOpacity style={styles.openBtn} onPress={() => setOptionsVisible(true)}>
+          <Ionicons name="ellipsis-horizontal" size={18} color={Colors.text2} />
         </TouchableOpacity>
       </View>
+      <TrackOptionsSheet
+        visible={optionsVisible}
+        onClose={() => setOptionsVisible(false)}
+        track={track}
+        country={country}
+        genre={genre}
+        openUrl={openUrl}
+        isExpertTester={isTester}
+        userId={testerUserId ?? undefined}
+      />
     </View>
   );
 }

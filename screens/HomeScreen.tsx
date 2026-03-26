@@ -149,10 +149,23 @@ function DecadeFilterModal({ visible, selected, onSelect, onClose }: {
 
 export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Props) {
   const { stamps } = stampsHook;
+  const insets = useSafeAreaInsets();
   const [collapsedRegions, setCollapsedRegions] = useState<Set<string>>(new Set([...REGIONS.map(r => r.name), '__cultural__']));
   const [pickerVisible, setPickerVisible] = useState(false);
   const [selectedDecade, setSelectedDecade] = useState('');
   const [decadeModalVisible, setDecadeModalVisible] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+
+  // Slide-up animation for the Go bar
+  const goBarAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(goBarAnim, {
+      toValue: selectedCountry ? 1 : 0,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 12,
+    }).start();
+  }, [selectedCountry]);
 
   // Pulse animation for the random button
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -167,9 +180,17 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
     return () => pulse.stop();
   }, []);
 
-  const navigate = (country: string) => {
+  const selectCountry = (country: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    navigation.navigate('Recommendations', selectedDecade ? { country, decade: selectedDecade } : { country });
+    setSelectedCountry(prev => prev === country ? null : country);
+  };
+
+  const go = (country?: string) => {
+    const target = country ?? selectedCountry;
+    if (!target) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    setSelectedCountry(null);
+    navigation.navigate('Recommendations', selectedDecade ? { country: target, decade: selectedDecade } : { country: target });
   };
 
   const toggleRegion = (name: string) => {
@@ -226,11 +247,12 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
         >
           {QUICK_PICKS.map(country => {
             const isStamped = stamps.has(country);
+            const isSelected = selectedCountry === country;
             return (
               <TouchableOpacity
                 key={country}
-                style={styles.quickPickCard}
-                onPress={() => navigate(country)}
+                style={[styles.quickPickCard, isSelected && styles.quickPickCardSelected]}
+                onPress={() => selectCountry(country)}
                 activeOpacity={0.7}
               >
                 {FLAG_IMAGES[country]
@@ -251,7 +273,7 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
             onPress={() => {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
               const country = ALL_COUNTRIES[Math.floor(Math.random() * ALL_COUNTRIES.length)];
-              navigate(country);
+              go(country);
             }}
             activeOpacity={0.8}
           >
@@ -289,13 +311,14 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
                 <View style={styles.countryGrid}>
                   {region.countries.map(country => {
                     const isStamped = stamps.has(country);
+                    const isSelected = selectedCountry === country;
                     const flag = FLAGS[country] ?? '🌐';
                     const flagImg = FLAG_IMAGES[country];
                     return (
                       <TouchableOpacity
                         key={country}
-                        style={styles.countryBtn}
-                        onPress={() => navigate(country)}
+                        style={[styles.countryBtn, isSelected && styles.countryBtnSelected]}
+                        onPress={() => selectCountry(country)}
                         activeOpacity={0.65}
                       >
                         {flagImg
@@ -342,8 +365,8 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
                   {MUSIC_REGIONS.map(region => (
                     <TouchableOpacity
                       key={region}
-                      style={styles.countryBtn}
-                      onPress={() => navigate(region)}
+                      style={[styles.countryBtn, selectedCountry === region && styles.countryBtnSelected]}
+                      onPress={() => selectCountry(region)}
                       activeOpacity={0.65}
                     >
                       <Text style={styles.countryFlag}>🌐</Text>
@@ -363,13 +386,49 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
           );
         })()}
 
-        <View style={styles.bottomPad} />
+        <View style={[styles.bottomPad, selectedCountry ? styles.bottomPadGoBar : null]} />
       </ScrollView>
+
+      {/* Go bar — slides up when a country is selected */}
+      <Animated.View
+        style={[
+          styles.goBar,
+          {
+            paddingBottom: insets.bottom + 80,
+            transform: [{
+              translateY: goBarAnim.interpolate({ inputRange: [0, 1], outputRange: [200, 0] }),
+            }],
+          },
+        ]}
+        pointerEvents={selectedCountry ? 'auto' : 'none'}
+      >
+        <View style={styles.goBarInner}>
+          <TouchableOpacity style={styles.goBarInfo} onPress={() => setSelectedCountry(null)} activeOpacity={0.7}>
+            {selectedCountry && FLAG_IMAGES[selectedCountry]
+              ? <Image source={FLAG_IMAGES[selectedCountry]} style={styles.goBarFlagImg} />
+              : <Text style={styles.goBarFlag}>{selectedCountry ? (FLAGS[selectedCountry] ?? '🌐') : ''}</Text>
+            }
+            <View>
+              <Text style={styles.goBarCountry} numberOfLines={1}>{selectedCountry}</Text>
+              {selectedDecade ? (
+                <Text style={styles.goBarEra}>{selectedDecade}</Text>
+              ) : (
+                <Text style={styles.goBarEraHint}>tap era filter to set an era</Text>
+              )}
+            </View>
+            <Ionicons name="close-circle" size={18} color={Colors.text3} style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.goBtn} onPress={() => go()} activeOpacity={0.8}>
+            <Text style={styles.goBtnText}>Go</Text>
+            <Ionicons name="arrow-forward" size={18} color={Colors.bg} />
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
 
       <CountryPickerModal
         visible={pickerVisible}
         onClose={() => setPickerVisible(false)}
-        onSelect={country => navigate(country)}
+        onSelect={country => selectCountry(country)}
       />
       <DecadeFilterModal
         visible={decadeModalVisible}
@@ -510,6 +569,7 @@ const styles = StyleSheet.create({
     borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, minHeight: 38, gap: 5,
   },
   countryBtnStamped: { backgroundColor: Colors.goldBg, borderWidth: 1, borderColor: Colors.goldBorder },
+  countryBtnSelected: { backgroundColor: Colors.blueBg, borderWidth: 1, borderColor: Colors.blueBorder },
   countryFlag: { fontSize: 13 },
   countryFlagImg: { width: 18, height: 12, borderRadius: 2 },
   countryText: { color: Colors.text3, fontSize: 12, fontWeight: '500' },
@@ -517,6 +577,7 @@ const styles = StyleSheet.create({
   stampDot: { color: Colors.gold, fontSize: 9, marginLeft: 2 },
 
   bottomPad: { height: 48 },
+  bottomPadGoBar: { height: 200 },
 
   statsBar: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -543,6 +604,10 @@ const styles = StyleSheet.create({
     borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14,
     minWidth: 80, gap: 4,
   },
+  quickPickCardSelected: {
+    backgroundColor: Colors.blueBg,
+    borderColor: Colors.blueBorder,
+  },
   quickPickCardStamped: {
     backgroundColor: Colors.goldBg,
     borderColor: Colors.goldBorder,
@@ -565,6 +630,33 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   randomBtnText: { color: Colors.bg, fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
+
+  goBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    paddingHorizontal: 16, paddingTop: 12,
+    zIndex: 30,
+  },
+  goBarInner: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderWidth: 1, borderColor: Colors.blueBorder,
+    borderRadius: 18, paddingHorizontal: 16, paddingVertical: 12,
+    gap: 12,
+    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 4 },
+    elevation: 10,
+  },
+  goBarInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  goBarFlag: { fontSize: 24 },
+  goBarFlagImg: { width: 32, height: 22, borderRadius: 3 },
+  goBarCountry: { color: Colors.text, fontSize: 15, fontWeight: '700' },
+  goBarEra: { color: Colors.gold, fontSize: 12, fontWeight: '600', marginTop: 1 },
+  goBarEraHint: { color: Colors.text3, fontSize: 11, marginTop: 1 },
+  goBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.gold,
+    borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12,
+  },
+  goBtnText: { color: Colors.bg, fontSize: 16, fontWeight: '800' },
 });
 
 const decadeStyles = StyleSheet.create({
