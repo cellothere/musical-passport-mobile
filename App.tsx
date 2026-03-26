@@ -44,12 +44,26 @@ function AppNavigator() {
   }, []);
 
   const pendingUrl = useRef<string | null>(null);
+  const navReady = useRef(false);
+
+  function maybeNavigateToInitialUrl() {
+    if (navReady.current && pendingUrl.current) {
+      handleDeepLink(pendingUrl.current);
+      pendingUrl.current = null;
+    }
+  }
 
   useEffect(() => {
     // Handle deep link when app is already open
     const sub = Linking.addEventListener('url', ({ url }) => handleDeepLink(url));
-    // Store cold-start URL — navigate once nav is ready (see onReady below)
-    Linking.getInitialURL().then(url => { if (url) pendingUrl.current = url; });
+    // Store cold-start URL — navigate once nav is ready (see onReady below).
+    // onReady may fire before this promise resolves, so we check both sides.
+    Linking.getInitialURL().then(url => {
+      if (url) {
+        pendingUrl.current = url;
+        maybeNavigateToInitialUrl();
+      }
+    });
     return () => sub.remove();
   }, []);
 
@@ -79,7 +93,7 @@ function AppNavigator() {
   return (
     <NavigationContainer
       ref={navigationRef}
-      onReady={() => { if (pendingUrl.current) { handleDeepLink(pendingUrl.current); pendingUrl.current = null; } }}
+      onReady={() => { navReady.current = true; maybeNavigateToInitialUrl(); }}
       theme={{
         dark: true,
         colors: {

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
+import { AppState } from 'react-native';
 import { useAudioPlayer as useExpoAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 
 interface AudioPlayerState {
@@ -30,15 +31,33 @@ const EMPTY: AudioPlayerState = {
 export function AudioPlayerProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AudioPlayerState>(EMPTY);
   const currentIdRef = useRef<string | null>(null);
+  const pausedByBackground = useRef(false);
 
   // expo-audio hook — source is replaced dynamically when a track is played
   const player = useExpoAudioPlayer(undefined);
   const playerStatus = useAudioPlayerStatus(player);
 
+  // Pause when backgrounded; prevent auto-resume when returning to foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', nextState => {
+      if (!currentIdRef.current) return;
+      if (nextState === 'background' || nextState === 'inactive') {
+        pausedByBackground.current = true;
+        player.pause();
+        setState(s => ({ ...s, isPlaying: false }));
+      } else if (nextState === 'active' && pausedByBackground.current) {
+        // expo-audio may auto-resume — explicitly keep it paused
+        player.pause();
+        pausedByBackground.current = false;
+      }
+    });
+    return () => sub.remove();
+  }, [player]);
+
   // Detect natural end of track — reset to start and show play button
   useEffect(() => {
     if (!currentIdRef.current) return;
-    if (!playerStatus.playing) {
+    if (!playerStatus.playing && !pausedByBackground.current) {
       setState(s => {
         if (!s.isPlaying) return s; // already paused by user, no-op
         player.seekTo(0);
