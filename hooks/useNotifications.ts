@@ -16,14 +16,12 @@ Notifications.setNotificationHandler({
 async function scheduleDailyNotification() {
   await Notifications.cancelAllScheduledNotificationsAsync();
 
-  // Fetch tomorrow's country from the API so notification matches home screen
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowDate = tomorrow.toISOString().slice(0, 10);
+  // Fetch today's country from the API so notification matches home screen
+  const today = new Date().toISOString().slice(0, 10);
 
   let country = 'the world';
   try {
-    const res = await fetch(`${API_BASE_URL}/api/country-of-day?date=${tomorrowDate}`);
+    const res = await fetch(`${API_BASE_URL}/api/country-of-day?date=${today}`);
     if (res.ok) {
       const data = await res.json();
       country = data.country;
@@ -38,15 +36,10 @@ async function scheduleDailyNotification() {
       body: `Explore ${country} - tap to discover`,
       data: { type: 'country_of_day', country },
     },
-    // trigger: {
-    //   type: Notifications.SchedulableTriggerInputTypes.DAILY,
-    //   hour: 9,
-    //   minute: 0,
-    // },
-    //for testing
-        trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: 5,
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: 9,
+      minute: 0,
     },
   });
 }
