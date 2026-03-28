@@ -448,5 +448,4 @@ const styles = StyleSheet.create({
   moreBtnText: { color: Colors.text3, fontSize: 11, fontWeight: '700', letterSpacing: 1 },
 
   errorText: { color: Colors.red, fontSize: 14, padding: 16 },
-  noTracks: { color: Colors.text3, fontSize: 14, padding: 16 },
 });

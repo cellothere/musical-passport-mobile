@@ -114,7 +114,7 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
 
           <Text style={styles.tracksLabel}>Essential tracks</Text>
 
-{tracks.length === 0 ? (
+          {tracks.length === 0 ? (
             <View style={styles.noTracksState}>
               <Text style={styles.noTracksTitle}>Too niche for streaming</Text>
               <Text style={styles.noTracksText}>
@@ -278,8 +278,6 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4 },
   headerMid: { flex: 1, paddingRight: 145 },
-  shareBtn: { padding: 4 },
-  heartBtn: { padding: 4 },
   headerGenre: { color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
   headerCountry: { color: Colors.text3, fontSize: 13, marginTop: 2 },
 
@@ -330,7 +328,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   playBtnActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
-  playBtnDisabled: { opacity: 0.35 },
   playBtnYouTube: { backgroundColor: 'rgba(255,0,0,0.08)', borderColor: 'rgba(255,0,0,0.25)' },
   heartTrackBtn: {
     width: 44, height: 44, borderRadius: 22,
@@ -342,8 +339,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.blueBg, borderWidth: 1, borderColor: Colors.blueBorder,
     alignItems: 'center', justifyContent: 'center',
   },
-
-  bottomPad: { height: 48 },
 
   noTracksState: {
     alignItems: 'center', paddingVertical: 32, gap: 10,
@@ -358,14 +353,6 @@ const styles = StyleSheet.create({
     borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12,
   },
   youtubeBtnText: { color: '#FF0000', fontSize: 15, fontWeight: '700' },
-
-  deeperReason: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: Colors.purpleBg,
-    borderWidth: 1, borderColor: Colors.purpleBorder,
-    borderRadius: 12, padding: 12, marginBottom: 16,
-  },
-  deeperReasonText: { flex: 1, color: Colors.purple, fontSize: 13, lineHeight: 19 },
 
   deeperBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,

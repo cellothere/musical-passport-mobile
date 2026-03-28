@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, PanResponder,
+  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, PanResponder, Image,
 } from 'react-native';
-import { Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
@@ -37,16 +36,15 @@ interface Props {
 }
 
 
-export function LandingScreen({ navigation, auth, stampsHook, favoritesHook }: Props) {
+export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
   const { favorites } = favoritesHook;
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
-  const isConnected = auth.service === 'spotify' || auth.service === 'apple-music';
   const [todayEntry, setTodayEntry] = useState(getFallbackCountry());
   const todayDate = useRef(new Date().toISOString().slice(0, 10)).current;
 
   useEffect(() => {
     fetchCountryOfDay()
-      .then(({ country, date }) => {
+      .then(({ country }) => {
         setTodayEntry({ country, flag: FLAGS[country] ?? '🌐' });
       })
       .catch(() => {}); // keep fallback on error
@@ -253,14 +251,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border2,
     alignItems: 'center', justifyContent: 'center',
   },
-  heartBadge: {
-    position: 'absolute', top: -4, right: -4,
-    backgroundColor: Colors.red,
-    borderRadius: 8, minWidth: 16, height: 16,
-    alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  heartBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
   serviceBtn: {
     width: 62, height: 62, borderRadius: 31,
     backgroundColor: Colors.surface2,
