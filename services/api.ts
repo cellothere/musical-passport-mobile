@@ -216,11 +216,12 @@ export interface GenreDeeperResponse {
 export async function fetchGenreDeeper(
   genre: string,
   country: string,
-  service: 'spotify' | 'apple-music'
+  service: 'spotify' | 'apple-music',
+  visited: string[] = []
 ): Promise<GenreDeeperResponse> {
   const res = await apiFetch('/api/genre-deeper', {
     method: 'POST',
-    body: JSON.stringify({ genre, country, service }),
+    body: JSON.stringify({ genre, country, service, visited }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

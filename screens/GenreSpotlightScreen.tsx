@@ -27,7 +27,7 @@ interface FavoritesHook {
 
 interface Props {
   navigation: any;
-  route: { params: { genre: string; country: string; deeperReason?: string } };
+  route: { params: { genre: string; country: string; deeperReason?: string; visitedGenres?: string[] } };
   service: AuthService;
   accessToken: string | null;
   favoritesHook: FavoritesHook;
@@ -35,7 +35,7 @@ interface Props {
 }
 
 export function GenreSpotlightScreen({ navigation, route, service, accessToken, favoritesHook, auth }: Props) {
-  const { genre, country } = route.params;
+  const { genre, country, visitedGenres = [] } = route.params;
   const insets = useSafeAreaInsets();
   const { currentTrackTitle } = useAudioPlayer();
   const contentBottomPad = insets.bottom + 76 + (currentTrackTitle ? 72 : 0);
@@ -50,9 +50,15 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
     setDeeperLoading(true);
     haptics.light();
     try {
-      const deeper = await fetchGenreDeeper(genre, country, resolveService(service));
+      const alreadySeen = [...visitedGenres, genre];
+      const deeper = await fetchGenreDeeper(genre, country, resolveService(service), alreadySeen);
       haptics.success();
-      navigation.push('GenreSpotlight', { genre: deeper.genre, country: deeper.country, deeperReason: deeper.reason });
+      navigation.push('GenreSpotlight', {
+        genre: deeper.genre,
+        country: deeper.country,
+        deeperReason: deeper.reason,
+        visitedGenres: alreadySeen,
+      });
     } catch {
       // silently fail — user can try again
     } finally {
