@@ -24,13 +24,13 @@ interface Props {
   artist: Artist;
   service: AuthService;
   accessToken: string | null;
-  showSimilarTo?: boolean;
   favoritesHook?: TrackFavoritesHook;
   country?: string;
   onNeedAuth?: () => void;
   autoExpand?: boolean;
   highlightTrack?: string;
   onSearchSimilar?: (name: string) => void;
+  onGenrePress?: (genre: string) => void;
   isTester?: boolean;
   testerUserId?: string | null;
 }
@@ -42,7 +42,7 @@ function eraColors(era: string): { bg: string; border: string; text: string } {
   return { bg: Colors.purpleBg, border: Colors.purpleBorder, text: Colors.purple };
 }
 
-export function ArtistCard({ artist, service, accessToken, showSimilarTo = true, favoritesHook, country, onNeedAuth, autoExpand, highlightTrack, onSearchSimilar, isTester, testerUserId }: Props) {
+export function ArtistCard({ artist, service, accessToken, favoritesHook, country, onNeedAuth, autoExpand, highlightTrack, onSearchSimilar, onGenrePress, isTester, testerUserId }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -75,25 +75,22 @@ export function ArtistCard({ artist, service, accessToken, showSimilarTo = true,
     <View style={styles.card}>
       <TouchableOpacity style={styles.cardHeader} onPress={toggle} activeOpacity={0.7}>
         <View style={styles.cardLeft}>
-          <Text style={styles.artistName}>{artist.name}</Text>
-          <Text style={styles.artistGenre}>{artist.genre}</Text>
-          {showSimilarTo && artist.similarTo ? (
-            onSearchSimilar ? (
-              <TouchableOpacity
-                onPress={(e) => { e.stopPropagation(); onSearchSimilar(artist.similarTo!); }}
-                activeOpacity={0.7}
-                hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-              >
-                <Text style={[styles.similarTo, styles.similarToTappable]}>
-                  Because you like {artist.similarTo} →
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <Text style={styles.similarTo}>Because you like {artist.similarTo}</Text>
-            )
-          ) : null}
+          {onSearchSimilar ? (
+            <TouchableOpacity onPress={() => onSearchSimilar(artist.name)} activeOpacity={0.7} style={{ alignSelf: 'flex-start' }}>
+              <Text style={[styles.artistName, styles.artistNameTappable]}>{artist.name}</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.artistName}>{artist.name}</Text>
+          )}
+          {onGenrePress ? (
+            <TouchableOpacity onPress={() => onGenrePress(artist.genre)} activeOpacity={0.7} style={styles.genrePill}>
+              <Text style={styles.genrePillText}>{artist.genre}</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.artistGenre}>{artist.genre}</Text>
+          )}
         </View>
-        
+
         <View style={styles.cardRight}>
           <View style={styles.cardRightTop}>
             <View style={[styles.eraBadge, { backgroundColor: era.bg, borderColor: era.border }]}>
@@ -102,9 +99,7 @@ export function ArtistCard({ artist, service, accessToken, showSimilarTo = true,
           </View>
           {loading ? (
             <ActivityIndicator size="small" color={Colors.gold} style={styles.spinner} />
-          ) : (
-            ''
-          )}
+          ) : null}
         </View>
       </TouchableOpacity>
 
@@ -179,15 +174,20 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
     ? `https://embed.music.apple.com/us/album/${track.appleId}`
     : null;
 
+  const youtubeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
+
   const handlePlay = () => {
     if (track.previewUrl) {
       play(trackId, track.previewUrl, track.title, track.artist);
     } else if (embedUrl) {
       WebBrowser.openBrowserAsync(embedUrl);
+    } else {
+      WebBrowser.openBrowserAsync(youtubeUrl);
     }
   };
 
-  const canPlay = !!(track.previewUrl || embedUrl);
+  const canPlay = true;
+  const isYouTubeOnly = !track.previewUrl && !embedUrl;
 
   return (
     <View style={[styles.track, highlighted && styles.trackHighlighted]}>
@@ -207,23 +207,19 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
         {track.artist && <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>}
       </View>
       <View style={styles.trackActions}>
-        {canPlay ? (
-          <TouchableOpacity style={styles.playBtn} onPress={handlePlay}>
-            {isThisTrack && isLoading ? (
-              <ActivityIndicator size="small" color={Colors.gold} />
-            ) : (
-              <Ionicons
-                name={isThisTrack && isPlaying ? 'pause' : 'play'}
-                size={20}
-                color={Colors.gold}
-              />
-            )}
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.playBtnDisabled}>
-            <Ionicons name="play" size={20} color={Colors.text3} />
-          </View>
-        )}
+        <TouchableOpacity style={[styles.playBtn, isYouTubeOnly && styles.playBtnYouTube]} onPress={handlePlay}>
+          {isThisTrack && isLoading ? (
+            <ActivityIndicator size="small" color={Colors.gold} />
+          ) : isYouTubeOnly ? (
+            <Ionicons name="logo-youtube" size={18} color="#FF0000" />
+          ) : (
+            <Ionicons
+              name={isThisTrack && isPlaying ? 'pause' : 'play'}
+              size={20}
+              color={Colors.gold}
+            />
+          )}
+        </TouchableOpacity>
         {favoritesHook && (
           <TouchableOpacity style={[styles.heartBtn, isSaved && styles.heartBtnActive]} onPress={toggleSave}>
             <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
@@ -252,10 +248,20 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   cardLeft: { flex: 1, gap: 4 },
-  artistName: { color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.2 },
+  artistName: { color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.10 },
+  artistNameTappable: { color: Colors.blue },
   artistGenre: { color: Colors.text2, fontSize: 15 },
-  similarTo: { color: Colors.text3, fontSize: 14, fontStyle: 'italic' },
-  similarToTappable: { color: Colors.blue, fontStyle: 'italic' },
+  genrePill: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.purpleBg,
+    borderWidth: 1,
+    borderColor: Colors.purpleBorder,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginTop: 10
+  },
+  genrePillText: { color: Colors.purple, fontSize: 13, fontWeight: '700', marginTop: 1, marginBottom: 1 },
 
   cardRight: { alignItems: 'flex-end', gap: 10 },
   cardRightTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -330,6 +336,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     opacity: 0.4,
+  },
+  playBtnYouTube: {
+    backgroundColor: 'rgba(255,0,0,0.08)',
+    borderColor: 'rgba(255,0,0,0.25)',
   },
   heartBtn: {
     width: 44,

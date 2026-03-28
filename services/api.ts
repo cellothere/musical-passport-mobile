@@ -207,6 +207,28 @@ export async function fetchGenreSpotlight(
   return res.json();
 }
 
+export interface GenreDeeperResponse {
+  genre: string;
+  country: string;
+  reason: string;
+}
+
+export async function fetchGenreDeeper(
+  genre: string,
+  country: string,
+  service: 'spotify' | 'apple-music'
+): Promise<GenreDeeperResponse> {
+  const res = await apiFetch('/api/genre-deeper', {
+    method: 'POST',
+    body: JSON.stringify({ genre, country, service }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error || 'Failed to load deeper genre');
+  }
+  return res.json();
+}
+
 export interface FoundArtist {
   id: string;
   name: string;

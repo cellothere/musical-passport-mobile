@@ -2,6 +2,7 @@ import React from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Linking, ActivityIndicator,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const HEART_ICON = require('../assets/favorite-music-heart-icon-png.png');
@@ -33,7 +34,12 @@ function TrackCard({ item, onRemove }: { item: SavedDiscovery; onRemove: () => v
 
   const trackId = track.spotifyId || track.appleId || track.previewUrl || track.title;
   const isThisTrack = currentTrackId === trackId;
-  const canPlay = !!track.previewUrl;
+
+  const embedUrl = track.spotifyId
+    ? `https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator`
+    : track.appleId ? `https://embed.music.apple.com/us/album/${track.appleId}` : null;
+  const youtubeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title ?? ''} ${track.artist ?? ''}`)}`;
+  const isYouTubeOnly = !track.previewUrl && !embedUrl;
 
   const openUrl = track.spotifyUrl
     ?? (track.spotifyId ? `https://open.spotify.com/track/${track.spotifyId}` : null)
@@ -56,23 +62,27 @@ function TrackCard({ item, onRemove }: { item: SavedDiscovery; onRemove: () => v
           </View>
         </View>
         <View style={styles.cardActions}>
-          {canPlay && (
-            <TouchableOpacity
-              style={[styles.playBtn, isThisTrack && styles.playBtnActive]}
-              onPress={() => play(trackId, track.previewUrl, track.title, track.artist)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              {isThisTrack && isLoading ? (
-                <ActivityIndicator size="small" color={Colors.gold} />
-              ) : (
-                <Ionicons
-                  name={isThisTrack && isPlaying ? 'pause' : 'play'}
-                  size={18}
-                  color={isThisTrack ? Colors.gold : Colors.text2}
-                />
-              )}
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[styles.playBtn, isThisTrack && !isYouTubeOnly && styles.playBtnActive, isYouTubeOnly && styles.playBtnYouTube]}
+            onPress={() => {
+              if (track.previewUrl) play(trackId, track.previewUrl, track.title, track.artist);
+              else if (embedUrl) WebBrowser.openBrowserAsync(embedUrl);
+              else WebBrowser.openBrowserAsync(youtubeUrl);
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {isThisTrack && isLoading ? (
+              <ActivityIndicator size="small" color={Colors.gold} />
+            ) : isYouTubeOnly ? (
+              <Ionicons name="logo-youtube" size={18} color="#FF0000" />
+            ) : (
+              <Ionicons
+                name={isThisTrack && isPlaying ? 'pause' : 'play'}
+                size={18}
+                color={isThisTrack ? Colors.gold : Colors.text2}
+              />
+            )}
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.openBtn}
             onPress={() => Linking.openURL(openUrl)}
@@ -191,6 +201,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   playBtnActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
+  playBtnYouTube: { backgroundColor: 'rgba(255,0,0,0.08)', borderColor: 'rgba(255,0,0,0.25)' },
   openBtn: {
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: Colors.blueBg, borderWidth: 1, borderColor: Colors.blueBorder,

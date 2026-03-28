@@ -50,6 +50,7 @@ function formatFollowers(n: number): string {
 
 export function ArtistSearchScreen({ navigation, route, service, accessToken, favoritesHook, auth }: Props) {
   const prefill = route?.params?.prefillArtist ?? '';
+  const skipConfirm = route?.params?.skipConfirm ?? false;
   const [query, setQuery] = useState(prefill);
   const [phase, setPhase] = useState<Phase>('search');
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
@@ -69,7 +70,8 @@ export function ArtistSearchScreen({ navigation, route, service, accessToken, fa
   // Auto-trigger search when arriving via cross-navigation
   useEffect(() => {
     if (prefill) {
-      handleSearch();
+      if (skipConfirm) searchDirect(prefill);
+      else handleSearch();
     }
   }, []);
 
@@ -77,6 +79,25 @@ export function ArtistSearchScreen({ navigation, route, service, accessToken, fa
     const updated = [name, ...history.filter(h => h.toLowerCase() !== name.toLowerCase())].slice(0, 6);
     setHistory(updated);
     await AsyncStorage.setItem('artist_search_history', JSON.stringify(updated)).catch(() => {});
+  };
+
+  // Skip findArtist confirmation — used when artist name comes from a trusted source (ArtistCard tap)
+  const searchDirect = async (name: string) => {
+    setQuery(name);
+    setPhase('loading');
+    setError(null);
+    setFoundArtist({ name, genres: [], followers: 0, spotifyId: '' });
+    try {
+      const data = await fetchSimilarArtists(name);
+      setSonicSummary(data.sonicSummary);
+      setMatches(data.artists);
+      setPhase('results');
+      haptics.success();
+      saveToHistory(name);
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong');
+      setPhase('search');
+    }
   };
 
   const handleSearch = async () => {
@@ -257,10 +278,11 @@ export function ArtistSearchScreen({ navigation, route, service, accessToken, fa
                 artist={matchToArtist(match)}
                 service={service}
                 accessToken={accessToken}
-                showSimilarTo={false}
-                favoritesHook={favoritesHook}
+favoritesHook={favoritesHook}
                 country={match.country}
                 onNeedAuth={undefined}
+                onSearchSimilar={(name) => searchDirect(name)}
+                onGenrePress={(genre) => navigation.navigate('GenreSpotlight', { genre, country: match.country })}
               />
             </View>
           ))}

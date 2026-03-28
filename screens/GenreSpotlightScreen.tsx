@@ -7,7 +7,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
-import { fetchGenreSpotlight, Track } from '../services/api';
+import { fetchGenreSpotlight, fetchGenreDeeper, Track } from '../services/api';
 import { resolveService } from '../utils/defaultService';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import { TrackOptionsSheet } from '../components/TrackOptionsSheet';
@@ -27,7 +27,7 @@ interface FavoritesHook {
 
 interface Props {
   navigation: any;
-  route: { params: { genre: string; country: string } };
+  route: { params: { genre: string; country: string; deeperReason?: string } };
   service: AuthService;
   accessToken: string | null;
   favoritesHook: FavoritesHook;
@@ -35,7 +35,7 @@ interface Props {
 }
 
 export function GenreSpotlightScreen({ navigation, route, service, accessToken, favoritesHook, auth }: Props) {
-  const { genre, country } = route.params;
+  const { genre, country, deeperReason } = route.params;
   const insets = useSafeAreaInsets();
   const { currentTrackTitle } = useAudioPlayer();
   const contentBottomPad = insets.bottom + 76 + (currentTrackTitle ? 72 : 0);
@@ -44,6 +44,21 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
   const [tracks, setTracks] = useState<Track[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
+  const [deeperLoading, setDeeperLoading] = useState(false);
+
+  const handleTakeDeeper = async () => {
+    setDeeperLoading(true);
+    haptics.light();
+    try {
+      const deeper = await fetchGenreDeeper(genre, country, resolveService(service));
+      haptics.success();
+      navigation.push('GenreSpotlight', { genre: deeper.genre, country: deeper.country, deeperReason: deeper.reason });
+    } catch {
+      // silently fail — user can try again
+    } finally {
+      setDeeperLoading(false);
+    }
+  };
 
   const shareGenre = async () => {
     haptics.light();
@@ -76,7 +91,7 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
           <Ionicons name="chevron-back" size={24} color={Colors.blue} />
         </TouchableOpacity>
         <View style={styles.headerMid}>
-          <Text style={styles.headerGenre}>{genre}</Text>
+          <Text style={styles.headerGenre} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.65}>{genre}</Text>
           <Text style={styles.headerCountry}>{country}</Text>
         </View>
       </View>
@@ -99,7 +114,24 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
 
           <Text style={styles.tracksLabel}>Essential tracks</Text>
 
-          {tracks.map((track, i) => (
+{tracks.length === 0 ? (
+            <View style={styles.noTracksState}>
+              <Text style={styles.noTracksTitle}>Too niche for streaming</Text>
+              <Text style={styles.noTracksText}>
+                {genre} is rare on Spotify and Apple Music, but it lives on YouTube.
+              </Text>
+              <TouchableOpacity
+                style={styles.youtubeBtn}
+                onPress={() => WebBrowser.openBrowserAsync(
+                  `https://www.youtube.com/results?search_query=${encodeURIComponent(`${genre} ${country} music`)}`
+                )}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="logo-youtube" size={18} color="#FF0000" />
+                <Text style={styles.youtubeBtnText}>Search on YouTube</Text>
+              </TouchableOpacity>
+            </View>
+          ) : tracks.map((track, i) => (
             <SpotlightTrack
               key={i}
               index={i + 1}
@@ -111,6 +143,22 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
               testerUserId={auth.testerUserId ?? null}
             />
           ))}
+
+          <TouchableOpacity
+            style={styles.deeperBtn}
+            onPress={handleTakeDeeper}
+            disabled={deeperLoading}
+            activeOpacity={0.8}
+          >
+            {deeperLoading ? (
+              <ActivityIndicator size="small" color={Colors.purple} />
+            ) : (
+              <>
+                <Ionicons name="footsteps" size={20} color={Colors.purple} />
+                <Text style={styles.deeperBtnText}>More like this genre</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
           <View style={{ height: contentBottomPad }} />
         </ScrollView>
@@ -146,6 +194,8 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
     ? `https://embed.music.apple.com/us/album/${track.appleId}`
     : null;
 
+  const youtubeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
+
   const isSaved = favoritesHook.isTrackSaved(trackId);
   const toggleSave = async () => {
     if (isSaved) {
@@ -162,10 +212,12 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
       play(trackId, track.previewUrl, track.title, track.artist);
     } else if (embedUrl) {
       WebBrowser.openBrowserAsync(embedUrl);
+    } else {
+      WebBrowser.openBrowserAsync(youtubeUrl);
     }
   };
 
-  const canPlay = !!(track.previewUrl || embedUrl);
+  const isYouTubeOnly = !track.previewUrl && !embedUrl;
 
   return (
     <View style={styles.track}>
@@ -175,26 +227,22 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
         {track.artist && <Text style={styles.trackArtist}>{track.artist}</Text>}
       </View>
       <View style={styles.trackActions}>
-        {canPlay ? (
-          <TouchableOpacity
-            style={[styles.playBtn, isThisTrack && styles.playBtnActive]}
-            onPress={handlePlay}
-          >
-            {isThisTrack && isLoading ? (
-              <ActivityIndicator size="small" color={Colors.gold} />
-            ) : (
-              <Ionicons
-                name={isThisTrack && isPlaying ? 'pause' : 'play'}
-                size={18}
-                color={isThisTrack ? Colors.gold : Colors.text2}
-              />
-            )}
-          </TouchableOpacity>
-        ) : (
-          <View style={[styles.playBtn, styles.playBtnDisabled]}>
-            <Ionicons name="play" size={18} color={Colors.text3} />
-          </View>
-        )}
+        <TouchableOpacity
+          style={[styles.playBtn, isThisTrack && !isYouTubeOnly && styles.playBtnActive, isYouTubeOnly && styles.playBtnYouTube]}
+          onPress={handlePlay}
+        >
+          {isThisTrack && isLoading ? (
+            <ActivityIndicator size="small" color={Colors.gold} />
+          ) : isYouTubeOnly ? (
+            <Ionicons name="logo-youtube" size={18} color="#FF0000" />
+          ) : (
+            <Ionicons
+              name={isThisTrack && isPlaying ? 'pause' : 'play'}
+              size={18}
+              color={isThisTrack ? Colors.gold : Colors.text2}
+            />
+          )}
+        </TouchableOpacity>
         <TouchableOpacity style={styles.heartTrackBtn} onPress={toggleSave}>
           <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
         </TouchableOpacity>
@@ -229,7 +277,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   backBtn: { padding: 4 },
-  headerMid: { flex: 1 },
+  headerMid: { flex: 1, paddingRight: 145 },
   shareBtn: { padding: 4 },
   heartBtn: { padding: 4 },
   headerGenre: { color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
@@ -283,6 +331,7 @@ const styles = StyleSheet.create({
   },
   playBtnActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
   playBtnDisabled: { opacity: 0.35 },
+  playBtnYouTube: { backgroundColor: 'rgba(255,0,0,0.08)', borderColor: 'rgba(255,0,0,0.25)' },
   heartTrackBtn: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: 'rgba(240,101,101,0.08)', borderWidth: 1, borderColor: 'rgba(240,101,101,0.2)',
@@ -295,4 +344,35 @@ const styles = StyleSheet.create({
   },
 
   bottomPad: { height: 48 },
+
+  noTracksState: {
+    alignItems: 'center', paddingVertical: 32, gap: 10,
+  },
+  noTracksTitle: { color: Colors.text, fontSize: 16, fontWeight: '700' },
+  noTracksText: { color: Colors.text2, fontSize: 14, textAlign: 'center', lineHeight: 21, paddingHorizontal: 8 },
+  youtubeBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginTop: 8,
+    backgroundColor: 'rgba(255,0,0,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,0,0,0.25)',
+    borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12,
+  },
+  youtubeBtnText: { color: '#FF0000', fontSize: 15, fontWeight: '700' },
+
+  deeperReason: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: Colors.purpleBg,
+    borderWidth: 1, borderColor: Colors.purpleBorder,
+    borderRadius: 12, padding: 12, marginBottom: 16,
+  },
+  deeperReasonText: { flex: 1, color: Colors.purple, fontSize: 13, lineHeight: 19 },
+
+  deeperBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginTop: 24,
+    backgroundColor: Colors.purpleBg,
+    borderWidth: 1, borderColor: Colors.purpleBorder,
+    borderRadius: 16, paddingVertical: 14,
+  },
+  deeperBtnText: { color: Colors.purple, fontSize: 15, fontWeight: '700' },
 });

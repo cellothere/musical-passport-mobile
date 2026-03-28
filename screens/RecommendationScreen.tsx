@@ -138,15 +138,19 @@ function TrackRow({ track, index, favoritesHook, country, genre, onNeedAuth, isT
     ? `https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator`
     : track.appleId ? `https://embed.music.apple.com/us/album/${track.appleId}` : null;
 
+  const youtubeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
+
   const handlePlay = () => {
     if (track.previewUrl) {
       play(trackId, track.previewUrl, track.title, track.artist);
     } else if (embedUrl) {
       WebBrowser.openBrowserAsync(embedUrl);
+    } else {
+      WebBrowser.openBrowserAsync(youtubeUrl);
     }
   };
 
-  const canPlay = !!(track.previewUrl || embedUrl);
+  const isYouTubeOnly = !track.previewUrl && !embedUrl;
 
   return (
     <View style={styles.track}>
@@ -156,21 +160,17 @@ function TrackRow({ track, index, favoritesHook, country, genre, onNeedAuth, isT
         {track.artist && <Text style={styles.trackArtist}>{track.artist}</Text>}
       </View>
       <View style={styles.trackActions}>
-        {canPlay ? (
-          <TouchableOpacity
-            style={[styles.playBtn, isThisTrack && styles.playBtnActive]}
-            onPress={handlePlay}
-          >
-            {isThisTrack && isLoading
-              ? <ActivityIndicator size="small" color={Colors.gold} />
-              : <Ionicons name={isThisTrack && isPlaying ? 'pause' : 'play'} size={18} color={isThisTrack ? Colors.gold : Colors.text2} />
-            }
-          </TouchableOpacity>
-        ) : (
-          <View style={[styles.playBtn, styles.playBtnDisabled]}>
-            <Ionicons name="play" size={18} color={Colors.text3} />
-          </View>
-        )}
+        <TouchableOpacity
+          style={[styles.playBtn, isThisTrack && !isYouTubeOnly && styles.playBtnActive, isYouTubeOnly && styles.playBtnYouTube]}
+          onPress={handlePlay}
+        >
+          {isThisTrack && isLoading
+            ? <ActivityIndicator size="small" color={Colors.gold} />
+            : isYouTubeOnly
+            ? <Ionicons name="logo-youtube" size={18} color="#FF0000" />
+            : <Ionicons name={isThisTrack && isPlaying ? 'pause' : 'play'} size={18} color={isThisTrack ? Colors.gold : Colors.text2} />
+          }
+        </TouchableOpacity>
         {favoritesHook && (
           <TouchableOpacity style={[styles.heartBtn, isSaved && styles.heartBtnActive]} onPress={toggleSave}>
             <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
@@ -371,35 +371,19 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
       ) : recs ? (
         // ── Explore mode ─────────────────────────────────────
         <ScrollView ref={exploreScrollRef} style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {recs.genres?.length > 0 && (
-            <View style={styles.genresRow}>
-              <View style={styles.genres}>
-                {recs.genres.map(g => (
-                  <TouchableOpacity
-                    key={g}
-                    style={styles.genreTag}
-                    onPress={() => navigation.navigate('GenreSpotlight', { genre: g, country })}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.genreText}>{g}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <View style={styles.genreActions}>
-                <TouchableOpacity
-                  style={[styles.decadePill, selectedDecade ? styles.decadePillActive : null]}
-                  onPress={() => setDecadePickerVisible(true)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="time-outline" size={26} color={Colors.gold} />
-                  {selectedDecade ? <Text style={styles.decadePillTextActive}>{selectedDecade}</Text> : null}
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeading}>Artists to discover</Text>
-            <Text style={styles.sectionHint}>Tap any artist to reveal tracks</Text>
+            <View>
+              <Text style={styles.sectionHeading}>Artists to discover</Text>
+              <Text style={styles.sectionHint}>Tap any artist to reveal tracks</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.decadePill, selectedDecade ? styles.decadePillActive : null]}
+              onPress={() => setDecadePickerVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="time-outline" size={22} color={Colors.gold} />
+              {selectedDecade ? <Text style={styles.decadePillTextActive}>{selectedDecade}</Text> : null}
+            </TouchableOpacity>
           </View>
           {(recs.artists || []).map((artist, i) => {
             const isHighlighted = !!highlightArtist && artist.name.toLowerCase() === highlightArtist.toLowerCase();
@@ -417,7 +401,8 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
                   onNeedAuth={undefined}
                   autoExpand={isHighlighted}
                   highlightTrack={isHighlighted ? highlightTrack : undefined}
-                  onSearchSimilar={(name) => navigation.navigate('ArtistSearch', { prefillArtist: name })}
+                  onSearchSimilar={(name) => navigation.navigate('ArtistSearch', { prefillArtist: name, skipConfirm: true })}
+                  onGenrePress={(genre) => navigation.navigate('GenreSpotlight', { genre, country })}
                   isTester={auth.isTester}
                   testerUserId={auth.testerUserId}
                 />
@@ -537,16 +522,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 18 },
 
-  // Explore mode
-  genresRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 20 },
-  genres: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  genreActions: { flexDirection: 'column', alignItems: 'center', gap: 8, paddingTop: 2 },
-  genreTag: {
-    backgroundColor: Colors.purpleBg, borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 7,
-  },
-  genreText: { color: Colors.purple, fontSize: 13, fontWeight: '600' },
-  sectionHeader: { marginBottom: 14 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   sectionHeading: { color: Colors.text, fontSize: 15, fontWeight: '600', marginBottom: 3 },
   sectionHint: { color: Colors.text3, fontSize: 13 },
   dyk: { backgroundColor: Colors.goldBg, borderRadius: 14, padding: 16, marginTop: 10 },
@@ -580,6 +556,7 @@ const styles = StyleSheet.create({
   },
   playBtnActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
   playBtnDisabled: { opacity: 0.35 },
+  playBtnYouTube: { backgroundColor: 'rgba(255,0,0,0.08)', borderColor: 'rgba(255,0,0,0.25)' },
   heartBtn: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: 'rgba(240,101,101,0.08)', borderWidth: 1, borderColor: 'rgba(240,101,101,0.2)',
