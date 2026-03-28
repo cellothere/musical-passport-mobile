@@ -4,7 +4,8 @@ import {
   StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import {
@@ -28,7 +29,7 @@ interface FavoritesHook {
 
 interface Props {
   navigation: any;
-  route?: { params?: { prefillArtist?: string } };
+  route?: { params?: { prefillArtist?: string; skipConfirm?: boolean } };
   service: AuthService;
   accessToken: string | null;
   favoritesHook: FavoritesHook;
@@ -49,6 +50,9 @@ function formatFollowers(n: number): string {
 }
 
 export function ArtistSearchScreen({ navigation, route, service, accessToken, favoritesHook, auth }: Props) {
+  const insets = useSafeAreaInsets();
+  const { currentTrackTitle } = useAudioPlayer();
+  const contentBottomPad = insets.bottom + 76 + (currentTrackTitle ? 72 : 0);
   const prefill = route?.params?.prefillArtist ?? '';
   const skipConfirm = route?.params?.skipConfirm ?? false;
   const [query, setQuery] = useState(prefill);
@@ -278,7 +282,7 @@ export function ArtistSearchScreen({ navigation, route, service, accessToken, fa
                 artist={matchToArtist(match)}
                 service={service}
                 accessToken={accessToken}
-favoritesHook={favoritesHook}
+                favoritesHook={favoritesHook}
                 country={match.country}
                 onNeedAuth={undefined}
                 onSearchSimilar={(name) => searchDirect(name)}
@@ -286,7 +290,7 @@ favoritesHook={favoritesHook}
               />
             </View>
           ))}
-          <View style={styles.bottomPad} />
+          <View style={{ height: contentBottomPad }} />
         </ScrollView>
       )}
       <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} currentScreen="ArtistSearch" />
@@ -467,5 +471,4 @@ const styles = StyleSheet.create({
   matchFlag: { fontSize: 20 },
   matchCountry: { flex: 1, color: Colors.text3, fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6 },
 
-  bottomPad: { height: 48 },
 });
