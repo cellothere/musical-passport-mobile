@@ -35,7 +35,7 @@ interface Props {
 }
 
 export function GenreSpotlightScreen({ navigation, route, service, accessToken, favoritesHook, auth }: Props) {
-  const { genre, country, deeperReason } = route.params;
+  const { genre, country } = route.params;
   const insets = useSafeAreaInsets();
   const { currentTrackTitle } = useAudioPlayer();
   const contentBottomPad = insets.bottom + 76 + (currentTrackTitle ? 72 : 0);
