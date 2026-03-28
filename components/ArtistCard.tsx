@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
+  Animated, Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { Colors } from '../constants/colors';
 import { fetchArtistTracks, Track } from '../services/api';
 import { resolveService } from '../utils/defaultService';
@@ -11,7 +13,7 @@ import type { AuthService } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import { TrackOptionsSheet } from './TrackOptionsSheet';
-import * as WebBrowser from 'expo-web-browser';
+import { haptics } from '../utils/haptics';
 
 interface TrackFavoritesHook {
   isTrackSaved: (trackId: string) => boolean;
@@ -42,73 +44,128 @@ function eraColors(era: string): { bg: string; border: string; text: string } {
   return { bg: Colors.purpleBg, border: Colors.purpleBorder, text: Colors.purple };
 }
 
-export function ArtistCard({ artist, service, accessToken, favoritesHook, country, onNeedAuth, autoExpand, highlightTrack, onSearchSimilar, onGenrePress, isTester, testerUserId }: Props) {
-  const [expanded, setExpanded] = useState(false);
+export function ArtistCard({
+  artist, service, accessToken, favoritesHook, country,
+  onNeedAuth, autoExpand, highlightTrack,
+  onSearchSimilar, onGenrePress, isTester, testerUserId,
+}: Props) {
+  const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(false);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [tracksLoaded, setTracksLoaded] = useState(false);
+  const scaleX = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (autoExpand) toggle();
-  }, [autoExpand]);
+    if (autoExpand) doFlip();
+  }, []);
 
-  const toggle = async () => {
-    if (expanded) { setExpanded(false); return; }
-    if (tracks.length > 0 || error) { setExpanded(true); return; }
+  const loadTracks = async () => {
+    if (tracksLoaded) return;
     setLoading(true);
     try {
       const data = await fetchArtistTracks(artist.name, resolveService(service), accessToken || undefined);
       setTracks(data.tracks);
-      setExpanded(true);
       setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to load tracks');
-      setExpanded(true);
     } finally {
       setLoading(false);
+      setTracksLoaded(true);
     }
+  };
+
+  const doFlip = () => {
+    const toBack = !flipped;
+    haptics.light();
+    Animated.timing(scaleX, {
+      toValue: 0,
+      duration: 140,
+      useNativeDriver: true,
+      easing: Easing.in(Easing.ease),
+    }).start(() => {
+      setFlipped(f => !f);
+      if (toBack && !tracksLoaded) loadTracks();
+      Animated.timing(scaleX, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.back(1.4)),
+      }).start();
+    });
   };
 
   const era = eraColors(artist.era);
 
   return (
-    <View style={styles.card}>
-      <TouchableOpacity style={styles.cardHeader} onPress={toggle} activeOpacity={0.7}>
-        <View style={styles.cardLeft}>
-          {onSearchSimilar ? (
-            <TouchableOpacity onPress={() => onSearchSimilar(artist.name)} activeOpacity={0.7} style={{ alignSelf: 'flex-start' }}>
-              <Text style={[styles.artistName, styles.artistNameTappable]}>{artist.name}</Text>
-            </TouchableOpacity>
-          ) : (
-            <Text style={styles.artistName}>{artist.name}</Text>
-          )}
-          {onGenrePress ? (
-            <TouchableOpacity onPress={() => onGenrePress(artist.genre)} activeOpacity={0.7} style={styles.genrePill}>
-              <Text style={styles.genrePillText}>{artist.genre}</Text>
-            </TouchableOpacity>
-          ) : (
-            <Text style={styles.artistGenre}>{artist.genre}</Text>
-          )}
-        </View>
-
-        <View style={styles.cardRight}>
-          <View style={styles.cardRightTop}>
+    <Animated.View style={[styles.card, { transform: [{ scaleX }] }]}>
+      {!flipped ? (
+        // ── Front ──────────────────────────────────────────
+        <TouchableOpacity style={styles.front} onPress={doFlip} activeOpacity={0.88}>
+          <View style={styles.frontTop}>
+            <View style={styles.frontTopLeft}>
+              {onSearchSimilar ? (
+                <TouchableOpacity
+                  onPress={() => onSearchSimilar(artist.name)}
+                  activeOpacity={0.7}
+                  style={{ alignSelf: 'flex-start' }}
+                >
+                  <Text style={[styles.artistName, styles.artistNameTappable]}>{artist.name}</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.artistName}>{artist.name}</Text>
+              )}
+            </View>
             <View style={[styles.eraBadge, { backgroundColor: era.bg, borderColor: era.border }]}>
               <Text style={[styles.eraText, { color: era.text }]}>{artist.era}</Text>
             </View>
           </View>
-          {loading ? (
-            <ActivityIndicator size="small" color={Colors.gold} style={styles.spinner} />
-          ) : null}
-        </View>
-      </TouchableOpacity>
 
-      {expanded && !loading && (
-        <View style={styles.tracks}>
-          {error ? (
+          <View style={styles.frontBottom}>
+            {onGenrePress ? (
+              <TouchableOpacity
+                onPress={() => onGenrePress(artist.genre)}
+                activeOpacity={0.7}
+                style={styles.genrePill}
+              >
+                <Text style={styles.genrePillText}>{artist.genre}</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.artistGenre}>{artist.genre}</Text>
+            )}
+            <View style={styles.flipHint}>
+              <Ionicons name="musical-notes" size={13} color={Colors.text3} />
+              <Text style={styles.flipHintText}>Tap to explore</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      ) : (
+        // ── Back ───────────────────────────────────────────
+        <View style={styles.back}>
+          <TouchableOpacity style={styles.backHeader} onPress={doFlip} activeOpacity={0.7}>
+            <Text style={styles.backArtistName} numberOfLines={1}>{artist.name}</Text>
+            <View style={styles.backCloseBtn}>
+              <Ionicons name="chevron-up" size={18} color={Colors.text3} />
+            </View>
+          </TouchableOpacity>
+
+          {loading ? (
+            <View style={styles.backLoading}>
+              <ActivityIndicator size="small" color={Colors.gold} />
+            </View>
+          ) : error ? (
             <Text style={styles.errorText}>⚠️ {error}</Text>
           ) : tracks.length === 0 ? (
-            <Text style={styles.noTracks}>No tracks found</Text>
+            <TouchableOpacity
+              style={styles.youtubeBtn}
+              onPress={() => WebBrowser.openBrowserAsync(
+                `https://www.youtube.com/results?search_query=${encodeURIComponent(artist.name + ' music')}`
+              )}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="logo-youtube" size={16} color="#FF0000" />
+              <Text style={styles.youtubeBtnText}>Search on YouTube</Text>
+            </TouchableOpacity>
           ) : (
             tracks.map((track, i) => (
               <TrackRow
@@ -127,7 +184,7 @@ export function ArtistCard({ artist, service, accessToken, favoritesHook, countr
           )}
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -147,6 +204,7 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
   const [optionsVisible, setOptionsVisible] = useState(false);
   const trackId = track.spotifyId || track.appleId || track.previewUrl || `${track.title}-${index}`;
   const isSaved = favoritesHook?.isTrackSaved(trackId) ?? false;
+
   const toggleSave = async () => {
     if (onNeedAuth) { onNeedAuth(); return; }
     if (!favoritesHook) return;
@@ -157,6 +215,7 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
       await favoritesHook.save({ type: 'track', country: country ?? '', data: { trackId, track, genre: artistGenre ?? '', country: country ?? '' } });
     }
   };
+
   const isThisTrack = currentTrackId === trackId;
 
   const openUrl = track.spotifyUrl
@@ -164,10 +223,6 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
     ?? (track.appleId ? `https://music.apple.com/us/song/${track.appleId}` : null)
     ?? `https://open.spotify.com/search/${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
 
-  const showMore = () => setOptionsVisible(true);
-
-  // Spotify removed preview_url from most tracks in 2024.
-  // Fall back to their embed player (30s preview, no login needed).
   const embedUrl = track.spotifyId
     ? `https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator`
     : track.appleId
@@ -186,7 +241,6 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
     }
   };
 
-  const canPlay = true;
   const isYouTubeOnly = !track.previewUrl && !embedUrl;
 
   return (
@@ -207,7 +261,10 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
         {track.artist && <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>}
       </View>
       <View style={styles.trackActions}>
-        <TouchableOpacity style={[styles.playBtn, isYouTubeOnly && styles.playBtnYouTube]} onPress={handlePlay}>
+        <TouchableOpacity
+          style={[styles.playBtn, isYouTubeOnly && styles.playBtnYouTube]}
+          onPress={handlePlay}
+        >
           {isThisTrack && isLoading ? (
             <ActivityIndicator size="small" color={Colors.gold} />
           ) : isYouTubeOnly ? (
@@ -225,7 +282,7 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
             <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={styles.moreBtn} onPress={showMore}>
+        <TouchableOpacity style={styles.moreBtn} onPress={() => setOptionsVisible(true)}>
           <Text style={styles.moreBtnText}>•••</Text>
         </TouchableOpacity>
       </View>
@@ -242,15 +299,36 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     overflow: 'hidden',
   },
-  cardHeader: {
-    flexDirection: 'row',
+
+  // ── Front ────────────────────────────────────────────────
+  front: {
     padding: 16,
     gap: 12,
   },
-  cardLeft: { flex: 1, gap: 4 },
-  artistName: { color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.10 },
+  frontTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  frontTopLeft: { flex: 1 },
+  artistName: { color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.1 },
   artistNameTappable: { color: Colors.blue },
   artistGenre: { color: Colors.text2, fontSize: 15 },
+  eraBadge: {
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    flexShrink: 0,
+  },
+  eraText: { fontSize: 13, fontWeight: '700' },
+
+  frontBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   genrePill: {
     alignSelf: 'flex-start',
     backgroundColor: Colors.purpleBg,
@@ -259,51 +337,76 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    marginTop: 10
   },
-  genrePillText: { color: Colors.purple, fontSize: 13, fontWeight: '700', marginTop: 1, marginBottom: 1 },
-
-  cardRight: { alignItems: 'flex-end', gap: 10 },
-  cardRightTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  eraBadge: {
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+  genrePillText: { color: Colors.purple, fontSize: 13, fontWeight: '700' },
+  flipHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  eraText: { fontSize: 13, fontWeight: '700' },
+  flipHintText: { color: Colors.text3, fontSize: 12 },
 
-  chevronWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  // ── Back ─────────────────────────────────────────────────
+  back: {
+    paddingBottom: 8,
+  },
+  backHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    gap: 8,
+  },
+  backArtistName: {
+    flex: 1,
+    color: Colors.text2,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  backCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: Colors.surface2,
     borderWidth: 1,
     borderColor: Colors.border2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chevronWrapOpen: {
-    backgroundColor: Colors.goldBg,
-    borderColor: Colors.goldBorder,
+  backLoading: {
+    paddingVertical: 24,
+    alignItems: 'center',
   },
-  chevron: { color: Colors.text3, fontSize: 20, lineHeight: 22, fontWeight: '600' },
-  chevronOpen: { color: Colors.gold },
-  spinner: { width: 36, height: 36 },
-
-  tracks: {
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
+  youtubeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    margin: 14,
+    backgroundColor: 'rgba(255,0,0,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,0,0,0.25)',
+    borderRadius: 10,
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingVertical: 10,
+    alignSelf: 'flex-start',
   },
+  youtubeBtnText: { color: '#FF0000', fontSize: 14, fontWeight: '700' },
+
+  // ── Track rows ───────────────────────────────────────────
   track: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
     gap: 12,
+  },
+  trackHighlighted: {
+    backgroundColor: Colors.goldBg,
   },
   trackNumber: {
     color: Colors.text3,
@@ -317,62 +420,33 @@ const styles = StyleSheet.create({
   trackArtist: { color: Colors.text2, fontSize: 14, marginTop: 3 },
   trackActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   playBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: Colors.goldBg,
-    borderWidth: 1,
-    borderColor: Colors.goldBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playBtnDisabled: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.surface2,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    opacity: 0.4,
+    borderWidth: 1, borderColor: Colors.goldBorder,
+    alignItems: 'center', justifyContent: 'center',
   },
   playBtnYouTube: {
     backgroundColor: 'rgba(255,0,0,0.08)',
     borderColor: 'rgba(255,0,0,0.25)',
   },
   heartBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: 'rgba(240,101,101,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(240,101,101,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(240,101,101,0.2)',
+    alignItems: 'center', justifyContent: 'center',
   },
   heartBtnActive: {
     backgroundColor: 'rgba(240,101,101,0.18)',
     borderColor: 'rgba(240,101,101,0.4)',
   },
   moreBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: Colors.surface2,
-    borderWidth: 1,
-    borderColor: Colors.border2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderWidth: 1, borderColor: Colors.border2,
+    alignItems: 'center', justifyContent: 'center',
   },
   moreBtnText: { color: Colors.text3, fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-  trackHighlighted: {
-    backgroundColor: Colors.goldBg,
-    borderRadius: 8,
-    marginHorizontal: -4,
-    paddingHorizontal: 4,
-  },
-  errorText: { color: Colors.red, fontSize: 14, paddingVertical: 12 },
-  noTracks: { color: Colors.text3, fontSize: 14, paddingVertical: 12 },
-});
 
+  errorText: { color: Colors.red, fontSize: 14, padding: 16 },
+  noTracks: { color: Colors.text3, fontSize: 14, padding: 16 },
+});
