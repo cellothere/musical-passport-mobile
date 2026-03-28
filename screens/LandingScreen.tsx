@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, PanResponder, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { FLAGS } from '../constants/flags';
@@ -38,6 +39,8 @@ interface Props {
 
 export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
   const { favorites } = favoritesHook;
+  const { currentTrackTitle } = useAudioPlayer();
+  const miniPlayerOffset = currentTrackTitle ? 72 : 0;
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [todayEntry, setTodayEntry] = useState(getFallbackCountry());
   const todayDate = useRef(new Date().toISOString().slice(0, 10)).current;
@@ -133,7 +136,7 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
       </View>
 
       {/* Bottom-left: service button */}
-      <View style={styles.floatingBtnLeft}>
+      <View style={[styles.floatingBtnLeft, { bottom: 32 + miniPlayerOffset }]}>
         {auth.loading ? (
           <ActivityIndicator size="small" color={Colors.gold} />
         ) : auth.service ? (
@@ -152,7 +155,7 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
       {/* Bottom-right: saved discoveries */}
       {favorites.length > 0 && (
         <TouchableOpacity
-          style={styles.floatingBtnRight}
+          style={[styles.floatingBtnRight, { bottom: 32 + miniPlayerOffset }]}
           onPress={() => navigation.navigate('Saved')}
           activeOpacity={0.7}
         >
@@ -242,10 +245,10 @@ const styles = StyleSheet.create({
   },
 
   floatingBtnLeft: {
-    position: 'absolute', bottom: 32, left: 24,
+    position: 'absolute', left: 24,
   },
   floatingBtnRight: {
-    position: 'absolute', bottom: 32, right: 24,
+    position: 'absolute', right: 24,
     width: 62, height: 62, borderRadius: 31,
     backgroundColor: Colors.surface2,
     borderWidth: 1, borderColor: Colors.border2,
