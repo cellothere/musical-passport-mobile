@@ -40,8 +40,8 @@ interface Props {
 function eraColors(era: string): { bg: string; border: string; text: string } {
   const e = era.toLowerCase();
   if (e.includes('pioneer')) return { bg: Colors.goldBg, border: Colors.goldBorder, text: Colors.gold };
-  if (e.includes('golden')) return { bg: Colors.blueBg, border: Colors.blueBorder, text: Colors.blue };
-  return { bg: Colors.purpleBg, border: Colors.purpleBorder, text: Colors.purple };
+  if (e.includes('golden')) return { bg: Colors.blueBg, border: Colors.blueBorder, text: Colors.gold };
+  return { bg: Colors.purpleBg, border: Colors.purpleBorder, text: Colors.gold };
 }
 
 export function ArtistCard({
