@@ -190,7 +190,7 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
     if (!target) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setSelectedCountry(null);
-    navigation.navigate('Recommendations', selectedDecade ? { country: target, decade: selectedDecade } : { country: target });
+    navigation.push('Recommendations', selectedDecade ? { country: target, decade: selectedDecade } : { country: target });
   };
 
   const toggleRegion = (name: string) => {
@@ -273,7 +273,7 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
             onPress={() => {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
               const country = ALL_COUNTRIES[Math.floor(Math.random() * ALL_COUNTRIES.length)];
-              go(country);
+              navigation.push('Recommendations', selectedDecade ? { country, decade: selectedDecade } : { country });
             }}
             activeOpacity={0.8}
           >
