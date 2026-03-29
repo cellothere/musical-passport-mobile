@@ -1,6 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, PanResponder, Image,
+  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
@@ -12,6 +12,7 @@ import { haptics } from '../utils/haptics';
 import { ServiceModal } from '../components/ServiceModal';
 import { useFocusEffect } from '@react-navigation/native';
 import { fetchCountryOfDay, recordCountryOfDayHit } from '../services/api';
+import { Globe3D, Globe3DHandle } from '../components/Globe3D';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 
@@ -76,19 +77,7 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
   };
 
   const allCountries = useRef([...getAllCountries(), ...MUSIC_REGIONS]).current;
-  const swipePanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderRelease: (_, g) => {
-        if (g.dy < -40) {
-          handleSurprise();
-        } else if (Math.abs(g.dx) < 8 && Math.abs(g.dy) < 8) {
-          handleGlobeTap();
-        }
-      },
-    })
-  ).current;
+  const globeRef = useRef<Globe3DHandle>(null);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -125,15 +114,23 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
       </View>
 
       {/* Globe */}
-      <View style={styles.cards} {...swipePanResponder.panHandlers}>
+      <View style={styles.cards}>
         <View style={styles.globeWrap}>
           <Text style={styles.tapHint}>tap to explore</Text>
-          <Image
-            source={require('../assets/Rotating_earth_animated_transparent.gif')}
-            style={styles.globeImage}
-            resizeMode="contain"
+          <Globe3D
+            ref={globeRef}
+            size={280}
+            onTap={handleGlobeTap}
+            onSpinComplete={() => setTimeout(handleSurprise, 120)}
           />
-          <Text style={styles.swipeHint}>or swipe up</Text>
+          <TouchableOpacity
+            style={styles.spinBtn}
+            onPress={() => { haptics.light(); globeRef.current?.spinForSurprise(); }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="refresh" size={13} color={Colors.text3} />
+            <Text style={styles.spinHint}>spin for a surprise</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -212,24 +209,27 @@ const styles = StyleSheet.create({
     shadowRadius: 60,
     shadowOffset: { width: 0, height: 0 },
   },
-  globeImage: {
-    width: 280,
-    height: 280,
-  },
   tapHint: {
     color: Colors.text3,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '500',
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  swipeHint: {
+  spinBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  spinHint: {
     color: Colors.text3,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '500',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginTop: 4,
   },
 
   dailyPill: {

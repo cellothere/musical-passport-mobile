@@ -435,6 +435,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
         country={globeCountry}
         decade={globeDecade}
         onDone={handleGlobeDone}
+        onCancel={() => navigation.goBack()}
       />
 
       <DecadePickerModal
