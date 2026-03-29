@@ -16,7 +16,6 @@ import { Globe3D, Globe3DHandle } from '../components/Globe3D';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 
-// Fallback for when API is unavailable
 const DAILY_COUNTRIES_FALLBACK = [
   'Brazil', 'Japan', 'Nigeria', 'Cuba', 'Ethiopia', 'Colombia', 'Jamaica',
   'Iran', 'Mali', 'South Korea', 'Portugal', 'Iceland', 'Greece', 'Algeria',
@@ -38,7 +37,6 @@ interface Props {
   favoritesHook: { favorites: SavedDiscovery[] };
 }
 
-
 export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
   const { favorites } = favoritesHook;
   const { currentTrackTitle } = useAudioPlayer();
@@ -47,49 +45,52 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
   const [todayEntry, setTodayEntry] = useState(getFallbackCountry());
   const todayDateRef = useRef(new Date().toISOString().slice(0, 10));
 
+  const allCountries = useRef([...getAllCountries(), ...MUSIC_REGIONS]).current;
+  const globeRef = useRef<Globe3DHandle>(null);
+
   useFocusEffect(useCallback(() => {
     todayDateRef.current = new Date().toISOString().slice(0, 10);
     fetchCountryOfDay()
-      .then(({ country }) => {
-        setTodayEntry({ country, flag: FLAGS[country] ?? '🌐' });
-      })
-      .catch(() => {}); // keep fallback on error
+      .then(({ country }) => setTodayEntry({ country, flag: FLAGS[country] ?? '🌐' }))
+      .catch(() => {});
   }, []));
 
   const prevService = useRef(auth.service);
   useEffect(() => {
-    if (!prevService.current && auth.service) {
-      haptics.success();
-    }
+    if (!prevService.current && auth.service) haptics.success();
     prevService.current = auth.service;
   }, [auth.service]);
+
   const hasInsights = !!auth.service;
+
   const handleGlobeTap = () => {
     haptics.medium();
     navigation.navigate('Explore');
   };
 
+  const triggerSurprise = () => {
+    haptics.light();
+    globeRef.current?.spinForSurprise();
+  };
 
-  const handleSurprise = () => {
-    haptics.launch();
+  const handleSpinComplete = () => {
     const country = allCountries[Math.floor(Math.random() * allCountries.length)];
     navigation.navigate('Recommendations', { country });
   };
 
-  const allCountries = useRef([...getAllCountries(), ...MUSIC_REGIONS]).current;
-  const globeRef = useRef<Globe3DHandle>(null);
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Top-left: Country of the Day pill */}
-      <TouchableOpacity
-        style={styles.dailyPill}
-        onPress={() => { haptics.light(); recordCountryOfDayHit(todayDateRef.current).catch(() => {}); navigation.navigate('Recommendations', { country: todayEntry.country }); }}
-        activeOpacity={0.75}
-      >
-        <Text style={styles.dailyPillFlag}>{todayEntry.flag}</Text>
-        <Text style={styles.dailyPillLabel}>Today</Text>
-      </TouchableOpacity>
+      <View style={styles.dailyPillWrap}>
+        <TouchableOpacity
+          style={styles.dailyPill}
+          onPress={() => { haptics.light(); recordCountryOfDayHit(todayDateRef.current).catch(() => {}); navigation.navigate('Recommendations', { country: todayEntry.country }); }}
+          activeOpacity={0.75}
+        >
+          <Text style={styles.dailyPillFlag}>{todayEntry.flag}</Text>
+          <Text style={styles.dailyPillLabel}>Today</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Top-right icon buttons */}
       <View style={styles.topRightBtns}>
@@ -121,11 +122,11 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
             ref={globeRef}
             size={280}
             onTap={handleGlobeTap}
-            onSpinComplete={() => setTimeout(handleSurprise, 120)}
+            onSpinComplete={handleSpinComplete}
           />
           <TouchableOpacity
             style={styles.spinBtn}
-            onPress={() => { haptics.light(); globeRef.current?.spinForSurprise(); }}
+            onPress={triggerSurprise}
             activeOpacity={0.7}
           >
             <Ionicons name="refresh" size={13} color={Colors.text3} />
@@ -153,16 +154,15 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
 
       {/* Bottom-right: saved discoveries */}
       {favorites.length > 0 && (
-        <TouchableOpacity
-          style={[styles.floatingBtnRight, { bottom: 32 + miniPlayerOffset }]}
-          onPress={() => navigation.navigate('Saved')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="heart" size={26} color={Colors.red} />
-          {/* <View style={styles.heartBadge}>
-            <Text style={styles.heartBadgeText}>{favorites.length}</Text>
-          </View> */}
-        </TouchableOpacity>
+        <View style={[styles.floatingBtnRight, { bottom: 32 + miniPlayerOffset }]}>
+          <TouchableOpacity
+            style={styles.floatingBtnRightInner}
+            onPress={() => navigation.navigate('Saved')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="heart" size={26} color={Colors.red} />
+          </TouchableOpacity>
+        </View>
       )}
 
       <ServiceModal
@@ -184,66 +184,46 @@ const styles = StyleSheet.create({
   },
   dnaBtn: {
     borderWidth: 1, borderColor: Colors.purpleBorder,
-    borderRadius: 30,
-    backgroundColor: Colors.purpleBg,
-    padding: 8,
+    borderRadius: 30, backgroundColor: Colors.purpleBg, padding: 8,
   },
   searchBtn: {
     borderWidth: 1, borderColor: Colors.greenBorder,
-    borderRadius: 30,
-    backgroundColor: Colors.greenBg,
-    padding: 8,
+    borderRadius: 30, backgroundColor: Colors.greenBg, padding: 8,
   },
 
   cards: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    flex: 1, alignItems: 'center', justifyContent: 'center',
   },
   globeWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    shadowColor: '#4ab8c1',
-    shadowOpacity: 0.55,
-    shadowRadius: 60,
+    alignItems: 'center', justifyContent: 'center', gap: 4,
+    shadowColor: '#4ab8c1', shadowOpacity: 0.55, shadowRadius: 60,
     shadowOffset: { width: 0, height: 0 },
   },
   tapHint: {
-    color: Colors.text3,
-    fontSize: 13,
-    fontWeight: '500',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+    color: Colors.text3, fontSize: 13, fontWeight: '500',
+    letterSpacing: 1, textTransform: 'uppercase',
   },
   spinBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 8, paddingHorizontal: 14,
   },
   spinHint: {
-    color: Colors.text3,
-    fontSize: 13,
-    fontWeight: '500',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    color: Colors.text3, fontSize: 13, fontWeight: '500',
+    letterSpacing: 0.8, textTransform: 'uppercase',
   },
 
+  dailyPillWrap: {
+    position: 'absolute', top: 65, left: 20, zIndex: 10,
+  },
   dailyPill: {
-    position: 'absolute', top: 65, left: 20,
     flexDirection: 'row', alignItems: 'center', gap: 7,
     backgroundColor: Colors.surface,
     borderWidth: 1, borderColor: Colors.goldBorder,
     borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7,
-    zIndex: 10,
   },
   dailyPillFlag: { fontSize: 20 },
   dailyPillLabel: {
-    color: Colors.gold, fontSize: 12, fontWeight: '700',
-    letterSpacing: 0.5,
+    color: Colors.gold, fontSize: 12, fontWeight: '700', letterSpacing: 0.5,
   },
 
   floatingBtnLeft: {
@@ -256,6 +236,10 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border2,
     alignItems: 'center', justifyContent: 'center',
   },
+  floatingBtnRightInner: {
+    width: 62, height: 62, borderRadius: 31,
+    alignItems: 'center', justifyContent: 'center',
+  },
   serviceBtn: {
     width: 62, height: 62, borderRadius: 31,
     backgroundColor: Colors.surface2,
@@ -263,11 +247,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   loginBtn: {
-    backgroundColor: Colors.goldBg,
-    borderWidth: 1, borderColor: Colors.goldBorder,
-    borderRadius: 28,
-    paddingHorizontal: 22, paddingVertical: 14,
+    backgroundColor: Colors.goldBg, borderWidth: 1, borderColor: Colors.goldBorder,
+    borderRadius: 28, paddingHorizontal: 22, paddingVertical: 14,
   },
   loginBtnText: { color: Colors.gold, fontSize: 16, fontWeight: '700' },
 });
-
