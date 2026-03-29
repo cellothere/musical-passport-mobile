@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, PanResponder, Image,
 } from 'react-native';
@@ -10,6 +10,7 @@ import { FLAGS } from '../constants/flags';
 import { getAllCountries, MUSIC_REGIONS } from '../constants/regions';
 import { haptics } from '../utils/haptics';
 import { ServiceModal } from '../components/ServiceModal';
+import { useFocusEffect } from '@react-navigation/native';
 import { fetchCountryOfDay, recordCountryOfDayHit } from '../services/api';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
@@ -43,15 +44,16 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
   const miniPlayerOffset = currentTrackTitle ? 72 : 0;
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [todayEntry, setTodayEntry] = useState(getFallbackCountry());
-  const todayDate = useRef(new Date().toISOString().slice(0, 10)).current;
+  const todayDateRef = useRef(new Date().toISOString().slice(0, 10));
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
+    todayDateRef.current = new Date().toISOString().slice(0, 10);
     fetchCountryOfDay()
       .then(({ country }) => {
         setTodayEntry({ country, flag: FLAGS[country] ?? '🌐' });
       })
       .catch(() => {}); // keep fallback on error
-  }, []);
+  }, []));
 
   const prevService = useRef(auth.service);
   useEffect(() => {
@@ -93,7 +95,7 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
       {/* Top-left: Country of the Day pill */}
       <TouchableOpacity
         style={styles.dailyPill}
-        onPress={() => { haptics.light(); recordCountryOfDayHit(todayDate).catch(() => {}); navigation.navigate('Recommendations', { country: todayEntry.country }); }}
+        onPress={() => { haptics.light(); recordCountryOfDayHit(todayDateRef.current).catch(() => {}); navigation.navigate('Recommendations', { country: todayEntry.country }); }}
         activeOpacity={0.75}
       >
         <Text style={styles.dailyPillFlag}>{todayEntry.flag}</Text>
