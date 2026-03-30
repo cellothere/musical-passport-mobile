@@ -247,7 +247,7 @@ export interface ArtistMatch {
 }
 
 export interface SimilarArtistsResponse {
-  sonicSummary: string;
+  baseArtist: string;
   artists: ArtistMatch[];
 }
 

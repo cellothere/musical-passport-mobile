@@ -32,6 +32,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [state, setState] = useState<AudioPlayerState>(EMPTY);
   const currentIdRef = useRef<string | null>(null);
   const pausedByBackground = useRef(false);
+  const switchingRef = useRef(false); // true while loading a new track — suppresses false "track ended" events
 
   // expo-audio hook — source is replaced dynamically when a track is played
   const player = useExpoAudioPlayer(undefined);
@@ -57,17 +58,23 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   // Detect natural end of track — reset to start and show play button
   useEffect(() => {
     if (!currentIdRef.current) return;
-    if (!playerStatus.playing && !pausedByBackground.current) {
-      setState(s => {
-        if (!s.isPlaying) return s; // already paused by user, no-op
-        player.seekTo(0);
-        return { ...s, isPlaying: false };
-      });
+    if (playerStatus.playing) {
+      // New track is now stably playing — clear the switching guard and ensure isPlaying: true
+      switchingRef.current = false;
+      setState(s => s.isPlaying ? s : { ...s, isPlaying: true });
+      return;
     }
+    if (switchingRef.current || pausedByBackground.current) return;
+    setState(s => {
+      if (!s.isPlaying) return s; // already paused by user, no-op
+      player.seekTo(0);
+      return { ...s, isPlaying: false };
+    });
   }, [playerStatus.playing]);
 
   const stop = useCallback(() => {
     player.pause();
+    switchingRef.current = false;
     currentIdRef.current = null;
     setState(EMPTY);
   }, [player]);
@@ -79,16 +86,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       return;
     }
 
+    switchingRef.current = true;
     currentIdRef.current = trackId;
-    setState({ currentTrackId: trackId, currentTrackTitle: title, currentTrackArtist: artist ?? null, isPlaying: false, isLoading: true });
+    setState({ currentTrackId: trackId, currentTrackTitle: title, currentTrackArtist: artist ?? null, isPlaying: true, isLoading: true });
 
     try {
       await setAudioModeAsync({ playsInSilentMode: true });
       player.replace({ uri: url });
       player.play();
-      setState(s => ({ ...s, isPlaying: true, isLoading: false }));
+      setState(s => s.currentTrackId === trackId ? { ...s, isLoading: false } : s);
     } catch (err) {
       console.error('Audio playback error:', err);
+      switchingRef.current = false;
       currentIdRef.current = null;
       setState(EMPTY);
     }

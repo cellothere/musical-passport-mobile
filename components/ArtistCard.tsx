@@ -134,7 +134,7 @@ export function ArtistCard({
               <Text style={styles.artistGenre}>{artist.genre}</Text>
             )}
             <View style={styles.flipHint}>
-              <Ionicons name="musical-notes" size={13} color={Colors.text3} />
+              <Ionicons name="musical-notes" size={16} color={Colors.text3} />
               <Text style={styles.flipHintText}>Tap to explore</Text>
             </View>
           </View>

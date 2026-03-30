@@ -8,9 +8,7 @@
     "userInterfaceStyle": "dark",
     "scheme": "musical-passport",
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0e0e0e"
+      "backgroundColor": "#080c14"
     },
     "ios": {
       "supportsTablet": true,

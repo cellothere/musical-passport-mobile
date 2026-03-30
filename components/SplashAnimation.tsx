@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View, Dimensions } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 
 const { width, height } = Dimensions.get('window');
 const BASE = Math.min(width, height) * 0.18;
@@ -32,6 +33,7 @@ export function SplashAnimation({ onDone }: Props) {
     ]);
 
   useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
     Animated.parallel([
       // Rings stagger in
       animateRing(ring1, 0),

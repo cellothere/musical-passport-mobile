@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -167,12 +167,8 @@ function AppNavigator() {
 export default function App() {
   const [splashDone, setSplashDone] = useState(false);
 
-  const onLayoutReady = useCallback(async () => {
-    await SplashScreen.hideAsync();
-  }, []);
-
   return (
-    <SafeAreaProvider onLayout={onLayoutReady}>
+    <SafeAreaProvider>
       <StatusBar style="light" />
       <AudioPlayerProvider>
         <AppNavigator />

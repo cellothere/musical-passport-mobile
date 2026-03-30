@@ -59,7 +59,6 @@ export function ArtistSearchScreen({ navigation, route, service, accessToken, fa
   const [phase, setPhase] = useState<Phase>('search');
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [foundArtist, setFoundArtist] = useState<FoundArtist | null>(null);
-  const [sonicSummary, setSonicSummary] = useState('');
   const [matches, setMatches] = useState<ArtistMatch[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<string[]>([]);
@@ -90,10 +89,10 @@ export function ArtistSearchScreen({ navigation, route, service, accessToken, fa
     setQuery(name);
     setPhase('loading');
     setError(null);
-    setFoundArtist({ name, genres: [], followers: 0, spotifyId: '' });
+    setFoundArtist({ id: '', name, genres: [], imageUrl: null, followers: 0 });
     try {
       const data = await fetchSimilarArtists(name);
-      setSonicSummary(data.sonicSummary);
+
       setMatches(data.artists);
       setPhase('results');
       haptics.success();
@@ -124,7 +123,7 @@ export function ArtistSearchScreen({ navigation, route, service, accessToken, fa
     setError(null);
     try {
       const data = await fetchSimilarArtists(foundArtist.name);
-      setSonicSummary(data.sonicSummary);
+
       setMatches(data.artists);
       setPhase('results');
       haptics.success();
@@ -267,10 +266,6 @@ export function ArtistSearchScreen({ navigation, route, service, accessToken, fa
               <Text style={styles.newSearchText}>New search</Text>
             </TouchableOpacity>
           </View>
-
-          {sonicSummary ? (
-            <Text style={styles.sonicSummary}>{sonicSummary}</Text>
-          ) : null}
 
           {matches.map((match, i) => (
             <View key={i} style={styles.matchWrapper}>
@@ -452,14 +447,6 @@ const styles = StyleSheet.create({
   },
   newSearchText: { color: Colors.blue, fontSize: 13, fontWeight: '600' },
 
-  sonicSummary: {
-    color: Colors.text2,
-    fontSize: 14,
-    lineHeight: 21,
-    marginBottom: 20,
-    fontStyle: 'italic',
-  },
-
   matchWrapper: { marginBottom: 4 },
   matchMeta: {
     flexDirection: 'row',
@@ -469,6 +456,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   matchFlag: { fontSize: 20 },
-  matchCountry: { flex: 1, color: Colors.text3, fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6 },
-
+  matchCountry: { color: Colors.text3, fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6 }
 });

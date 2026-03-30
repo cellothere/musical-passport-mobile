@@ -129,7 +129,7 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
             onPress={triggerSurprise}
             activeOpacity={0.7}
           >
-            <Ionicons name="refresh" size={13} color={Colors.text3} />
+            <Ionicons name="refresh" size={20} color={Colors.text3} style={{ marginTop: 20 }} />
             <Text style={styles.spinHint}>spin for a surprise</Text>
           </TouchableOpacity>
         </View>
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
   tapHint: {
-    color: Colors.text3, fontSize: 13, fontWeight: '500',
+    color: Colors.text3, marginBottom: 20, fontSize: 15, fontWeight: '500',
     letterSpacing: 1, textTransform: 'uppercase',
   },
   spinBtn: {
@@ -208,8 +208,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8, paddingHorizontal: 14,
   },
   spinHint: {
-    color: Colors.text3, fontSize: 13, fontWeight: '500',
-    letterSpacing: 0.8, textTransform: 'uppercase',
+    color: Colors.text3, fontSize: 15, fontWeight: '500',
+    letterSpacing: 0.8, marginTop: 20, textTransform: 'uppercase',
   },
 
   dailyPillWrap: {
