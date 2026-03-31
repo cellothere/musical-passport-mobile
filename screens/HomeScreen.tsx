@@ -24,11 +24,16 @@ const ALL_COUNTRIES = getAllCountries();
 const ALL_SEARCHABLE = [...new Set([...ALL_COUNTRIES, ...MUSIC_REGIONS])];
 
 // Curated picks — musically rich and diverse
-const QUICK_PICKS = [
-  'Brazil', 'Japan', 'Nigeria', 'Cuba', 'India', 'Jamaica',
-  'Iran', 'Colombia', 'South Korea', 'Mali', 'Greece', 'Iceland',
-  'Portugal', 'Ethiopia', 'Vietnam', 'Argentina',
-];
+function getQuickPicks(count = 14): string[] {
+  const pool = [...getAllCountries(), ...MUSIC_REGIONS];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, count);
+}
+
+const QUICK_PICKS = getQuickPicks();
 
 interface Props {
   navigation: any;

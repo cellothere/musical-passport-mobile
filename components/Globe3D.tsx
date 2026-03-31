@@ -79,6 +79,20 @@ new THREE.TextureLoader().load(
   tex => { globeMat.map = tex; globeMat.color.set(0xffffff); globeMat.needsUpdate = true; }
 );
 
+// Quaternion rotation helpers — all rotations applied in world space via premultiply,
+// which eliminates gimbal lock. No clamping — fully free rotation.
+const _q = new THREE.Quaternion(); // reusable scratch quaternion
+const _axis = new THREE.Vector3(); // reusable axis
+
+function rotateGlobe(dx, dy) {
+  const angle = Math.sqrt(dx * dx + dy * dy);
+  if (angle < 1e-6) return;
+  // Axis perpendicular to the drag direction, in world space
+  _axis.set(dy / angle, dx / angle, 0).normalize();
+  _q.setFromAxisAngle(_axis, angle);
+  globe.quaternion.premultiply(_q);
+}
+
 // Interaction state
 let isDragging = false;
 let lastX = 0, lastY = 0, startX = 0, startY = 0;
@@ -90,6 +104,8 @@ let idleTimer = null;
 let spinning = false;
 let spinT = 0;
 let spinDir = 1;
+
+const axisY = new THREE.Vector3(0, 1, 0);
 
 const canvas = renderer.domElement;
 
@@ -110,9 +126,7 @@ canvas.addEventListener('touchmove', e => {
   const t = e.touches[0];
   const dx = t.clientX - lastX;
   const dy = t.clientY - lastY;
-  globe.rotation.y += dx * 0.007;
-  globe.rotation.x += dy * 0.007;
-  globe.rotation.x = Math.max(-1.0, Math.min(1.0, globe.rotation.x));
+  rotateGlobe(dx * 0.007, dy * 0.007);
   velX = dx * 0.007;
   velY = dy * 0.007;
   lastX = t.clientX;
@@ -126,11 +140,9 @@ canvas.addEventListener('touchend', () => {
   const dist = Math.sqrt(dx * dx + dy * dy);
 
   if (dist < 8) {
-    // Short tap — explore
     idleTimer = setTimeout(() => { autoRotate = true; }, 500);
     window.ReactNativeWebView && window.ReactNativeWebView.postMessage('tap');
   } else if (Math.abs(velX) > 0.09 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) {
-    // Fast horizontal flick — spin for surprise
     spinning = true;
     spinT = 0;
     spinDir = velX > 0 ? 1 : -1;
@@ -157,16 +169,25 @@ function animate() {
 
   if (spinning) {
     spinT += 0.018;
-    globe.rotation.y += Math.sin(spinT * Math.PI) * 0.28 * spinDir;
+    _q.setFromAxisAngle(axisY, Math.sin(spinT * Math.PI) * 0.28 * spinDir);
+    globe.quaternion.premultiply(_q);
     if (spinT >= 1) {
       spinning = false;
       idleTimer = setTimeout(() => { autoRotate = true; }, 1200);
       window.ReactNativeWebView && window.ReactNativeWebView.postMessage('spinComplete');
     }
   } else if (!isDragging) {
-    if (Math.abs(velX) > 0.0002) { globe.rotation.y += velX; velX *= 0.93; } else velX = 0;
-    if (Math.abs(velY) > 0.0002) { globe.rotation.x += velY; velY *= 0.93; } else velY = 0;
-    if (autoRotate) globe.rotation.y += 0.003;
+    if (Math.abs(velX) > 0.0002 || Math.abs(velY) > 0.0002) {
+      rotateGlobe(velX, velY);
+      velX *= 0.93;
+      velY *= 0.93;
+    } else {
+      velX = velY = 0;
+    }
+    if (autoRotate) {
+      _q.setFromAxisAngle(axisY, 0.003);
+      globe.quaternion.premultiply(_q);
+    }
   }
 
   renderer.render(scene, camera);
