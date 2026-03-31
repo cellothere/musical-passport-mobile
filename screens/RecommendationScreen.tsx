@@ -385,7 +385,11 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
               {selectedDecade ? <Text style={styles.decadePillTextActive}>{selectedDecade}</Text> : null}
             </TouchableOpacity>
           </View>
-          {(recs.artists || []).map((artist, i) => {
+          {([...(recs.artists || [])].sort((a, b) => {
+            if (a.hasVerifiedTracks && !b.hasVerifiedTracks) return -1;
+            if (!a.hasVerifiedTracks && b.hasVerifiedTracks) return 1;
+            return 0;
+          })).map((artist, i) => {
             const isHighlighted = !!highlightArtist && artist.name.toLowerCase() === highlightArtist.toLowerCase();
             return (
               <View

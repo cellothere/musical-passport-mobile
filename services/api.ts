@@ -8,6 +8,7 @@ export interface Artist {
   genre: string;
   era: string;
   similarTo?: string;
+  hasVerifiedTracks?: boolean;
 }
 
 export interface RecommendationResponse {
