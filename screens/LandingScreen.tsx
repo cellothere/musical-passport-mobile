@@ -130,7 +130,7 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
             activeOpacity={0.7}
           >
             <Ionicons name="refresh" size={20} color={Colors.text3} style={{ marginTop: 20 }} />
-            <Text style={styles.spinHint}>spin for a surprise</Text>
+            <Text style={styles.spinHint}>spin for a random drop</Text>
           </TouchableOpacity>
         </View>
       </View>
