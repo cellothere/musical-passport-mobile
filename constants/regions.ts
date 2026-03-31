@@ -11,6 +11,24 @@ export const REGIONS: Region[] = [
   { name: "Asia", countries: ["Japan","South Korea","India","China","Indonesia","Thailand","Vietnam","Philippines","Pakistan","Bangladesh","Taiwan","Mongolia","Myanmar","Cambodia","Laos","Malaysia","Singapore","Sri Lanka","Nepal","Afghanistan","Kazakhstan","Uzbekistan","Tajikistan","Kyrgyzstan","Turkmenistan","Hong Kong"] },
   { name: "Oceania", countries: ["Australia","New Zealand","Papua New Guinea","Fiji","Samoa","Tonga","Vanuatu","Solomon Islands","Hawaii"] },
   { name: "North America", countries: ["USA","Canada"] },
+  { name: "Indigenous Nations", countries: [
+    "Māori Nation",
+    "Aboriginal Australia",
+    "Sámi Nation",
+    "Inuit",
+    "Lakota Nation",
+    "Navajo Nation",
+    "Anishinaabe",
+    "Cree Nation",
+    "Métis",
+    "Haudenosaunee",
+    "Pacific Northwest Coast",
+    "Cherokee Nation",
+    "Blackfoot Confederacy",
+    "Mapuche",
+    "Quechua Nations",
+    "Ainu",
+  ]},
   { name: "Historical", countries: ["Yugoslavia","Soviet Union","Czechoslovakia","East Germany","Ottoman Empire","British India","Ceylon","Rhodesia","Zaire","Persia","Siam","Byzantine Empire","Prussia","Austro-Hungarian Empire","Ancient Rome","Ancient Greece","Mesopotamia","Viking Scandinavia","Moorish Spain","Weimar Republic","Republic of South Vietnam","Meiji Japan"] },
 ];
 
@@ -19,7 +37,6 @@ export const DECADES = ["1900s","1910s","1920s","1930s","1940s","1950s","1960s",
 // Cultural / musical regions that transcend political borders.
 // Each entry is a place-name Claude understands as a distinct musical world.
 export const MUSIC_REGIONS: string[] = [
-  "Aboriginal Australia",
   "Andalusia",
   "Appalachia",
   "Basque Country",
@@ -36,7 +53,6 @@ export const MUSIC_REGIONS: string[] = [
   "Punjab",
   "Quebec",
   "Sardinia",
-  "Sápmi (Lapland)",
   "Southern Africa",
   "The Amazon Basin",
   "The American South",
