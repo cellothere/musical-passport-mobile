@@ -95,8 +95,11 @@ function rotateGlobe(dx, dy) {
 
 // Interaction state
 let isDragging = false;
+let isTwoFinger = false;
+let hadTwoFingers = false; // stays true until all fingers are fully lifted
 let lastX = 0, lastY = 0, startX = 0, startY = 0;
 let velX = 0, velY = 0;
+let lastTwistAngle = 0;
 let autoRotate = true;
 let idleTimer = null;
 
@@ -106,34 +109,80 @@ let spinT = 0;
 let spinDir = 1;
 
 const axisY = new THREE.Vector3(0, 1, 0);
+const axisZ = new THREE.Vector3(0, 0, 1);
+
+function getTouchAngle(t0, t1) {
+  return Math.atan2(t1.clientY - t0.clientY, t1.clientX - t0.clientX);
+}
 
 const canvas = renderer.domElement;
 
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
-  const t = e.touches[0];
-  isDragging = true;
   autoRotate = false;
   clearTimeout(idleTimer);
-  lastX = startX = t.clientX;
-  lastY = startY = t.clientY;
   velX = velY = 0;
+  if (e.touches.length >= 2) {
+    isTwoFinger = true;
+    hadTwoFingers = true;
+    isDragging = false;
+    lastTwistAngle = getTouchAngle(e.touches[0], e.touches[1]);
+  } else {
+    isTwoFinger = false;
+    isDragging = true;
+    const t = e.touches[0];
+    lastX = startX = t.clientX;
+    lastY = startY = t.clientY;
+  }
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
-  if (!isDragging) return;
-  const t = e.touches[0];
-  const dx = t.clientX - lastX;
-  const dy = t.clientY - lastY;
-  rotateGlobe(dx * 0.007, dy * 0.007);
-  velX = dx * 0.007;
-  velY = dy * 0.007;
-  lastX = t.clientX;
-  lastY = t.clientY;
+  if (e.touches.length >= 2) {
+    // Two-finger twist — rotate around the view axis (Z)
+    isTwoFinger = true;
+    isDragging = false;
+    const newAngle = getTouchAngle(e.touches[0], e.touches[1]);
+    let delta = newAngle - lastTwistAngle;
+    // Unwrap angle to avoid ±π jump
+    if (delta > Math.PI)  delta -= 2 * Math.PI;
+    if (delta < -Math.PI) delta += 2 * Math.PI;
+    _q.setFromAxisAngle(axisZ, -delta);
+    globe.quaternion.premultiply(_q);
+    lastTwistAngle = newAngle;
+  } else if (isDragging && !isTwoFinger) {
+    const t = e.touches[0];
+    const dx = t.clientX - lastX;
+    const dy = t.clientY - lastY;
+    rotateGlobe(dx * 0.007, dy * 0.007);
+    velX = dx * 0.007;
+    velY = dy * 0.007;
+    lastX = t.clientX;
+    lastY = t.clientY;
+  }
 }, { passive: false });
 
-canvas.addEventListener('touchend', () => {
+canvas.addEventListener('touchend', e => {
+  if (e.touches.length === 1 && isTwoFinger) {
+    // One finger lifted — absorb into single-finger drag without a jump
+    isTwoFinger = false;
+    isDragging = true;
+    const t = e.touches[0];
+    lastX = startX = t.clientX;
+    lastY = startY = t.clientY;
+    velX = velY = 0;
+    return;
+  }
+  if (e.touches.length === 0 && hadTwoFingers) {
+    // All fingers lifted after a two-finger gesture — never treat as tap
+    isTwoFinger = false;
+    hadTwoFingers = false;
+    isDragging = false;
+    idleTimer = setTimeout(() => { autoRotate = true; }, 500);
+    return;
+  }
+  hadTwoFingers = false;
+  isTwoFinger = false;
   isDragging = false;
   const dx = lastX - startX;
   const dy = lastY - startY;
