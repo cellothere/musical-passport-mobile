@@ -240,7 +240,8 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
           </TouchableOpacity>
         </View>
 
- 
+
+
 
         {/* Quick Picks */}
         <Text style={styles.sectionLabel}>Quick Picks</Text>
@@ -522,6 +523,20 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4 },
   headerTitle: { color: Colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.3, flex: 1 },
+  genreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    backgroundColor: Colors.purpleBg,
+    borderWidth: 1,
+    borderColor: Colors.purpleBorder,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 16,
+  },
+  genreBtnText: { color: Colors.purple, fontSize: 13, fontWeight: '700' },
   decadePill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: Colors.surface,

@@ -10,6 +10,7 @@ import { FLAGS } from '../constants/flags';
 import { getAllCountries, MUSIC_REGIONS } from '../constants/regions';
 import { haptics } from '../utils/haptics';
 import { ServiceModal } from '../components/ServiceModal';
+import { DiscoverSheet } from '../components/DiscoverSheet';
 import { useFocusEffect } from '@react-navigation/native';
 import { fetchCountryOfDay, recordCountryOfDayHit } from '../services/api';
 import { Globe3D, Globe3DHandle } from '../components/Globe3D';
@@ -42,6 +43,7 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
   const { currentTrackTitle } = useAudioPlayer();
   const miniPlayerOffset = currentTrackTitle ? 72 : 0;
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
+  const [discoverVisible, setDiscoverVisible] = useState(false);
   const [todayEntry, setTodayEntry] = useState(getFallbackCountry());
   const todayDateRef = useRef(new Date().toISOString().slice(0, 10));
 
@@ -106,11 +108,11 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
         )}
         <TouchableOpacity
           style={styles.searchBtn}
-          onPress={() => { haptics.light(); navigation.navigate('ArtistSearch'); }}
+          onPress={() => { haptics.light(); setDiscoverVisible(true); }}
           activeOpacity={0.7}
           hitSlop={{ top: 16, bottom: 12, left: 12, right: 12 }}
         >
-          <Ionicons name="search" size={36} color={Colors.green} />
+          <Ionicons name="compass" size={36} color={Colors.green} />
         </TouchableOpacity>
       </View>
 
@@ -169,6 +171,18 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
         visible={serviceModalVisible}
         onClose={() => setServiceModalVisible(false)}
         auth={auth}
+      />
+      <DiscoverSheet
+        visible={discoverVisible}
+        onClose={() => setDiscoverVisible(false)}
+        onSoundAlike={() => navigation.navigate('ArtistSearch')}
+        onGenreGo={(genre, country) => {
+          if (country) {
+            navigation.navigate('GenreSpotlight', { genre, country });
+          } else {
+            navigation.navigate('GenreArtists', { genre });
+          }
+        }}
       />
     </SafeAreaView>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, ActivityIndicator,
 } from 'react-native';
@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
+import { DiscoverSheet } from './DiscoverSheet';
 
 type FullAuth = AuthState & {
   loginSpotify: () => void;
@@ -93,6 +94,7 @@ function ServiceModal({ visible, onClose, auth, onServiceChange }: {
 export function FloatingNav({ navigation, auth, favorites, currentScreen, onShare }: Props) {
   const insets = useSafeAreaInsets();
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
+  const [discoverVisible, setDiscoverVisible] = useState(false);
   const { currentTrackTitle } = useAudioPlayer();
   const miniPlayerOffset = currentTrackTitle ? 72 : 0;
 
@@ -129,11 +131,11 @@ export function FloatingNav({ navigation, auth, favorites, currentScreen, onShar
         {showSearch && (
           <TouchableOpacity
             style={styles.searchBtn}
-            onPress={() => { haptic(); navigation.navigate('ArtistSearch'); }}
+            onPress={() => { haptic(); setDiscoverVisible(true); }}
             activeOpacity={0.7}
             hitSlop={{ top: 16, bottom: 12, left: 12, right: 12 }}
           >
-            <Ionicons name="search" size={26} color={Colors.green} />
+            <Ionicons name="compass" size={26} color={Colors.green} />
           </TouchableOpacity>
         )}
       </View>
@@ -174,6 +176,18 @@ export function FloatingNav({ navigation, auth, favorites, currentScreen, onShar
         onClose={() => setServiceModalVisible(false)}
         auth={auth}
         onServiceChange={() => navigation.navigate('Home')}
+      />
+      <DiscoverSheet
+        visible={discoverVisible}
+        onClose={() => setDiscoverVisible(false)}
+        onSoundAlike={() => navigation.navigate('ArtistSearch')}
+        onGenreGo={(genre, country) => {
+          if (country) {
+            navigation.navigate('GenreSpotlight', { genre, country });
+          } else {
+            navigation.navigate('GenreArtists', { genre });
+          }
+        }}
       />
     </>
   );

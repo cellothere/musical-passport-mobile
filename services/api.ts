@@ -7,6 +7,8 @@ export interface Artist {
   name: string;
   genre: string;
   era: string;
+  country?: string;
+  countryCode?: string;
   similarTo?: string;
   hasVerifiedTracks?: boolean;
 }
@@ -188,6 +190,8 @@ export interface GenreSpotlightResponse {
   country: string;
   explanation: string;
   tracks: Track[];
+  suggestedGenres?: string[];
+  hasLocalScene?: boolean;
 }
 
 export async function fetchGenreSpotlight(
@@ -324,6 +328,28 @@ export async function apiRemoveFavorite(accessToken: string, id: string) {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${accessToken}` },
   });
+}
+
+export interface GenreArtistsResponse {
+  genre: string;
+  artists: Artist[];
+}
+
+export async function fetchGenreArtists(
+  genre: string,
+  service: 'spotify' | 'apple-music' = 'spotify',
+  accessToken?: string
+): Promise<GenreArtistsResponse> {
+  const res = await apiFetch('/api/genre-artists', {
+    method: 'POST',
+    body: JSON.stringify({ genre, service }),
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error || 'Failed to load genre artists');
+  }
+  return res.json();
 }
 
 export async function apiAddStamp(accessToken: string, country: string) {

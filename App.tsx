@@ -12,6 +12,7 @@ import { InsightsScreen } from './screens/InsightsScreen';
 import { SavedScreen } from './screens/SavedScreen';
 import { GenreSpotlightScreen } from './screens/GenreSpotlightScreen';
 import { ArtistSearchScreen } from './screens/ArtistSearchScreen';
+import { GenreArtistsScreen } from './screens/GenreArtistsScreen';
 import { Colors } from './constants/colors';
 import { useAuth } from './hooks/useAuth';
 import { useStamps } from './hooks/useStamps';
@@ -147,6 +148,17 @@ function AppNavigator() {
         <Stack.Screen name="ArtistSearch">
           {props => (
             <ArtistSearchScreen
+              {...props}
+              service={auth.service}
+              accessToken={auth.accessToken}
+              favoritesHook={favoritesHook}
+              auth={auth}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="GenreArtists">
+          {props => (
+            <GenreArtistsScreen
               {...props}
               service={auth.service}
               accessToken={auth.accessToken}

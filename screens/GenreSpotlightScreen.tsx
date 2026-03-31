@@ -35,13 +35,14 @@ interface Props {
 }
 
 export function GenreSpotlightScreen({ navigation, route, service, accessToken, favoritesHook, auth }: Props) {
-  const { genre, country, visitedGenres = [] } = route.params;
+  const { genre, country, deeperReason, visitedGenres = [] } = route.params;
   const insets = useSafeAreaInsets();
   const { currentTrackTitle } = useAudioPlayer();
   const contentBottomPad = insets.bottom + 76 + (currentTrackTitle ? 72 : 0);
   const [loading, setLoading] = useState(true);
-  const [explanation, setExplanation] = useState('');
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [suggestedGenres, setSuggestedGenres] = useState<string[]>([]);
+  const [hasLocalScene, setHasLocalScene] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [deeperLoading, setDeeperLoading] = useState(false);
@@ -60,7 +61,7 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
         visitedGenres: alreadySeen,
       });
     } catch {
-      // silently fail — user can try again
+      // silently fail
     } finally {
       setDeeperLoading(false);
     }
@@ -71,15 +72,16 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
     const deepLink = `musical-passport://genre/${encodeURIComponent(genre)}?country=${encodeURIComponent(country)}`;
     await Share.share({
       title: `${genre} – ${country}`,
-      message: `Check out this genre I discovered on Musical Passport! \n\n🎵${genre} from ${country} \n\n${deepLink}`,
+      message: `Check out this genre I discovered on Musical Passport!\n\n🎵 ${genre} from ${country}\n\n${deepLink}`,
     });
   };
 
   useEffect(() => {
     fetchGenreSpotlight(genre, country, resolveService(service), accessToken || undefined)
       .then(data => {
-        setExplanation(data.explanation);
-        setTracks(data.tracks);
+        setHasLocalScene(data.hasLocalScene !== false);
+        setTracks(data.hasLocalScene === false ? [] : data.tracks);
+        setSuggestedGenres(data.suggestedGenres ?? []);
         haptics.success();
       })
       .catch(err => setError(err.message || 'Failed to load'))
@@ -88,6 +90,7 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -96,61 +99,109 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
         >
           <Ionicons name="chevron-back" size={24} color={Colors.blue} />
         </TouchableOpacity>
-        <View style={styles.headerMid}>
-          <Text style={styles.headerGenre} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.65}>{genre}</Text>
-          <Text style={styles.headerCountry}>{country}</Text>
-        </View>
       </View>
 
       {loading ? (
-        <View style={styles.loadingState}>
+        <View style={styles.center}>
           <ActivityIndicator size="large" color={Colors.gold} />
-          <Text style={styles.loadingText}>Loading genre spotlight…</Text>
+          <Text style={styles.loadingText}>Loading spotlight…</Text>
         </View>
       ) : error ? (
-        <View style={styles.errorState}>
+        <View style={styles.center}>
+          <Ionicons name="alert-circle-outline" size={40} color={Colors.red} />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.goBackBtn}>
-            <Text style={styles.goBackBtnText}>← Go back</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.retryBtn}>
+            <Text style={styles.retryBtnText}>Go back</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <Text style={styles.explanation}>{explanation}</Text>
-
-          <Text style={styles.tracksLabel}>Essential tracks</Text>
-
-          {tracks.length === 0 ? (
-            <View style={styles.noTracksState}>
-              <Text style={styles.noTracksTitle}>Too niche for streaming</Text>
-              <Text style={styles.noTracksText}>
-                {genre} is rare on Spotify and Apple Music, but it lives on YouTube.
-              </Text>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.content, { paddingBottom: contentBottomPad }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Hero */}
+          <View style={styles.hero}>
+            <Text style={styles.heroGenre}>{genre}</Text>
+            {country ? (
               <TouchableOpacity
-                style={styles.youtubeBtn}
-                onPress={() => WebBrowser.openBrowserAsync(
-                  `https://www.youtube.com/results?search_query=${encodeURIComponent(`${genre} ${country} music`)}`
-                )}
-                activeOpacity={0.8}
+                style={styles.countryChip}
+                onPress={() => navigation.push('Recommendations', { country })}
+                activeOpacity={0.7}
               >
-                <Ionicons name="logo-youtube" size={18} color="#FF0000" />
-                <Text style={styles.youtubeBtnText}>Search on YouTube</Text>
+                <Text style={styles.countryChipText}>{country}</Text>
+                <Ionicons name="arrow-forward" size={11} color={Colors.blue} />
               </TouchableOpacity>
-            </View>
-          ) : tracks.map((track, i) => (
-            <SpotlightTrack
-              key={i}
-              index={i + 1}
-              track={track}
-              genre={genre}
-              country={country}
-              favoritesHook={favoritesHook}
-              isTester={auth.isTester}
-              testerUserId={auth.testerUserId ?? null}
-            />
-          ))}
+            ) : null}
 
-          <TouchableOpacity
+            {deeperReason && (
+              <View style={styles.deeperReasonCard}>
+                <Ionicons name="footsteps" size={14} color={Colors.purple} />
+                <Text style={styles.deeperReasonText}>{deeperReason}</Text>
+              </View>
+            )}
+          </View>
+
+
+          {/* Tracks */}
+          <View style={styles.tracksSection}>
+            <Text style={styles.tracksLabel}>Essential Tracks</Text>
+
+            {tracks.length === 0 ? (
+              <View style={styles.noTracksState}>
+                <Ionicons name="musical-notes-outline" size={40} color={Colors.text3} />
+                <Text style={styles.noTracksTitle}>
+                  We couldn't find {genre} in {country} — try these artists instead:
+                </Text>
+                <TouchableOpacity
+                  style={styles.worldwideBtn}
+                  onPress={() => navigation.replace('GenreArtists', { genre })}
+                  activeOpacity={0.82}
+                >
+                  <Ionicons name="globe-outline" size={18} color={Colors.bg} />
+                  <Text style={styles.worldwideBtnText}>
+                    Check out {genre} artists worldwide
+                  </Text>
+                </TouchableOpacity>
+                {suggestedGenres.length > 0 && (
+                  <>
+                    <Text style={styles.orTryText}>or try {country}'s genres:</Text>
+                    <View style={styles.suggestedRow}>
+                      {suggestedGenres.map(g => (
+                        <TouchableOpacity
+                          key={g}
+                          style={styles.suggestedPill}
+                          onPress={() => navigation.replace('GenreSpotlight', { genre: g, country })}
+                          activeOpacity={0.75}
+                        >
+                          <Ionicons name="musical-notes" size={13} color={Colors.purple} />
+                          <Text style={styles.suggestedPillText}>{g}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
+              </View>
+            ) : (
+              <View style={styles.trackList}>
+                {tracks.map((track, i) => (
+                  <SpotlightTrack
+                    key={i}
+                    index={i + 1}
+                    track={track}
+                    genre={genre}
+                    country={country}
+                    favoritesHook={favoritesHook}
+                    isTester={auth.isTester}
+                    testerUserId={auth.testerUserId ?? null}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Take deeper */}
+          {hasLocalScene && (<TouchableOpacity
             style={styles.deeperBtn}
             onPress={handleTakeDeeper}
             disabled={deeperLoading}
@@ -160,16 +211,20 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
               <ActivityIndicator size="small" color={Colors.purple} />
             ) : (
               <>
-                <Ionicons name="footsteps" size={20} color={Colors.purple} />
-                <Text style={styles.deeperBtnText}>More like this genre</Text>
+                <Ionicons name="footsteps" size={18} color={Colors.purple} />
+                <Text style={styles.deeperBtnText}>Go deeper into this genre</Text>
               </>
             )}
-          </TouchableOpacity>
-
-          <View style={{ height: contentBottomPad }} />
+          </TouchableOpacity>)}
         </ScrollView>
       )}
-      <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} onShare={!loading && !error ? shareGenre : undefined} />
+
+      <FloatingNav
+        navigation={navigation}
+        auth={auth}
+        favorites={favoritesHook.favorites}
+        onShare={!loading && !error ? shareGenre : undefined}
+      />
       <ServiceModal visible={serviceModalVisible} onClose={() => setServiceModalVisible(false)} auth={auth} />
     </SafeAreaView>
   );
@@ -229,8 +284,8 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
     <View style={styles.track}>
       <Text style={styles.trackNumber}>{index}</Text>
       <View style={styles.trackInfo}>
-        <Text style={styles.trackTitle}>{track.title}</Text>
-        {track.artist && <Text style={styles.trackArtist}>{track.artist}</Text>}
+        <Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>
+        {track.artist && <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>}
       </View>
       <View style={styles.trackActions}>
         <TouchableOpacity
@@ -249,10 +304,10 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
             />
           )}
         </TouchableOpacity>
-        <TouchableOpacity style={styles.heartTrackBtn} onPress={toggleSave}>
+        <TouchableOpacity style={[styles.heartBtn, isSaved && styles.heartBtnActive]} onPress={toggleSave}>
           <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.openBtn} onPress={() => setOptionsVisible(true)}>
+        <TouchableOpacity style={styles.moreBtn} onPress={() => setOptionsVisible(true)}>
           <Ionicons name="ellipsis-horizontal" size={18} color={Colors.text2} />
         </TouchableOpacity>
       </View>
@@ -276,81 +331,185 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    gap: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
   },
-  backBtn: { padding: 4 },
-  headerMid: { flex: 1, paddingRight: 145 },
-  headerGenre: { color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
-  headerCountry: { color: Colors.text3, fontSize: 13, marginTop: 2 },
+  backBtn: {
+    width: 40, height: 40,
+    alignItems: 'center', justifyContent: 'center',
+  },
 
-  loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
-  loadingText: { color: Colors.text2, fontSize: 15 },
-
-  errorState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    padding: 32,
+  },
+  loadingText: { color: Colors.text3, fontSize: 14 },
   errorText: { color: Colors.text2, fontSize: 15, textAlign: 'center', lineHeight: 22 },
-  goBackBtn: {
+  retryBtn: {
     backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.border2,
     borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12,
   },
-  goBackBtnText: { color: Colors.text, fontSize: 15, fontWeight: '600' },
+  retryBtnText: { color: Colors.text, fontSize: 15, fontWeight: '600' },
 
   scroll: { flex: 1 },
-  content: { padding: 18 },
+  content: { paddingHorizontal: 16 },
 
-  explanation: {
-    color: Colors.text2,
-    fontSize: 15,
-    lineHeight: 23,
-    marginBottom: 28,
+  // ── Hero ───────────────────────────────────────────────────
+  hero: {
+    paddingTop: 4,
+    paddingBottom: 20,
+    gap: 8,
+  },
+  countryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    backgroundColor: Colors.blueBg,
+    borderWidth: 1,
+    borderColor: Colors.blueBorder,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  countryChipText: {
+    color: Colors.blue,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  heroGenre: {
+    color: Colors.text,
+    fontSize: 34,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    lineHeight: 40,
+  },
+  deeperReasonCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: Colors.purpleBg,
+    borderWidth: 1,
+    borderColor: Colors.purpleBorder,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 4,
+  },
+  deeperReasonText: {
+    flex: 1,
+    color: Colors.purple,
+    fontSize: 13,
+    lineHeight: 19,
   },
 
+  // ── Tracks ────────────────────────────────────────────────
+  tracksSection: { marginBottom: 8 },
   tracksLabel: {
     color: Colors.text3,
-    fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 8,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 4,
   },
-
+  trackList: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
   track: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
     gap: 12,
   },
-  trackNumber: { color: Colors.text3, fontSize: 14, fontWeight: '700', width: 24, textAlign: 'center' },
+  trackNumber: { color: Colors.text3, fontSize: 13, fontWeight: '700', width: 20, textAlign: 'center' },
   trackInfo: { flex: 1 },
   trackTitle: { color: Colors.text, fontSize: 15, fontWeight: '600' },
-  trackArtist: { color: Colors.text2, fontSize: 13, marginTop: 3 },
-  trackActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  trackArtist: { color: Colors.text2, fontSize: 13, marginTop: 2 },
+  trackActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   playBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.border2,
     alignItems: 'center', justifyContent: 'center',
   },
   playBtnActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
   playBtnYouTube: { backgroundColor: 'rgba(255,0,0,0.08)', borderColor: 'rgba(255,0,0,0.25)' },
-  heartTrackBtn: {
-    width: 44, height: 44, borderRadius: 22,
+  heartBtn: {
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(240,101,101,0.08)', borderWidth: 1, borderColor: 'rgba(240,101,101,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
-  openBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: Colors.blueBg, borderWidth: 1, borderColor: Colors.blueBorder,
+  heartBtnActive: {
+    backgroundColor: 'rgba(240,101,101,0.2)', borderColor: 'rgba(240,101,101,0.4)',
+  },
+  moreBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.border2,
     alignItems: 'center', justifyContent: 'center',
   },
 
   noTracksState: {
-    alignItems: 'center', paddingVertical: 32, gap: 10,
+    alignItems: 'center',
+    paddingVertical: 32,
+    gap: 14,
   },
-  noTracksTitle: { color: Colors.text, fontSize: 16, fontWeight: '700' },
-  noTracksText: { color: Colors.text2, fontSize: 14, textAlign: 'center', lineHeight: 21, paddingHorizontal: 8 },
+  noTracksTitle: {
+    color: Colors.text2,
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 8,
+  },
+  worldwideBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.purple,
+    borderRadius: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  worldwideBtnText: {
+    color: Colors.bg,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  orTryText: {
+    color: Colors.text3,
+    fontSize: 13,
+    marginTop: 4,
+  },
+  suggestedRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  suggestedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: Colors.purpleBg,
+    borderWidth: 1,
+    borderColor: Colors.purpleBorder,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  suggestedPillText: {
+    color: Colors.purple,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   youtubeBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginTop: 8,
@@ -360,12 +519,18 @@ const styles = StyleSheet.create({
   },
   youtubeBtnText: { color: '#FF0000', fontSize: 15, fontWeight: '700' },
 
+  // ── Deeper button ─────────────────────────────────────────
   deeperBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    marginTop: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 20,
     backgroundColor: Colors.purpleBg,
-    borderWidth: 1, borderColor: Colors.purpleBorder,
-    borderRadius: 16, paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: Colors.purpleBorder,
+    borderRadius: 16,
+    paddingVertical: 16,
   },
   deeperBtnText: { color: Colors.purple, fontSize: 15, fontWeight: '700' },
 });
