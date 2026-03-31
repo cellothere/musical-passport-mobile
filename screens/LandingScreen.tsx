@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
+  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
@@ -63,7 +63,7 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
     prevService.current = auth.service;
   }, [auth.service]);
 
-  const hasInsights = !!auth.service;
+  const hasInsights = true; // passport always accessible
 
   const handleGlobeTap = () => {
     haptics.medium();
@@ -103,7 +103,7 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
             activeOpacity={0.7}
             hitSlop={{ top: 16, bottom: 12, left: 12, right: 12 }}
           >
-            <Ionicons name="analytics-outline" size={36} color={Colors.purple} />
+            <Image source={require('../assets/passport.png')} style={styles.passportBtnImg} />
           </TouchableOpacity>
         )}
         <TouchableOpacity
@@ -197,9 +197,10 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   dnaBtn: {
-    borderWidth: 1, borderColor: Colors.purpleBorder,
-    borderRadius: 30, backgroundColor: Colors.purpleBg, padding: 8,
+    borderWidth: 1, borderColor: Colors.goldBorder,
+    borderRadius: 30, backgroundColor: Colors.goldBg, padding: 8,
   },
+  passportBtnImg: { width: 36, height: 36, resizeMode: 'contain', tintColor: Colors.gold },
   searchBtn: {
     borderWidth: 1, borderColor: Colors.greenBorder,
     borderRadius: 30, backgroundColor: Colors.greenBg, padding: 8,

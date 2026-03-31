@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Modal, ActivityIndicator,
+  View, Text, TouchableOpacity, StyleSheet, Modal, ActivityIndicator, Image,
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -93,14 +93,13 @@ function ServiceModal({ visible, onClose, auth, onServiceChange }: {
 
 export function FloatingNav({ navigation, auth, favorites, currentScreen, onShare }: Props) {
   const insets = useSafeAreaInsets();
-  const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [discoverVisible, setDiscoverVisible] = useState(false);
   const { currentTrackTitle } = useAudioPlayer();
   const miniPlayerOffset = currentTrackTitle ? 72 : 0;
 
   const isConnected = auth.service === 'spotify' || auth.service === 'apple-music';
-  const hasInsights = auth.service === 'spotify' && auth.topArtists?.length > 0 && currentScreen !== 'Insights';
-  const showSearch = isConnected && currentScreen !== 'ArtistSearch';
+  const hasInsights = currentScreen !== 'Insights';
+  const showSearch = currentScreen !== 'ArtistSearch';
 
   const haptic = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
@@ -125,7 +124,7 @@ export function FloatingNav({ navigation, auth, favorites, currentScreen, onShar
             activeOpacity={0.7}
             hitSlop={{ top: 16, bottom: 12, left: 12, right: 12 }}
           >
-            <Ionicons name="analytics-outline" size={26} color={Colors.purple} />
+            <Image source={require('../assets/passport.png')} style={styles.passportImg} />
           </TouchableOpacity>
         )}
         {showSearch && (
@@ -140,22 +139,14 @@ export function FloatingNav({ navigation, auth, favorites, currentScreen, onShar
         )}
       </View>
 
-      {/* Bottom-left: service button */}
-      <View style={[styles.floatingBtnLeft, { bottom: insets.bottom + 12 + miniPlayerOffset }]}>
-        {auth.loading ? (
-          <ActivityIndicator size="small" color={Colors.gold} />
-        ) : auth.service ? (
-          <TouchableOpacity onPress={() => setServiceModalVisible(true)} style={styles.serviceBtn} activeOpacity={0.7}>
-            {auth.service === 'spotify'
-              ? <FontAwesome5 name="spotify" size={22} color="#1DB954" />
-              : <FontAwesome5 name="apple" size={22} color={Colors.text} />}
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={() => setServiceModalVisible(true)} style={styles.loginBtn} activeOpacity={0.7}>
-            <Text style={styles.loginBtnText}>Connect</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* Bottom-left: home button */}
+      <TouchableOpacity
+        style={[styles.homeBtn, { bottom: insets.bottom + 12 + miniPlayerOffset }]}
+        onPress={() => { haptic(); navigation.navigate('Home'); }}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="home-outline" size={22} color={Colors.text2} />
+      </TouchableOpacity>
 
       {/* Bottom-right: saved discoveries */}
       {isConnected && favorites.length > 0 && (
@@ -171,12 +162,6 @@ export function FloatingNav({ navigation, auth, favorites, currentScreen, onShar
         </TouchableOpacity>
       )}
 
-      <ServiceModal
-        visible={serviceModalVisible}
-        onClose={() => setServiceModalVisible(false)}
-        auth={auth}
-        onServiceChange={() => navigation.navigate('Home')}
-      />
       <DiscoverSheet
         visible={discoverVisible}
         onClose={() => setDiscoverVisible(false)}
@@ -204,15 +189,20 @@ const styles = StyleSheet.create({
     borderRadius: 20, backgroundColor: Colors.blueBg, padding: 7,
   },
   dnaBtn: {
-    borderWidth: 1, borderColor: Colors.purpleBorder,
-    borderRadius: 20, backgroundColor: Colors.purpleBg, padding: 7,
+    borderWidth: 1, borderColor: Colors.goldBorder,
+    borderRadius: 20, backgroundColor: Colors.goldBg, padding: 7,
   },
+  passportImg: { width: 26, height: 26, resizeMode: 'contain', tintColor: Colors.gold },
   searchBtn: {
     borderWidth: 1, borderColor: Colors.greenBorder,
     borderRadius: 20, backgroundColor: Colors.greenBg, padding: 7,
   },
-  floatingBtnLeft: {
+  homeBtn: {
     position: 'absolute', left: 24, zIndex: 20,
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: Colors.surface2,
+    borderWidth: 1, borderColor: Colors.border2,
+    alignItems: 'center', justifyContent: 'center',
   },
   floatingBtnRight: {
     position: 'absolute', right: 24,
@@ -229,17 +219,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
   },
   heartBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  serviceBtn: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: Colors.surface2,
-    borderWidth: 1, borderColor: Colors.border2,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  loginBtn: {
-    backgroundColor: Colors.goldBg, borderWidth: 1, borderColor: Colors.goldBorder,
-    borderRadius: 24, paddingHorizontal: 18, paddingVertical: 10,
-  },
-  loginBtnText: { color: Colors.gold, fontSize: 14, fontWeight: '700' },
 });
 
 const svcStyles = StyleSheet.create({

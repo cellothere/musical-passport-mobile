@@ -143,7 +143,7 @@ function AppNavigator() {
           )}
         </Stack.Screen>
         <Stack.Screen name="Insights">
-          {props => <InsightsScreen {...props} auth={auth} updateSyncData={auth.updateSyncData} favoritesHook={favoritesHook} />}
+          {props => <InsightsScreen {...props} auth={auth} updateSyncData={auth.updateSyncData} favoritesHook={favoritesHook} stampsHook={stampsHook} />}
         </Stack.Screen>
         <Stack.Screen name="ArtistSearch">
           {props => (

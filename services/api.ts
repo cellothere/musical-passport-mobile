@@ -287,9 +287,17 @@ export async function fetchInsights(topArtists: string[], accessToken?: string):
   return res.json();
 }
 
+export interface StampRecord {
+  country: string;
+  stampedAt: string;
+  visitCount: number;
+  genre: string | null;
+  source: string | null;
+}
+
 export interface SyncResult {
   favorites: import('../hooks/useFavorites').SavedDiscovery[];
-  stamps: string[];
+  stamps: StampRecord[];
   insights: InsightsResponse | null;
 }
 
@@ -352,10 +360,14 @@ export async function fetchGenreArtists(
   return res.json();
 }
 
-export async function apiAddStamp(accessToken: string, country: string) {
+export async function apiAddStamp(
+  accessToken: string,
+  country: string,
+  opts?: { source?: string; genre?: string }
+) {
   await apiFetch('/api/user/stamps', {
     method: 'POST',
-    body: JSON.stringify({ country }),
+    body: JSON.stringify({ country, source: opts?.source, genre: opts?.genre }),
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 }

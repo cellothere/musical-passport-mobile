@@ -1,209 +1,574 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet,
+  ActivityIndicator, Modal, Animated, Dimensions, Image,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { FLAGS } from '../constants/flags';
-import { fetchInsights, fetchAppleMe, InsightsResponse, InsightsBlindSpot, InsightsPick } from '../services/api';
+import { fetchInsights, fetchAppleMe, InsightsPick, StampRecord } from '../services/api';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 import { FloatingNav } from '../components/FloatingNav';
+import { haptics } from '../utils/haptics';
 
-const REGION_COLORS: Record<string, string> = {
-  'North America': Colors.blue,
-  'Europe': Colors.purple,
-  'Latin America': Colors.green,
-  'Africa': Colors.gold,
-  'Middle East': '#e07b3a',
-  'Asia': '#e05a8a',
-  'Oceania': '#4ab8c1',
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const STAMP_W = (SCREEN_W - 52) / 2;
+
+// ── Continent definitions ────────────────────────────────
+const CONTINENTS: Record<string, { color: string; countries: string[] }> = {
+  'North America': {
+    color: '#3b82f6',
+    countries: ['USA', 'Canada', 'Mexico', 'Hawaii'],
+  },
+  'Latin America': {
+    color: '#10b981',
+    countries: [
+      'Brazil', 'Argentina', 'Colombia', 'Cuba', 'Chile', 'Peru', 'Jamaica',
+      'Venezuela', 'Bolivia', 'Ecuador', 'Panama', 'Uruguay', 'Paraguay',
+      'Costa Rica', 'Dominican Republic', 'Puerto Rico', 'Guatemala', 'Honduras',
+      'El Salvador', 'Nicaragua', 'Trinidad & Tobago', 'Barbados', 'Haiti',
+      'Guyana', 'Suriname',
+    ],
+  },
+  'Europe': {
+    color: '#8b5cf6',
+    countries: [
+      'France', 'Germany', 'UK', 'England', 'Spain', 'Italy', 'Portugal',
+      'Netherlands', 'Belgium', 'Sweden', 'Norway', 'Denmark', 'Finland',
+      'Switzerland', 'Austria', 'Poland', 'Ukraine', 'Greece', 'Turkey',
+      'Romania', 'Serbia', 'Croatia', 'Hungary', 'Czechia', 'Scotland',
+      'Ireland', 'Iceland', 'Slovakia', 'Slovenia', 'Bulgaria', 'Bosnia',
+      'Albania', 'North Macedonia', 'Kosovo', 'Montenegro', 'Lithuania',
+      'Latvia', 'Estonia', 'Luxembourg', 'Malta', 'Cyprus', 'Wales',
+    ],
+  },
+  'Africa': {
+    color: '#f59e0b',
+    countries: [
+      'Nigeria', 'Ghana', 'Senegal', 'Mali', 'Ethiopia', 'South Africa',
+      'Egypt', 'Cameroon', 'Congo', 'Kenya', 'Algeria', 'Morocco', 'Tanzania',
+      'Ivory Coast', 'Angola', 'Mozambique', 'Zimbabwe', 'Uganda', 'Rwanda',
+      'Zambia', 'Tunisia', 'Libya', 'Sudan', 'Guinea', 'Burkina Faso',
+      'Benin', 'Togo', 'Sierra Leone', 'Liberia', 'Namibia', 'Botswana',
+      'Malawi', 'Madagascar', 'Mauritius', 'Cape Verde', 'Eritrea',
+      'Somalia', 'Djibouti',
+    ],
+  },
+  'Middle East': {
+    color: '#f97316',
+    countries: [
+      'Lebanon', 'Iran', 'Israel', 'Saudi Arabia', 'Armenia', 'Azerbaijan',
+      'Georgia', 'Iraq', 'Syria', 'Jordan', 'Yemen', 'Oman', 'UAE',
+      'Kuwait', 'Qatar', 'Bahrain', 'Palestine',
+    ],
+  },
+  'Asia': {
+    color: '#ec4899',
+    countries: [
+      'Japan', 'South Korea', 'India', 'China', 'Indonesia', 'Thailand',
+      'Vietnam', 'Philippines', 'Pakistan', 'Bangladesh', 'Taiwan', 'Mongolia',
+      'Myanmar', 'Cambodia', 'Laos', 'Malaysia', 'Singapore', 'Sri Lanka',
+      'Nepal', 'Afghanistan', 'Kazakhstan', 'Uzbekistan', 'Tajikistan',
+      'Kyrgyzstan', 'Turkmenistan', 'Hong Kong',
+    ],
+  },
+  'Oceania': {
+    color: '#06b6d4',
+    countries: [
+      'Australia', 'New Zealand', 'Papua New Guinea', 'Fiji',
+      'Vanuatu', 'Solomon Islands', 'Tonga', 'Samoa',
+    ],
+  },
 };
+
+// ── Flag colors ─────────────────────────────────────────
+const STAMP_COLORS: Record<string, string> = {
+  'USA': '#B22234', 'Canada': '#FF0000',
+  'Brazil': '#009C3B', 'Argentina': '#74ACDF', 'Colombia': '#FCD116',
+  'Mexico': '#006847', 'Cuba': '#002A8F', 'Jamaica': '#FED100',
+  'Chile': '#D52B1E', 'Peru': '#D91023', 'Venezuela': '#CF142B',
+  'Dominican Republic': '#002D62', 'Puerto Rico': '#0F4D92',
+  'Panama': '#003893', 'Bolivia': '#007A3D', 'Ecuador': '#FFD100',
+  'Uruguay': '#5EB6E4', 'Paraguay': '#D52B1E', 'Costa Rica': '#002B7F',
+  'Guatemala': '#4997D0', 'Honduras': '#009BDE', 'Haiti': '#00209F',
+  'Trinidad & Tobago': '#CE1126', 'Barbados': '#00267F',
+  'El Salvador': '#0F47AF', 'Nicaragua': '#3E6EB4',
+  'France': '#003189', 'Germany': '#DD0000', 'UK': '#CF142B',
+  'England': '#CF142B', 'Spain': '#C60B1E', 'Italy': '#009246',
+  'Portugal': '#006600', 'Netherlands': '#AE1C28', 'Belgium': '#FAE042',
+  'Sweden': '#006AA7', 'Norway': '#EF2B2D', 'Denmark': '#C60C30',
+  'Finland': '#003580', 'Switzerland': '#FF0000', 'Austria': '#ED2939',
+  'Poland': '#DC143C', 'Ukraine': '#005BBB', 'Greece': '#0D5EAF',
+  'Turkey': '#E30A17', 'Romania': '#002B7F', 'Serbia': '#C6363C',
+  'Croatia': '#FF0000', 'Hungary': '#CE2939', 'Czechia': '#D7141A',
+  'Scotland': '#003F87', 'Ireland': '#169B62', 'Iceland': '#003897',
+  'Slovakia': '#EE1C25', 'Slovenia': '#003DA5', 'Bulgaria': '#00966E',
+  'Bosnia': '#002395', 'Albania': '#E41E20', 'North Macedonia': '#CE2028',
+  'Kosovo': '#244AA5', 'Montenegro': '#D4AF37', 'Lithuania': '#006A44',
+  'Latvia': '#9E3039', 'Estonia': '#0072CE', 'Luxembourg': '#EF3340',
+  'Nigeria': '#008751', 'Ghana': '#006B3F', 'Senegal': '#00853F',
+  'South Africa': '#007A4D', 'Ethiopia': '#078930', 'Kenya': '#006600',
+  'Egypt': '#CE1126', 'Morocco': '#C1272D', 'Algeria': '#006233',
+  'Tunisia': '#E70013', 'Angola': '#CC0000', 'Congo': '#007FFF',
+  'Tanzania': '#1EB53A', 'Ivory Coast': '#F77F00', 'Cameroon': '#007A5E',
+  'Rwanda': '#20603D', 'Uganda': '#000000', 'Mozambique': '#009A44',
+  'Zimbabwe': '#006400', 'Burkina Faso': '#EF2B2D',
+  'Lebanon': '#CC2529', 'Iran': '#239F40', 'Israel': '#003399',
+  'Saudi Arabia': '#006C35', 'UAE': '#00732F', 'Iraq': '#CE1126',
+  'Jordan': '#007A3D', 'Syria': '#007A3D', 'Kuwait': '#007A3D',
+  'Qatar': '#8D1B3D', 'Bahrain': '#CE1126', 'Oman': '#DB161B',
+  'Japan': '#BC002D', 'South Korea': '#003478', 'China': '#DE2910',
+  'India': '#FF9933', 'Indonesia': '#CE1126', 'Thailand': '#003087',
+  'Philippines': '#0038A8', 'Vietnam': '#DA251D', 'Malaysia': '#CC0001',
+  'Pakistan': '#01411C', 'Bangladesh': '#006A4E', 'Taiwan': '#FE0000',
+  'Azerbaijan': '#0092BC', 'Armenia': '#D90012', 'Georgia': '#E30A17',
+  'Kazakhstan': '#00AFCA', 'Uzbekistan': '#1EB53A',
+  'Australia': '#00008B', 'New Zealand': '#00247D', 'Fiji': '#68BFE5',
+  'Papua New Guinea': '#000000', 'Hong Kong': '#DE2910',
+};
+
+function stampColor(country: string): string {
+  return STAMP_COLORS[country] ?? Colors.purple;
+}
+
+function formatDate(ts: number): string {
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+
+interface StampDetailData {
+  country: string;
+  saveCount: number;
+  savedTracks: string[];
+  firstSaved: number | null;
+  visitCount: number;
+  stampedAt: string | null;
+  genre: string | null;
+}
 
 interface Props {
   navigation: any;
   auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
   updateSyncData: (partial: { insights: any }) => void;
   favoritesHook: { favorites: SavedDiscovery[] };
+  stampsHook: { stamps: Set<string>; stampRecords: StampRecord[]; addStamp: (c: string) => void };
 }
 
-export function InsightsScreen({ navigation, auth, updateSyncData, favoritesHook }: Props) {
-  const [loading, setLoading] = useState(true);
-  const [insights, setInsights] = useState<InsightsResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+export function InsightsScreen({ navigation, auth, updateSyncData, favoritesHook, stampsHook }: Props) {
+  const insets = useSafeAreaInsets();
+  const { favorites } = favoritesHook;
+  const { stamps, stampRecords } = stampsHook;
+
+  const [picks, setPicks] = useState<InsightsPick[]>([]);
+  const [picksLoading, setPicksLoading] = useState(false);
+  const [selectedContinent, setSelectedContinent] = useState<string | null>(null);
+
+  // Stamp detail sheet
+  const [detailData, setDetailData] = useState<StampDetailData | null>(null);
+  const sheetAnim = useRef(new Animated.Value(SCREEN_H)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
+
+  // Per-country stats from favorites
+  const countryStats = useMemo(() => {
+    const map: Record<string, { saveCount: number; savedTracks: string[]; firstSaved: number | null }> = {};
+    for (const fav of favorites) {
+      const c = fav.country;
+      if (!c) continue;
+      if (!map[c]) map[c] = { saveCount: 0, savedTracks: [], firstSaved: null };
+      map[c].saveCount++;
+      const title = (fav.data as any)?.title ?? (fav.data as any)?.trackTitle ?? null;
+      if (title && map[c].savedTracks.length < 4) map[c].savedTracks.push(title);
+      const ts = fav.savedAt;
+      if (ts && (map[c].firstSaved === null || ts < map[c].firstSaved!)) map[c].firstSaved = ts;
+    }
+    return map;
+  }, [favorites]);
+
+  // All visited countries (stamps ∪ saves)
+  const visitedSet = useMemo(() => {
+    const s = new Set<string>(stampRecords.map(r => r.country));
+    for (const c of Object.keys(countryStats)) s.add(c);
+    return s;
+  }, [stampRecords, countryStats]);
+
+  const totalSaves = favorites.length;
+
+  // Per-continent stats
+  const continentStats = useMemo(() =>
+    Object.entries(CONTINENTS).map(([name, { color, countries }]) => {
+      const visited = countries.filter(c => visitedSet.has(c));
+      const pct = Math.round((visited.length / countries.length) * 100);
+      return { name, color, countries, visited, unvisited: countries.filter(c => !visitedSet.has(c)), pct };
+    }),
+    [visitedSet]
+  );
 
   useEffect(() => {
-    // Use cached insights from login sync if available
-    if (auth.syncData?.insights) {
-      setInsights(auth.syncData.insights);
-      setLoading(false);
+    if (auth.syncData?.insights?.picks?.length) {
+      setPicks(auth.syncData.insights.picks);
       return;
     }
-    async function load() {
+    async function loadPicks() {
       let topArtists = auth.topArtists;
-      // For Apple Music, try fetching library artists if we don't have them yet
       if (auth.service === 'apple-music' && !topArtists.length && auth.accessToken) {
-        try {
-          const data = await fetchAppleMe(auth.accessToken);
-          topArtists = data.topArtists;
-        } catch {}
+        try { const d = await fetchAppleMe(auth.accessToken); topArtists = d.topArtists; } catch {}
       }
-      if (!topArtists.length) { setLoading(false); return; }
-      const token = auth.service === 'spotify' ? auth.accessToken : null;
-      fetchInsights(topArtists, token ?? undefined)
-        .then(data => {
-          setInsights(data);
-          updateSyncData({ insights: data });
-        })
-        .catch(err => setError(err.message))
-        .finally(() => setLoading(false));
+      if (!topArtists.length) return;
+      setPicksLoading(true);
+      try {
+        const token = auth.service === 'spotify' ? auth.accessToken : null;
+        const data = await fetchInsights(topArtists, token ?? undefined);
+        setPicks(data.picks ?? []);
+        updateSyncData({ insights: data });
+      } catch {}
+      finally { setPicksLoading(false); }
     }
-    load();
+    loadPicks();
   }, []);
+
+  const openDetail = (country: string) => {
+    haptics.light();
+    const stats = countryStats[country] ?? { saveCount: 0, savedTracks: [], firstSaved: null };
+    const record = stampRecords.find(s => s.country === country);
+    setDetailData({
+      country, ...stats,
+      visitCount: record?.visitCount ?? 1,
+      stampedAt: record?.stampedAt ?? null,
+      genre: record?.genre ?? null,
+    });
+    sheetAnim.setValue(SCREEN_H);
+    Animated.parallel([
+      Animated.spring(sheetAnim, { toValue: 0, useNativeDriver: true, tension: 70, friction: 14 }),
+      Animated.timing(backdropAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const closeDetail = () => {
+    Animated.parallel([
+      Animated.timing(sheetAnim, { toValue: SCREEN_H, duration: 260, useNativeDriver: true }),
+      Animated.timing(backdropAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start(() => setDetailData(null));
+  };
+
+  const continentData = selectedContinent ? continentStats.find(c => c.name === selectedContinent) : null;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={selectedContinent ? () => { haptics.light(); setSelectedContinent(null); } : () => navigation.goBack()}
           style={styles.backBtn}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <Ionicons name="chevron-back" size={24} color={Colors.blue} />
         </TouchableOpacity>
-        <View style={styles.headerTitleRow}>
-          <Ionicons name="analytics-outline" size={20} color={Colors.purple} />
-          <Text style={styles.headerTitle}>{`My Musical DNA`}</Text>
-        </View>
+        <Text style={styles.headerTitle}>
+          {selectedContinent ?? 'My Musical Passport'}
+        </Text>
       </View>
 
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.gold} />
-          <Text style={styles.loadingText}>Analyzing your taste…</Text>
-        </View>
-      ) : !auth.topArtists.length ? (
-        <View style={styles.centered}>
-          <Ionicons name="musical-notes-outline" size={48} color={Colors.text3} />
-          <Text style={styles.emptyTitle}>No listening data found</Text>
-          <Text style={styles.emptyText}>
-            We couldn't find enough listening history to generate your Musical DNA. Make sure your library has some artists added.
-          </Text>
-        </View>
-      ) : error ? (
-        <View style={styles.centered}>
-          <Ionicons name="warning-outline" size={36} color={Colors.red} />
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : insights ? (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      {selectedContinent && continentData ? (
+        // ── Continent detail view ──────────────────────────
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 90 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Progress card */}
+          <View style={[styles.progressCard, { borderColor: continentData.color + '40' }]}>
+            <View style={styles.progressCardTop}>
+              <View>
+                <Text style={[styles.progressPct, { color: continentData.color }]}>
+                  {continentData.pct}%
+                </Text>
+                <Text style={styles.progressSub}>
+                  {continentData.visited.length} of {continentData.countries.length} countries explored
+                </Text>
+              </View>
+              <View style={[styles.progressCircle, { borderColor: continentData.color + '40', backgroundColor: continentData.color + '12' }]}>
+                <Text style={styles.progressCircleNum}>{continentData.visited.length}</Text>
+                <Text style={[styles.progressCircleLabel, { color: continentData.color }]}>visited</Text>
+              </View>
+            </View>
+            <View style={styles.progressBarTrack}>
+              <View style={[styles.progressBarFill, {
+                width: `${continentData.pct}%`,
+                backgroundColor: continentData.color,
+              }]} />
+            </View>
+          </View>
 
-          {/* Regional DNA */}
-          {insights.dna?.length > 0 && (
+          {/* Visited stamps */}
+          {continentData.visited.length > 0 ? (
             <>
-              <Text style={styles.sectionLabel}>Where your music comes from</Text>
-              <View style={styles.card}>
-                {insights.dna
-                  .sort((a, b) => b.percentage - a.percentage)
-                  .map(({ region, percentage }, i) => {
-                    const color = REGION_COLORS[region] ?? Colors.purple;
-                    return (
-                      <View key={region} style={[styles.dnaRow, i > 0 && styles.dnaRowBorder]}>
-                        <Text style={styles.dnaLabel}>{region}</Text>
-                        <View style={styles.dnaBarTrack}>
-                          <View style={[styles.dnaBarFill, { width: `${Math.min(percentage, 100)}%`, backgroundColor: color }]} />
+              <Text style={styles.sectionLabel}>VISITED</Text>
+              <View style={styles.stampsGrid}>
+                {continentData.visited.map((country, i) => {
+                  const color = stampColor(country);
+                  const stats = countryStats[country] ?? { saveCount: 0 };
+                  const record = stampRecords.find(s => s.country === country);
+                  const visitCount = record?.visitCount ?? 1;
+                  const rotation = i % 3 === 0 ? '1.4deg' : i % 3 === 1 ? '-1.1deg' : '0.5deg';
+                  return (
+                    <TouchableOpacity
+                      key={country}
+                      style={[styles.stamp, { backgroundColor: color + '12', borderColor: color + 'AA', transform: [{ rotate: rotation }] }]}
+                      onPress={() => openDetail(country)}
+                      activeOpacity={0.75}
+                    >
+                      {visitCount > 1 && (
+                        <View style={[styles.visitBadge, { backgroundColor: color }]}>
+                          <Text style={styles.visitBadgeText}>{visitCount}×</Text>
                         </View>
-                        <Text style={styles.dnaPct}>{percentage}%</Text>
+                      )}
+                      <View style={[styles.stampInner, { borderColor: color + '55' }]}>
+                        <Text style={styles.stampFlag}>{FLAGS[country] ?? '🌐'}</Text>
+                        <Text style={[styles.stampCountry, { color }]} numberOfLines={1}>{country.toUpperCase()}</Text>
+                        {stats.saveCount > 0 ? (
+                          <View style={[styles.stampBadge, { backgroundColor: color + '22' }]}>
+                            <Ionicons name="musical-note" size={10} color={color} />
+                            <Text style={[styles.stampBadgeText, { color }]}>
+                              {stats.saveCount} {stats.saveCount === 1 ? 'save' : 'saves'}
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={[styles.stampBadge, { backgroundColor: color + '22' }]}>
+                            <Ionicons name="checkmark" size={10} color={color} />
+                            <Text style={[styles.stampBadgeText, { color }]}>Visited</Text>
+                          </View>
+                        )}
                       </View>
-                    );
-                  })}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </>
+          ) : (
+            <View style={styles.noVisitsState}>
+              <Text style={styles.noVisitsEmoji}>🗺️</Text>
+              <Text style={styles.noVisitsText}>No countries explored here yet</Text>
+              <TouchableOpacity
+                style={[styles.noVisitsBtn, { backgroundColor: continentData.color }]}
+                onPress={() => {
+                  setSelectedContinent(null);
+                  setTimeout(() => navigation.navigate('Explore'), 100);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.noVisitsBtnText}>Start Exploring</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
-          {/* Top eras */}
-          {insights.topEras?.length > 0 && (
+          {/* Not yet visited */}
+          {continentData.unvisited.length > 0 && (
             <>
-              <Text style={styles.sectionLabel}>Your eras</Text>
-              <View style={styles.card}>
-                {insights.topEras.map(({ decade, percentage }, i) => (
-                  <View key={decade} style={[styles.dnaRow, i > 0 && styles.dnaRowBorder]}>
-                    <Text style={styles.dnaLabel}>{decade}</Text>
-                    <View style={styles.dnaBarTrack}>
-                      <View style={[styles.dnaBarFill, { width: `${Math.min(percentage, 100)}%`, backgroundColor: Colors.gold }]} />
-                    </View>
-                    <Text style={styles.dnaPct}>{percentage}%</Text>
-                  </View>
+              <Text style={[styles.sectionLabel, { marginTop: 8 }]}>
+                NOT YET VISITED · {continentData.unvisited.length}
+              </Text>
+              <View style={styles.unvisitedGrid}>
+                {continentData.unvisited.map(country => (
+                  <TouchableOpacity
+                    key={country}
+                    style={styles.unvisitedPill}
+                    onPress={() => {
+                      setSelectedContinent(null);
+                      setTimeout(() => navigation.navigate('Recommendations', { country }), 100);
+                    }}
+                    activeOpacity={0.65}
+                  >
+                    <Text style={styles.unvisitedFlag}>{FLAGS[country] ?? '🌐'}</Text>
+                    <Text style={styles.unvisitedName} numberOfLines={1}>{country}</Text>
+                  </TouchableOpacity>
                 ))}
               </View>
             </>
           )}
+        </ScrollView>
+      ) : (
+        // ── Main passport view ─────────────────────────────
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 90 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Passport cover */}
+          <View style={styles.passportCover}>
+            <View style={styles.passportCoverTop}>
+              <View>
+                <Text style={styles.passportIssuer}>MUSICAL PASSPORT</Text>
+                <Text style={styles.passportName}>World Music Explorer</Text>
+              </View>
+              <Image source={require('../assets/passport.png')} style={styles.passportImg} />
+            </View>
+            <View style={styles.passportDivider} />
+            <View style={styles.passportStats}>
+              <View style={styles.passportStat}>
+                <Text style={styles.passportStatNum}>{visitedSet.size}</Text>
+                <Text style={styles.passportStatLabel}>Countries</Text>
+              </View>
+              <View style={styles.passportStatDivider} />
+              <View style={styles.passportStat}>
+                <Text style={styles.passportStatNum}>{totalSaves}</Text>
+                <Text style={styles.passportStatLabel}>Tracks Saved</Text>
+              </View>
+              <View style={styles.passportStatDivider} />
+              <View style={styles.passportStat}>
+                <Text style={styles.passportStatNum}>{stamps.size}</Text>
+                <Text style={styles.passportStatLabel}>Explored</Text>
+              </View>
+            </View>
+          </View>
 
-          {/* Blind spots */}
-          {insights.blindSpots?.length > 0 && (
-            <>
-              <Text style={styles.sectionLabel}>Areas to Explore</Text>
-              {insights.blindSpots.map((spot: InsightsBlindSpot) => (
-                <TouchableOpacity
-                  key={spot.region}
-                  style={styles.blindSpotCard}
-                  onPress={() => navigation.navigate('Recommendations', { country: spot.gatewayCountry })}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.blindSpotLeft}>
-                    <View style={styles.blindSpotIconWrap}>
-                      <Ionicons name="earth-outline" size={22} color={Colors.red} />
-                    </View>
-                    <View style={styles.blindSpotBody}>
-                      <View style={styles.blindSpotTitleRow}>
-                        <Text style={styles.blindSpotRegion}>{spot.region}</Text>
-                        <View style={styles.blindSpotBadge}>
-                          <Text style={styles.blindSpotBadgeText}>{spot.percentage}% of your taste</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.blindSpotCta}>
-                        Start with {FLAGS[spot.gatewayCountry] ?? '🌐'} {spot.gatewayCountry} →
-                      </Text>
-                    </View>
+          {/* Continent cards */}
+          <Text style={styles.sectionLabel}>EXPLORE BY CONTINENT</Text>
+          {continentStats.map(({ name, color, countries, visited, pct }) => {
+            const previewFlags = visited.slice(0, 5);
+            const remaining = visited.length - previewFlags.length;
+            return (
+              <TouchableOpacity
+                key={name}
+                style={styles.continentCard}
+                onPress={() => { haptics.light(); setSelectedContinent(name); }}
+                activeOpacity={0.75}
+              >
+                <View style={styles.continentCardTop}>
+                  <View style={styles.continentCardLeft}>
+                    <Text style={styles.continentName}>{name}</Text>
+                    <Text style={styles.continentSub}>
+                      {visited.length} of {countries.length} countries
+                    </Text>
                   </View>
-                </TouchableOpacity>
-              ))}
-            </>
-          )}
+                  <View style={styles.continentCardRight}>
+                    <Text style={[styles.continentPct, { color }]}>{pct}%</Text>
+                    <Ionicons name="chevron-forward" size={16} color={Colors.text3} />
+                  </View>
+                </View>
 
-          {/* Suggested countries */}
-          {insights.picks?.length > 0 && (
+                {/* Flag strip */}
+                {previewFlags.length > 0 && (
+                  <View style={styles.flagStrip}>
+                    {previewFlags.map(c => (
+                      <Text key={c} style={styles.flagStripEmoji}>{FLAGS[c] ?? '🌐'}</Text>
+                    ))}
+                    {remaining > 0 && (
+                      <View style={[styles.flagStripMore, { backgroundColor: color + '22' }]}>
+                        <Text style={[styles.flagStripMoreText, { color }]}>+{remaining}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* Progress bar */}
+                <View style={styles.continentBarTrack}>
+                  <View style={[styles.continentBarFill, { width: `${pct}%`, backgroundColor: color }]} />
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+
+          {/* Picks for you */}
+          {(picks.length > 0 || picksLoading) && (
             <>
-              <Text style={styles.sectionLabel}>Picked for you</Text>
-              {insights.picks.map((pick: InsightsPick, i: number) => (
+              <Text style={[styles.sectionLabel, { marginTop: 8 }]}>EXPLORE NEXT</Text>
+              {picksLoading ? (
+                <ActivityIndicator size="small" color={Colors.gold} style={{ marginVertical: 16 }} />
+              ) : picks.map((pick, i) => (
                 <TouchableOpacity
                   key={i}
-                  style={styles.suggestionCard}
+                  style={styles.pickCard}
                   onPress={() => pick.type === 'genre'
                     ? navigation.navigate('GenreSpotlight', { genre: pick.genre, country: pick.country })
                     : navigation.navigate('Recommendations', { country: pick.country })
                   }
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.suggestionFlag}>{FLAGS[pick.country] ?? '🌐'}</Text>
-                  <View style={styles.suggestionBody}>
-                    <Text style={styles.suggestionCountry}>
-                      {pick.type === 'genre' ? pick.genre : pick.country}
-                    </Text>
-                    {pick.type === 'genre' && (
-                      <Text style={styles.suggestionSub}>{pick.country}</Text>
-                    )}
+                  <Text style={styles.pickFlag}>{FLAGS[pick.country] ?? '🌐'}</Text>
+                  <View style={styles.pickBody}>
+                    <Text style={styles.pickTitle}>{pick.type === 'genre' ? pick.genre : pick.country}</Text>
+                    {pick.type === 'genre' && <Text style={styles.pickSub}>{pick.country}</Text>}
                   </View>
                   <Ionicons name="chevron-forward" size={18} color={Colors.text3} />
                 </TouchableOpacity>
               ))}
             </>
           )}
-
-          <View style={{ height: 48 }} />
         </ScrollView>
-      ) : null}
+      )}
+
+      {/* Stamp detail sheet */}
+      {detailData && (
+        <Modal visible transparent animationType="none" onRequestClose={closeDetail}>
+          <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, { opacity: backdropAnim }]}>
+            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeDetail} />
+          </Animated.View>
+          <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetAnim }], paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHero}>
+              <Text style={styles.sheetFlag}>{FLAGS[detailData.country] ?? '🌐'}</Text>
+              <View style={styles.sheetHeroText}>
+                <Text style={styles.sheetCountry}>{detailData.country}</Text>
+                {detailData.firstSaved && <Text style={styles.sheetSince}>Since {formatDate(detailData.firstSaved)}</Text>}
+              </View>
+              <View style={[styles.sheetStampMark, { borderColor: stampColor(detailData.country) + '99' }]}>
+                <Text style={[styles.sheetStampMarkText, { color: stampColor(detailData.country) }]}>VISITED</Text>
+              </View>
+            </View>
+
+            <View style={styles.sheetStats}>
+              <View style={styles.sheetStat}>
+                <Text style={[styles.sheetStatNum, { color: stampColor(detailData.country) }]}>{detailData.visitCount}</Text>
+                <Text style={styles.sheetStatLabel}>Visits</Text>
+              </View>
+              <View style={styles.sheetStatDivider} />
+              <View style={styles.sheetStat}>
+                <Text style={[styles.sheetStatNum, { color: stampColor(detailData.country) }]}>{detailData.saveCount}</Text>
+                <Text style={styles.sheetStatLabel}>Saves</Text>
+              </View>
+              {detailData.stampedAt && (
+                <>
+                  <View style={styles.sheetStatDivider} />
+                  <View style={styles.sheetStat}>
+                    <Text style={[styles.sheetStatNum, { color: stampColor(detailData.country), fontSize: 14 }]}>
+                      {formatDate(new Date(detailData.stampedAt).getTime())}
+                    </Text>
+                    <Text style={styles.sheetStatLabel}>First Visit</Text>
+                  </View>
+                </>
+              )}
+            </View>
+
+            {detailData.genre && (
+              <View style={[styles.sheetGenreTag, { backgroundColor: stampColor(detailData.country) + '18', borderColor: stampColor(detailData.country) + '55' }]}>
+                <Ionicons name="musical-notes-outline" size={13} color={stampColor(detailData.country)} />
+                <Text style={[styles.sheetGenreText, { color: stampColor(detailData.country) }]}>{detailData.genre}</Text>
+              </View>
+            )}
+
+            {detailData.savedTracks.length > 0 && (
+              <View style={styles.sheetTracks}>
+                <Text style={styles.sheetTracksLabel}>SAVED TRACKS</Text>
+                {detailData.savedTracks.map((t, i) => (
+                  <View key={i} style={styles.sheetTrackRow}>
+                    <Ionicons name="musical-note" size={14} color={stampColor(detailData.country)} />
+                    <Text style={styles.sheetTrackTitle} numberOfLines={1}>{t}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.sheetCta, { backgroundColor: stampColor(detailData.country) }]}
+              onPress={() => { closeDetail(); setTimeout(() => navigation.navigate('Recommendations', { country: detailData.country }), 280); }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.sheetCtaText}>Explore {detailData.country}</Text>
+              <Ionicons name="arrow-forward" size={16} color="#fff" />
+            </TouchableOpacity>
+          </Animated.View>
+        </Modal>
+      )}
+
       <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} currentScreen="Insights" />
     </SafeAreaView>
   );
@@ -215,101 +580,146 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
-    gap: 10,
+    borderBottomWidth: 1, borderBottomColor: Colors.border, gap: 10,
   },
   backBtn: { padding: 4 },
-  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
+  headerTitle: { color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.3, flex: 1 },
 
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 },
-  loadingText: { color: Colors.text2, fontSize: 15, marginTop: 4 },
-  emptyTitle: { color: Colors.text, fontSize: 18, fontWeight: '700' },
-  emptyText: { color: Colors.text2, fontSize: 15, textAlign: 'center', lineHeight: 22 },
-  errorText: { color: Colors.red, fontSize: 15, textAlign: 'center' },
-
-  content: { padding: 18 },
-
-  // Archetype hero
-  archetypeCard: {
-    backgroundColor: Colors.purpleBg,
-    borderWidth: 1, borderColor: Colors.purpleBorder,
-    borderRadius: 16, padding: 20, marginBottom: 14, alignItems: 'center',
-  },
-  archetypeLabel: {
-    color: Colors.purple, fontSize: 11, fontWeight: '700',
-    letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8,
-  },
-  archetypeTitle: {
-    color: Colors.text, fontSize: 24, fontWeight: '800',
-    letterSpacing: -0.5, textAlign: 'center', marginBottom: 10,
-  },
-  archetypeDesc: {
-    color: Colors.text2, fontSize: 14, lineHeight: 21, textAlign: 'center',
-  },
-
-  // Summary
-  summaryCard: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1, borderColor: Colors.border,
-    borderRadius: 14, padding: 16, marginBottom: 24,
-  },
-  summaryText: { color: Colors.text2, fontSize: 14, lineHeight: 22 },
+  content: { padding: 16 },
 
   sectionLabel: {
     color: Colors.text3, fontSize: 11, fontWeight: '700',
-    letterSpacing: 0.8, textTransform: 'uppercase',
-    marginBottom: 10, marginTop: 4,
+    letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14,
   },
 
-  // DNA bars
-  card: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1, borderColor: Colors.border,
-    borderRadius: 14, overflow: 'hidden', marginBottom: 24,
+  // ── Passport cover ──────────────────────────────────────
+  passportCover: {
+    backgroundColor: '#1a2744', borderRadius: 16, padding: 20, marginBottom: 24,
+    borderWidth: 1, borderColor: '#2d3d60',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
-  dnaRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-  dnaRowBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
-  dnaLabel: { color: Colors.text, fontSize: 13, fontWeight: '600', width: 114 },
-  dnaBarTrack: {
-    flex: 1, height: 6, backgroundColor: Colors.surface2,
-    borderRadius: 3, overflow: 'hidden',
-  },
-  dnaBarFill: { height: '100%', borderRadius: 3 },
-  dnaPct: { color: Colors.text3, fontSize: 13, fontWeight: '600', width: 38, textAlign: 'right' },
+  passportCoverTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  passportIssuer: { color: '#a8b8d8', fontSize: 10, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 },
+  passportName: { color: '#e8d5a0', fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+  passportImg: { width: 44, height: 44, resizeMode: 'contain', tintColor: '#e8d5a0' },
+  passportDivider: { height: 1, backgroundColor: '#2d3d60', marginBottom: 16 },
+  passportStats: { flexDirection: 'row', alignItems: 'center' },
+  passportStat: { flex: 1, alignItems: 'center' },
+  passportStatNum: { color: '#e8d5a0', fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  passportStatLabel: { color: '#6d7e9e', fontSize: 11, fontWeight: '600', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 },
+  passportStatDivider: { width: 1, height: 36, backgroundColor: '#2d3d60' },
 
-  // Blind spots
-  blindSpotCard: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1, borderColor: 'rgba(240,101,101,0.3)',
-    borderRadius: 14, padding: 16, marginBottom: 10,
+  // ── Continent cards ─────────────────────────────────────
+  continentCard: {
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 16, padding: 16, marginBottom: 10, gap: 12,
   },
-  blindSpotLeft: { flexDirection: 'row', gap: 14 },
-  blindSpotIconWrap: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(240,101,101,0.1)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  blindSpotBody: { flex: 1 },
-  blindSpotTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' },
-  blindSpotRegion: { color: Colors.text, fontSize: 15, fontWeight: '700' },
-  blindSpotBadge: {
-    backgroundColor: 'rgba(240,101,101,0.12)',
-    borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2,
-  },
-  blindSpotBadgeText: { color: Colors.red, fontSize: 11, fontWeight: '700' },
-  blindSpotTeaser: { color: Colors.text2, fontSize: 13, lineHeight: 19, marginBottom: 8 },
-  blindSpotCta: { color: Colors.blue, fontSize: 13, fontWeight: '600' },
+  continentCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  continentCardLeft: { flex: 1 },
+  continentName: { color: Colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
+  continentSub: { color: Colors.text3, fontSize: 13, marginTop: 2 },
+  continentCardRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  continentPct: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
+  flagStrip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  flagStripEmoji: { fontSize: 20 },
+  flagStripMore: { borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
+  flagStripMoreText: { fontSize: 12, fontWeight: '700' },
+  continentBarTrack: { height: 5, backgroundColor: Colors.surface2, borderRadius: 3, overflow: 'hidden' },
+  continentBarFill: { height: '100%', borderRadius: 3 },
 
-  // Suggested countries
-  suggestionCard: {
+  // ── Continent detail ────────────────────────────────────
+  progressCard: {
+    backgroundColor: Colors.surface, borderWidth: 1,
+    borderRadius: 16, padding: 20, marginBottom: 24, gap: 16,
+  },
+  progressCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  progressPct: { fontSize: 42, fontWeight: '800', letterSpacing: -1 },
+  progressSub: { color: Colors.text3, fontSize: 14, marginTop: 2 },
+  progressCircle: {
+    width: 64, height: 64, borderRadius: 32,
+    borderWidth: 2, alignItems: 'center', justifyContent: 'center',
+  },
+  progressCircleNum: { color: Colors.text, fontSize: 22, fontWeight: '800' },
+  progressCircleLabel: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  progressBarTrack: { height: 6, backgroundColor: Colors.surface2, borderRadius: 3, overflow: 'hidden' },
+  progressBarFill: { height: '100%', borderRadius: 3 },
+
+  // ── Stamps ──────────────────────────────────────────────
+  stampsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 28 },
+  stamp: { width: STAMP_W, borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 12, padding: 3 },
+  visitBadge: { position: 'absolute', top: -6, right: -6, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, zIndex: 2 },
+  visitBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  stampInner: { borderWidth: 1, borderRadius: 9, paddingVertical: 16, paddingHorizontal: 12, alignItems: 'center', gap: 6 },
+  stampFlag: { fontSize: 36, lineHeight: 42 },
+  stampCountry: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textAlign: 'center' },
+  stampBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  stampBadgeText: { fontSize: 11, fontWeight: '600' },
+
+  // ── Unvisited ───────────────────────────────────────────
+  unvisitedGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
+  unvisitedPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8,
+  },
+  unvisitedFlag: { fontSize: 16 },
+  unvisitedName: { color: Colors.text3, fontSize: 13, fontWeight: '500' },
+
+  // ── No visits state ─────────────────────────────────────
+  noVisitsState: { alignItems: 'center', paddingVertical: 40, gap: 12 },
+  noVisitsEmoji: { fontSize: 48 },
+  noVisitsText: { color: Colors.text2, fontSize: 15 },
+  noVisitsBtn: { marginTop: 8, borderRadius: 14, paddingHorizontal: 28, paddingVertical: 14 },
+  noVisitsBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+  // ── Picks ───────────────────────────────────────────────
+  pickCard: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
     borderRadius: 14, padding: 16, marginBottom: 10, gap: 14,
   },
-  suggestionFlag: { fontSize: 28 },
-  suggestionBody: { flex: 1 },
-  suggestionCountry: { color: Colors.text, fontSize: 16, fontWeight: '700' },
-  suggestionSub: { color: Colors.text3, fontSize: 13, marginTop: 2 },
+  pickFlag: { fontSize: 28 },
+  pickBody: { flex: 1 },
+  pickTitle: { color: Colors.text, fontSize: 16, fontWeight: '700' },
+  pickSub: { color: Colors.text3, fontSize: 13, marginTop: 2 },
+
+  // ── Stamp detail sheet ──────────────────────────────────
+  backdrop: { backgroundColor: 'rgba(0,0,0,0.55)' },
+  sheet: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    borderTopWidth: 1, borderColor: Colors.border, padding: 20,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 20,
+  },
+  sheetHandle: { width: 40, height: 4, backgroundColor: Colors.border2, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  sheetHero: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
+  sheetFlag: { fontSize: 44 },
+  sheetHeroText: { flex: 1 },
+  sheetCountry: { color: Colors.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
+  sheetSince: { color: Colors.text3, fontSize: 13, marginTop: 3 },
+  sheetStampMark: { borderWidth: 2, borderStyle: 'dashed', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, transform: [{ rotate: '-8deg' }] },
+  sheetStampMarkText: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5 },
+  sheetStats: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.surface2, borderRadius: 14, borderWidth: 1, borderColor: Colors.border,
+    padding: 16, marginBottom: 16,
+  },
+  sheetStat: { flex: 1, alignItems: 'center' },
+  sheetStatNum: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
+  sheetStatLabel: { color: Colors.text3, fontSize: 12, fontWeight: '600', marginTop: 2 },
+  sheetStatDivider: { width: 1, height: 32, backgroundColor: Colors.border },
+  sheetGenreTag: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 16,
+  },
+  sheetGenreText: { fontSize: 13, fontWeight: '600' },
+  sheetTracks: { marginBottom: 16, gap: 8 },
+  sheetTracksLabel: { color: Colors.text3, fontSize: 10, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
+  sheetTrackRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.surface2, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
+  },
+  sheetTrackTitle: { color: Colors.text2, fontSize: 14, flex: 1 },
+  sheetCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingVertical: 15 },
+  sheetCtaText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

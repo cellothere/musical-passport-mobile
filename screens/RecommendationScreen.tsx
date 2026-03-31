@@ -33,7 +33,7 @@ const FLAG_IMAGES: Record<string, any> = {
 
 interface StampsHook {
   stamps: Set<string>;
-  addStamp: (country: string) => Promise<void>;
+  addStamp: (country: string, opts?: { source?: string; genre?: string }) => Promise<void>;
 }
 
 interface FavoritesHook {
@@ -278,10 +278,10 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
         const data = pendingResult.current;
         if ('tracks' in data) {
           setTmData(data);
-          addStamp(country);
+          addStamp(country, { source: 'time_machine', genre: data.genre });
         } else {
           setRecs(data);
-          addStamp(country);
+          addStamp(country, { source: 'recommendation', genre: data.genres?.[0] });
         }
         haptics.success();
       } else {
