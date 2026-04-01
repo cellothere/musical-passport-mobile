@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
-  Animated, Easing,
+  Animated, Easing, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -143,6 +143,9 @@ export function ArtistCard({
         // ── Back ───────────────────────────────────────────
         <View style={styles.back}>
           <TouchableOpacity style={styles.backHeader} onPress={doFlip} activeOpacity={0.7}>
+            {artist.imageUrl && (
+              <Image source={{ uri: artist.imageUrl }} style={styles.artistThumb} resizeMode="cover" />
+            )}
             <Text style={styles.backArtistName} numberOfLines={1}>{artist.name}</Text>
             <View style={styles.backCloseBtn}>
               <Ionicons name="chevron-up" size={18} color={Colors.text3} />
@@ -375,6 +378,9 @@ const styles = StyleSheet.create({
     borderColor: Colors.border2,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  artistThumb: {
+    width: 60, height: 60, borderRadius: 18,
   },
   backLoading: {
     paddingVertical: 24,

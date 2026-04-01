@@ -11,6 +11,7 @@ export interface Artist {
   countryCode?: string;
   similarTo?: string;
   hasVerifiedTracks?: boolean;
+  imageUrl?: string;
 }
 
 export interface RecommendationResponse {
