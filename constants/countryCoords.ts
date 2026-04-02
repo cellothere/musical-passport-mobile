@@ -185,7 +185,6 @@ export const COUNTRY_COORDS: Record<string, Coords> = {
   Czechoslovakia:         { lat: 49.82,  lng: 15.47  },
   'East Germany':         { lat: 52.52,  lng: 13.40  },
   'Ottoman Empire':       { lat: 39.00,  lng: 35.00  },
-  'British India':        { lat: 20.59,  lng: 78.96  },
   Ceylon:                 { lat: 7.87,   lng: 80.77  },
   Rhodesia:               { lat: -19.02, lng: 29.15  },
   Zaire:                  { lat: -0.23,  lng: 15.83  },

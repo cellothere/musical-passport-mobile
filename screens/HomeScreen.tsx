@@ -8,6 +8,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Colors } from '../constants/colors';
 import { REGIONS, MUSIC_REGIONS, DECADES, getAllCountries } from '../constants/regions';
 import { FLAGS } from '../constants/flags';
+import { fetchStreamingFloors } from '../services/api';
 import * as Haptics from 'expo-haptics';
 import { FloatingNav } from '../components/FloatingNav';
 import type { AuthState } from '../hooks/useAuth';
@@ -114,13 +115,15 @@ function CountryPickerModal({ visible, onClose, onSelect }: {
 }
 
 // ── Main Screen ───────────────────────────────────────────
-function DecadeFilterModal({ visible, selected, onSelect, onClose }: {
+function DecadeFilterModal({ visible, selected, onSelect, onClose, floorDecade }: {
   visible: boolean;
   selected: string;
   onSelect: (decade: string) => void;
   onClose: () => void;
+  floorDecade?: string | null;
 }) {
   const insets = useSafeAreaInsets();
+  const floorIdx = floorDecade ? DECADES.indexOf(floorDecade) : -1;
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <TouchableOpacity style={decadeStyles.backdrop} activeOpacity={1} onPress={onClose}>
@@ -135,17 +138,20 @@ function DecadeFilterModal({ visible, selected, onSelect, onClose }: {
             <Text style={[decadeStyles.rowLabel, !selected && decadeStyles.rowLabelActive]}>Any era</Text>
             {!selected && <Ionicons name="checkmark" size={18} color={Colors.gold} />}
           </TouchableOpacity>
-          {DECADES.map(d => (
-            <TouchableOpacity
-              key={d}
-              style={[decadeStyles.row, selected === d && decadeStyles.rowActive]}
-              onPress={() => { onSelect(d); onClose(); }}
-              activeOpacity={0.7}
-            >
-              <Text style={[decadeStyles.rowLabel, selected === d && decadeStyles.rowLabelActive]}>{d}</Text>
-              {selected === d && <Ionicons name="checkmark" size={18} color={Colors.gold} />}
-            </TouchableOpacity>
-          ))}
+          {DECADES.map((d, i) => {
+            const disabled = floorIdx >= 0 && i < floorIdx;
+            return (
+              <TouchableOpacity
+                key={d}
+                style={[decadeStyles.row, selected === d && decadeStyles.rowActive, disabled && decadeStyles.rowDisabled]}
+                onPress={() => { if (!disabled) { onSelect(d); onClose(); } }}
+                activeOpacity={disabled ? 1 : 0.7}
+              >
+                <Text style={[decadeStyles.rowLabel, selected === d && decadeStyles.rowLabelActive, disabled && decadeStyles.rowLabelDisabled]}>{d}</Text>
+                {selected === d && !disabled && <Ionicons name="checkmark" size={18} color={Colors.gold} />}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </TouchableOpacity>
     </Modal>
@@ -160,6 +166,15 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
   const [selectedDecade, setSelectedDecade] = useState('');
   const [decadeModalVisible, setDecadeModalVisible] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+
+  const historicalCountries = useMemo(() => new Set(REGIONS.find(r => r.name === 'Historical')?.countries ?? []), []);
+  const isHistorical = selectedCountry ? historicalCountries.has(selectedCountry) : false;
+
+  const [streamingFloors, setStreamingFloors] = useState<Record<string, string>>({});
+  useEffect(() => {
+    fetchStreamingFloors().then(setStreamingFloors).catch(() => {});
+  }, []);
+  const floorForSelected = selectedCountry ? (streamingFloors[selectedCountry] ?? null) : null;
 
   // Slide-up animation for the Go bar
   const goBarAnim = useRef(new Animated.Value(0)).current;
@@ -188,6 +203,13 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
   const selectCountry = (country: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setSelectedCountry(prev => prev === country ? null : country);
+    if (historicalCountries.has(country)) { setSelectedDecade(''); return; }
+    const floor = streamingFloors[country];
+    if (floor && selectedDecade) {
+      const floorIdx = DECADES.indexOf(floor);
+      const selectedIdx = DECADES.indexOf(selectedDecade);
+      if (selectedIdx < floorIdx) setSelectedDecade('');
+    }
   };
 
   const go = (country?: string) => {
@@ -229,11 +251,11 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
             <Text style={styles.pickerBtnText}>Search any country…</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.decadePill, selectedDecade ? styles.decadePillActive : null]}
-            onPress={() => setDecadeModalVisible(true)}
-            activeOpacity={0.7}
+            style={[styles.decadePill, selectedDecade ? styles.decadePillActive : null, isHistorical ? styles.decadePillDisabled : null]}
+            onPress={() => { if (!isHistorical) setDecadeModalVisible(true); }}
+            activeOpacity={isHistorical ? 1 : 0.7}
           >
-            <Ionicons name="time-outline" size={26} color={Colors.gold} />
+            <Ionicons name="time-outline" size={26} color={isHistorical ? Colors.text3 : Colors.gold} />
             {selectedDecade ? (
               <Text style={styles.decadePillTextActive}>{selectedDecade}</Text>
             ) : null}
@@ -418,9 +440,9 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
               <Text style={styles.goBarCountry} numberOfLines={1}>{selectedCountry}</Text>
               {selectedDecade ? (
                 <Text style={styles.goBarEra}>{selectedDecade}</Text>
-              ) : (
+              ) : !isHistorical ? (
                 <Text style={styles.goBarEraHint}>tap era filter to set an era</Text>
-              )}
+              ) : null}
             </View>
             <Ionicons name="close-circle" size={18} color={Colors.text3} style={{ marginLeft: 4 }} />
           </TouchableOpacity>
@@ -441,6 +463,7 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
         selected={selectedDecade}
         onSelect={setSelectedDecade}
         onClose={() => setDecadeModalVisible(false)}
+        floorDecade={floorForSelected}
       />
       <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} />
     </SafeAreaView>
@@ -544,6 +567,7 @@ const styles = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
   },
   decadePillActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
+  decadePillDisabled: { opacity: 0.35 },
   decadePillText: { color: Colors.text3, fontSize: 13, fontWeight: '600' },
   decadePillTextActive: { color: Colors.gold },
 
@@ -697,6 +721,8 @@ const decadeStyles = StyleSheet.create({
   },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 },
   rowActive: { backgroundColor: Colors.goldBg },
+  rowDisabled: { opacity: 0.3 },
   rowLabel: { flex: 1, color: Colors.text, fontSize: 16, fontWeight: '500' },
   rowLabelActive: { color: Colors.gold, fontWeight: '700' },
+  rowLabelDisabled: { color: Colors.text3 },
 });

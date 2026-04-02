@@ -406,7 +406,11 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
                   autoExpand={isHighlighted}
                   highlightTrack={isHighlighted ? highlightTrack : undefined}
                   onSearchSimilar={(name) => navigation.navigate('ArtistSearch', { prefillArtist: name, skipConfirm: true })}
-                  onGenrePress={(genre) => navigation.navigate('GenreSpotlight', { genre, country })}
+                  onGenrePress={(genre) => navigation.navigate('GenreSpotlight', {
+                    genre,
+                    country,
+                    relatedArtistNames: recs.artists?.filter(a => a.genre === genre).map(a => a.name) ?? [],
+                  })}
                   isTester={auth.isTester}
                   testerUserId={auth.testerUserId}
                 />

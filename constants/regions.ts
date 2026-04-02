@@ -29,7 +29,7 @@ export const REGIONS: Region[] = [
     "Quechua Nations",
     "Ainu",
   ]},
-  { name: "Historical", countries: ["Yugoslavia","Soviet Union","Czechoslovakia","East Germany","Ottoman Empire","British India","Ceylon","Rhodesia","Zaire","Siam","Byzantine Empire","Prussia","Austro-Hungarian Empire","Ancient Rome","Ancient Greece","Mesopotamia","Viking Scandinavia","Moorish Spain","Weimar Republic","Republic of South Vietnam","Meiji Japan"] },
+  { name: "Historical", countries: ["Yugoslavia","Soviet Union","Czechoslovakia","East Germany","Ottoman Empire", "Ceylon","Rhodesia","Zaire","Siam","Byzantine Empire","Prussia","Austro-Hungarian Empire","Ancient Rome","Ancient Greece","Mesopotamia","Viking Scandinavia","Moorish Spain","Weimar Republic","Republic of South Vietnam","Meiji Japan"] },
 ];
 
 export const DECADES = ["1900s","1910s","1920s","1930s","1940s","1950s","1960s","1970s","1980s","1990s","2000s","2010s","2020s"];

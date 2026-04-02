@@ -27,7 +27,7 @@ interface FavoritesHook {
 
 interface Props {
   navigation: any;
-  route: { params: { genre: string; country: string; deeperReason?: string; visitedGenres?: string[] } };
+  route: { params: { genre: string; country: string; deeperReason?: string; visitedGenres?: string[]; relatedArtistNames?: string[] } };
   service: AuthService;
   accessToken: string | null;
   favoritesHook: FavoritesHook;
@@ -35,7 +35,7 @@ interface Props {
 }
 
 export function GenreSpotlightScreen({ navigation, route, service, accessToken, favoritesHook, auth }: Props) {
-  const { genre, country, deeperReason, visitedGenres = [] } = route.params;
+  const { genre, country, deeperReason, visitedGenres = [], relatedArtistNames = [] } = route.params;
   const insets = useSafeAreaInsets();
   const { currentTrackTitle } = useAudioPlayer();
   const contentBottomPad = insets.bottom + 76 + (currentTrackTitle ? 72 : 0);
@@ -43,6 +43,7 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
   const [tracks, setTracks] = useState<Track[]>([]);
   const [suggestedGenres, setSuggestedGenres] = useState<string[]>([]);
   const [hasLocalScene, setHasLocalScene] = useState(true);
+  const [isNicheWorldGenre, setIsNicheWorldGenre] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [deeperLoading, setDeeperLoading] = useState(false);
@@ -77,8 +78,10 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
   };
 
   useEffect(() => {
-    fetchGenreSpotlight(genre, country, resolveService(service), accessToken || undefined)
+    fetchGenreSpotlight(genre, country, resolveService(service), accessToken || undefined, relatedArtistNames)
       .then(data => {
+        const niche = data.isNicheWorldGenre === true;
+        setIsNicheWorldGenre(niche);
         setHasLocalScene(data.hasLocalScene !== false);
         setTracks(data.hasLocalScene === false ? [] : data.tracks);
         setSuggestedGenres(data.suggestedGenres ?? []);
@@ -123,7 +126,12 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
           {/* Hero */}
           <View style={styles.hero}>
             <Text style={styles.heroGenre}>{genre}</Text>
-            {country ? (
+            {isNicheWorldGenre ? (
+              <View style={styles.worldwideChip}>
+                <Ionicons name="globe-outline" size={12} color={Colors.purple} />
+                <Text style={styles.worldwideChipText}>worldwide</Text>
+              </View>
+            ) : country ? (
               <TouchableOpacity
                 style={styles.countryChip}
                 onPress={() => navigation.push('Recommendations', { country })}
@@ -377,6 +385,23 @@ const styles = StyleSheet.create({
   },
   countryChipText: {
     color: Colors.blue,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  worldwideChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    backgroundColor: Colors.purpleBg,
+    borderWidth: 1,
+    borderColor: Colors.purpleBorder,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  worldwideChipText: {
+    color: Colors.purple,
     fontSize: 12,
     fontWeight: '700',
   },

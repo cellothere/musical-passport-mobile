@@ -193,17 +193,19 @@ export interface GenreSpotlightResponse {
   tracks: Track[];
   suggestedGenres?: string[];
   hasLocalScene?: boolean;
+  isNicheWorldGenre?: boolean;
 }
 
 export async function fetchGenreSpotlight(
   genre: string,
   country: string,
   service: 'spotify' | 'apple-music',
-  accessToken?: string
+  accessToken?: string,
+  relatedArtistNames?: string[]
 ): Promise<GenreSpotlightResponse> {
   const res = await apiFetch('/api/genre-spotlight', {
     method: 'POST',
-    body: JSON.stringify({ genre, country, service }),
+    body: JSON.stringify({ genre, country, service, relatedArtistNames }),
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
   });
   if (!res.ok) {
@@ -389,4 +391,10 @@ export async function flagTrack(payload: TrackFlagPayload): Promise<void> {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+
+export async function fetchStreamingFloors(): Promise<Record<string, string>> {
+  const res = await apiFetch('/api/streaming-floors');
+  if (!res.ok) return {};
+  return res.json();
 }

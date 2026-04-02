@@ -39,6 +39,6 @@ export const FLAGS: Record<string, string> = {
   'Vanuatu': '🇻🇺', 'Solomon Islands': '🇸🇧', 'Tonga': '🇹🇴', 'Samoa': '🇼🇸', 'Hawaii': '🌺',
   'USA': '🇺🇸', 'Canada': '🇨🇦',
   'Yugoslavia': '🏳', 'Soviet Union': '☭', 'Czechoslovakia': '🏳',
-  'East Germany': '🏳', 'Ottoman Empire': '🌙', 'British India': '🏳',
+  'East Germany': '🏳', 'Ottoman Empire': '🌙',
   'Eritrea': '🇪🇷', 'Somalia': '🇸🇴', 'Djibouti': '🇩🇯',
 };

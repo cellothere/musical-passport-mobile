@@ -103,6 +103,9 @@ export function ArtistCard({
         // ── Front ──────────────────────────────────────────
         <TouchableOpacity style={styles.front} onPress={doFlip} activeOpacity={0.88}>
           <View style={styles.frontTop}>
+            {artist.imageUrl && (
+              <Image source={{ uri: artist.imageUrl }} style={styles.artistThumb} resizeMode="cover" />
+            )}
             <View style={styles.frontTopLeft}>
               {onSearchSimilar ? (
                 <TouchableOpacity
@@ -115,29 +118,29 @@ export function ArtistCard({
               ) : (
                 <Text style={styles.artistName}>{artist.name}</Text>
               )}
+              {onGenrePress ? (
+                <TouchableOpacity
+                  onPress={() => onGenrePress(artist.genre)}
+                  activeOpacity={0.7}
+                  style={[styles.genrePill, { marginTop: 6 }]}
+                >
+                  <Text style={styles.genrePillText} numberOfLines={1}>{artist.genre}</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={[styles.artistGenre, { marginTop: 4 }]} numberOfLines={1}>{artist.genre}</Text>
+              )}
             </View>
             <View style={[styles.eraBadge, { backgroundColor: era.bg, borderColor: era.border }]}>
               <Text style={[styles.eraText, { color: era.text }]}>{artist.era}</Text>
             </View>
           </View>
 
-          <View style={styles.frontBottom}>
-            {onGenrePress ? (
-              <TouchableOpacity
-                onPress={() => onGenrePress(artist.genre)}
-                activeOpacity={0.7}
-                style={styles.genrePill}
-              >
-                <Text style={styles.genrePillText}>{artist.genre}</Text>
-              </TouchableOpacity>
-            ) : (
-              <Text style={styles.artistGenre}>{artist.genre}</Text>
-            )}
+          {/* <View style={styles.frontBottom}>
             <View style={styles.flipHint}>
               <Ionicons name="musical-notes" size={16} color={Colors.text3} />
               <Text style={styles.flipHintText}>Tap to explore</Text>
             </View>
-          </View>
+          </View> */}
         </TouchableOpacity>
       ) : (
         // ── Back ───────────────────────────────────────────
@@ -323,9 +326,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    flexShrink: 0,
+    flexShrink: 0
   },
-  eraText: { fontSize: 13, fontWeight: '700' },
+  eraText: { fontSize: 12, fontWeight: '700' },
 
   frontBottom: {
     flexDirection: 'row',
@@ -380,7 +383,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   artistThumb: {
-    width: 60, height: 60, borderRadius: 18,
+    width: 60, height: 60, borderRadius: 18, alignSelf: 'center',
   },
   backLoading: {
     paddingVertical: 24,

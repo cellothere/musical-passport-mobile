@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   },
   eraChipText: {
     color: Colors.text2,
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
   },
   eraChipTextActive: {

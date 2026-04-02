@@ -8,6 +8,8 @@
     "userInterfaceStyle": "dark",
     "scheme": "musical-passport",
     "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#080c14"
     },
     "ios": {
