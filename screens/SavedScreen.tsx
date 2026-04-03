@@ -38,7 +38,8 @@ function TrackCard({ item, onRemove }: { item: SavedDiscovery; onRemove: () => v
   const embedUrl = track.spotifyId
     ? `https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator`
     : track.appleId ? `https://embed.music.apple.com/us/album/${track.appleId}` : null;
-  const youtubeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title ?? ''} ${track.artist ?? ''}`)}`;
+  const youtubeUrl = track.youtubeUrl
+    ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title ?? ''} ${track.artist ?? ''}`)}`;
   const isYouTubeOnly = !track.previewUrl && !embedUrl;
 
   const openUrl = track.spotifyUrl

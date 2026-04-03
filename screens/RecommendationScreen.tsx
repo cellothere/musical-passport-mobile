@@ -138,7 +138,8 @@ function TrackRow({ track, index, favoritesHook, country, genre, onNeedAuth, isT
     ? `https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator`
     : track.appleId ? `https://embed.music.apple.com/us/album/${track.appleId}` : null;
 
-  const youtubeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
+  const youtubeUrl = track.youtubeUrl
+    ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
 
   const handlePlay = () => {
     if (track.previewUrl) {
@@ -322,7 +323,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
             {FLAG_IMAGES[country]
               ? <Image source={FLAG_IMAGES[country]} style={styles.countryFlagImg} />
               : <Text style={styles.countryFlag}>{flag}</Text>}
-            <Text style={styles.countryName}>{country}</Text>
+            <Text style={styles.countryName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{country}</Text>
           </View>
         </View>
 
@@ -496,7 +497,7 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 14,
+    paddingLeft: 16, paddingRight: 120, paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: Colors.border,
     gap: 8,
   },
@@ -506,7 +507,7 @@ const styles = StyleSheet.create({
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   countryFlag: { fontSize: 26 },
   countryFlagImg: { width: 34, height: 22, borderRadius: 3 },
-  countryName: { color: Colors.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+  countryName: { flex: 1, color: Colors.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
   decadePill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.text3,

@@ -28,6 +28,7 @@ export interface Track {
   appleId?: string;
   previewUrl?: string;
   spotifyUrl?: string;
+  youtubeUrl?: string;
 }
 
 export interface ArtistTracksResponse {

@@ -235,7 +235,8 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
     ? `https://embed.music.apple.com/us/album/${track.appleId}`
     : null;
 
-  const youtubeUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
+  const youtubeUrl = track.youtubeUrl
+    ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
 
   const handlePlay = () => {
     if (track.previewUrl) {
