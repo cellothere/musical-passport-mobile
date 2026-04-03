@@ -87,9 +87,8 @@ function AppNavigator() {
       navigationRef.navigate('GenreSpotlight', { genre: path, country });
     }
   }
-  const spotifyToken = auth.service === 'spotify' ? auth.accessToken : null;
-  const stampsHook = useStamps(spotifyToken, auth.syncData?.stamps ?? []);
-  const favoritesHook = useFavorites(spotifyToken, auth.syncData?.favorites ?? []);
+  const stampsHook = useStamps();
+  const favoritesHook = useFavorites();
 
   return (
     <NavigationContainer
@@ -136,21 +135,19 @@ function AppNavigator() {
             <GenreSpotlightScreen
               {...props}
               service={auth.service}
-              accessToken={auth.accessToken}
               favoritesHook={favoritesHook}
               auth={auth}
             />
           )}
         </Stack.Screen>
         <Stack.Screen name="Insights">
-          {props => <InsightsScreen {...props} auth={auth} updateSyncData={auth.updateSyncData} favoritesHook={favoritesHook} stampsHook={stampsHook} />}
+          {props => <InsightsScreen {...props} auth={auth} favoritesHook={favoritesHook} stampsHook={stampsHook} />}
         </Stack.Screen>
         <Stack.Screen name="ArtistSearch">
           {props => (
             <ArtistSearchScreen
               {...props}
               service={auth.service}
-              accessToken={auth.accessToken}
               favoritesHook={favoritesHook}
               auth={auth}
             />
@@ -161,7 +158,6 @@ function AppNavigator() {
             <GenreArtistsScreen
               {...props}
               service={auth.service}
-              accessToken={auth.accessToken}
               favoritesHook={favoritesHook}
               auth={auth}
             />

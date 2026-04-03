@@ -26,8 +26,10 @@ export interface Track {
   artist?: string;
   spotifyId?: string;
   appleId?: string;
+  deezerId?: string;
   previewUrl?: string;
   spotifyUrl?: string;
+  deezerUrl?: string;
   youtubeUrl?: string;
 }
 

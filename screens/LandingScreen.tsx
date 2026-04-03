@@ -1,21 +1,19 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Image,
+  View, Text, TouchableOpacity, StyleSheet, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { FLAGS } from '../constants/flags';
 import { getAllCountries, MUSIC_REGIONS } from '../constants/regions';
 import { haptics } from '../utils/haptics';
-import { ServiceModal } from '../components/ServiceModal';
 import { DiscoverSheet } from '../components/DiscoverSheet';
 import { useFocusEffect } from '@react-navigation/native';
 import { fetchCountryOfDay, recordCountryOfDayHit } from '../services/api';
 import { Globe3D, Globe3DHandle } from '../components/Globe3D';
 import type { AuthState } from '../hooks/useAuth';
-import type { SavedDiscovery } from '../hooks/useFavorites';
 
 const DAILY_COUNTRIES_FALLBACK = [
   'Brazil', 'Japan', 'Nigeria', 'Cuba', 'Ethiopia', 'Colombia', 'Jamaica',
@@ -33,16 +31,15 @@ function getFallbackCountry(): { country: string; flag: string } {
 
 interface Props {
   navigation: any;
-  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
+  auth: AuthState;
   stampsHook: { stamps: Set<string> };
-  favoritesHook: { favorites: SavedDiscovery[] };
+  favoritesHook: { favorites: any[] };
 }
 
-export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
+export function LandingScreen({ navigation, favoritesHook }: Props) {
   const { favorites } = favoritesHook;
   const { currentTrackTitle } = useAudioPlayer();
   const miniPlayerOffset = currentTrackTitle ? 72 : 0;
-  const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [discoverVisible, setDiscoverVisible] = useState(false);
   const [todayEntry, setTodayEntry] = useState(getFallbackCountry());
   const todayDateRef = useRef(new Date().toISOString().slice(0, 10));
@@ -56,12 +53,6 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
       .then(({ country }) => setTodayEntry({ country, flag: FLAGS[country] ?? '🌐' }))
       .catch(() => {});
   }, []));
-
-  const prevService = useRef(auth.service);
-  useEffect(() => {
-    if (!prevService.current && auth.service) haptics.success();
-    prevService.current = auth.service;
-  }, [auth.service]);
 
   const hasInsights = true; // passport always accessible
 
@@ -137,22 +128,6 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
         </View>
       </View>
 
-      {/* Bottom-left: service button */}
-      <View style={[styles.floatingBtnLeft, { bottom: 32 + miniPlayerOffset }]}>
-        {auth.loading ? (
-          <ActivityIndicator size="small" color={Colors.gold} />
-        ) : auth.service ? (
-          <TouchableOpacity onPress={() => setServiceModalVisible(true)} style={styles.serviceBtn} activeOpacity={0.7}>
-            {auth.service === 'spotify'
-              ? <FontAwesome5 name="spotify" size={26} color="#1DB954" />
-              : <FontAwesome5 name="apple" size={26} color={Colors.text} />}
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={() => setServiceModalVisible(true)} style={styles.loginBtn} activeOpacity={0.7}>
-            <Text style={styles.loginBtnText}>Connect</Text>
-          </TouchableOpacity>
-        )}
-      </View>
 
       {/* Bottom-right: saved discoveries */}
       {favorites.length > 0 && (
@@ -167,11 +142,6 @@ export function LandingScreen({ navigation, auth, favoritesHook }: Props) {
         </View>
       )}
 
-      <ServiceModal
-        visible={serviceModalVisible}
-        onClose={() => setServiceModalVisible(false)}
-        auth={auth}
-      />
       <DiscoverSheet
         visible={discoverVisible}
         onClose={() => setDiscoverVisible(false)}

@@ -25,7 +25,6 @@ interface TrackFavoritesHook {
 interface Props {
   artist: Artist;
   service: AuthService;
-  accessToken: string | null;
   favoritesHook?: TrackFavoritesHook;
   country?: string;
   onNeedAuth?: () => void;
@@ -45,7 +44,7 @@ function eraColors(era: string): { bg: string; border: string; text: string } {
 }
 
 export function ArtistCard({
-  artist, service, accessToken, favoritesHook, country,
+  artist, service, favoritesHook, country,
   onNeedAuth, autoExpand, highlightTrack,
   onSearchSimilar, onGenrePress, isTester, testerUserId,
 }: Props) {
@@ -64,7 +63,7 @@ export function ArtistCard({
     if (tracksLoaded) return;
     setLoading(true);
     try {
-      const data = await fetchArtistTracks(artist.name, resolveService(service), accessToken || undefined);
+      const data = await fetchArtistTracks(artist.name, resolveService(service));
       setTracks(data.tracks);
       setError(null);
     } catch (err: any) {
@@ -224,12 +223,15 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
 
   const isThisTrack = currentTrackId === trackId;
 
-  const openUrl = track.spotifyUrl
+  const openUrl = track.deezerUrl
+    ?? track.spotifyUrl
     ?? (track.spotifyId ? `https://open.spotify.com/track/${track.spotifyId}` : null)
     ?? (track.appleId ? `https://music.apple.com/us/song/${track.appleId}` : null)
     ?? `https://open.spotify.com/search/${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
 
-  const embedUrl = track.spotifyId
+  const embedUrl = track.deezerId
+    ? `https://widget.deezer.com/widget/dark/track/${track.deezerId}`
+    : track.spotifyId
     ? `https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator`
     : track.appleId
     ? `https://embed.music.apple.com/us/album/${track.appleId}`

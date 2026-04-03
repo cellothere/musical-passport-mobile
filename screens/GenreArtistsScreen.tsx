@@ -9,7 +9,6 @@ import { fetchGenreArtists, Artist } from '../services/api';
 import { resolveService } from '../utils/defaultService';
 import { ArtistCard } from '../components/ArtistCard';
 import { FloatingNav } from '../components/FloatingNav';
-import { ServiceModal } from '../components/ServiceModal';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import { haptics } from '../utils/haptics';
 import type { AuthService, AuthState } from '../hooks/useAuth';
@@ -35,12 +34,11 @@ interface Props {
   navigation: any;
   route: { params: { genre: string } };
   service: AuthService;
-  accessToken: string | null;
   favoritesHook: FavoritesHook;
-  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
+  auth: AuthState;
 }
 
-export function GenreArtistsScreen({ navigation, route, service, accessToken, favoritesHook, auth }: Props) {
+export function GenreArtistsScreen({ navigation, route, service, favoritesHook, auth }: Props) {
   const { genre } = route.params;
   const insets = useSafeAreaInsets();
   const { currentTrackTitle } = useAudioPlayer();
@@ -49,14 +47,13 @@ export function GenreArtistsScreen({ navigation, route, service, accessToken, fa
   const [loading, setLoading] = useState(true);
   const [artists, setArtists] = useState<Artist[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [eraFilter, setEraFilter] = useState<EraFilter>('All');
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchGenreArtists(genre, resolveService(service), accessToken ?? undefined);
+      const data = await fetchGenreArtists(genre, resolveService(service));
       const sorted = [...data.artists].sort((a, b) => {
         if (a.hasVerifiedTracks && !b.hasVerifiedTracks) return -1;
         if (!a.hasVerifiedTracks && b.hasVerifiedTracks) return 1;
@@ -164,9 +161,8 @@ export function GenreArtistsScreen({ navigation, route, service, accessToken, fa
                 <ArtistCard
                   artist={artist}
                   service={service}
-                  accessToken={accessToken}
                   favoritesHook={favoritesHook}
-                  onNeedAuth={() => setServiceModalVisible(true)}
+                  onNeedAuth={undefined}
                   onSearchSimilar={name => navigation.push('ArtistSearch', { initialQuery: name })}
                   onGenrePress={g => navigation.push('GenreSpotlight', { genre: g, country: '' })}
                   isTester={false}
@@ -178,7 +174,6 @@ export function GenreArtistsScreen({ navigation, route, service, accessToken, fa
       )}
 
       <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} />
-      <ServiceModal visible={serviceModalVisible} onClose={() => setServiceModalVisible(false)} auth={auth} />
     </SafeAreaView>
   );
 }

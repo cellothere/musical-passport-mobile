@@ -18,7 +18,6 @@ import { resolveService } from '../utils/defaultService';
 import { ArtistCard } from '../components/ArtistCard';
 import { GlobeOverlay } from '../components/GlobeOverlay';
 import { FloatingNav } from '../components/FloatingNav';
-import { ServiceModal } from '../components/ServiceModal';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import { TrackOptionsSheet } from '../components/TrackOptionsSheet';
 import type { AuthState } from '../hooks/useAuth';
@@ -47,7 +46,7 @@ interface FavoritesHook {
 interface Props {
   navigation: any;
   route: { params: { country: string; decade?: string; savedData?: RecommendationResponse | TimeMachineResponse; highlightArtist?: string; highlightTrack?: string } };
-  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
+  auth: AuthState;
   stampsHook: StampsHook;
   favoritesHook: FavoritesHook;
 }
@@ -115,7 +114,7 @@ function TrackRow({ track, index, favoritesHook, country, genre, onNeedAuth, isT
 }) {
   const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
   const [optionsVisible, setOptionsVisible] = useState(false);
-  const trackId = track.spotifyId || track.appleId || track.previewUrl || `${track.title}-${index}`;
+  const trackId = track.spotifyId || track.appleId || track.deezerId || track.previewUrl || `${track.title}-${index}`;
   const isThisTrack = currentTrackId === trackId;
   const isSaved = favoritesHook?.isTrackSaved(trackId) ?? false;
   const toggleSave = async () => {
@@ -129,14 +128,18 @@ function TrackRow({ track, index, favoritesHook, country, genre, onNeedAuth, isT
     }
   };
 
-  const openUrl = track.spotifyUrl
+  const openUrl = (track.deezerUrl ?? null)
+    ?? track.spotifyUrl
     ?? (track.spotifyId ? `https://open.spotify.com/track/${track.spotifyId}` : null)
     ?? (track.appleId ? `https://music.apple.com/us/song/${track.appleId}` : null)
     ?? `https://open.spotify.com/search/${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
 
-  const embedUrl = track.spotifyId
+  const embedUrl = track.deezerId
+    ? `https://widget.deezer.com/widget/dark/track/${track.deezerId}`
+    : track.spotifyId
     ? `https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator`
-    : track.appleId ? `https://embed.music.apple.com/us/album/${track.appleId}` : null;
+    : track.appleId ? `https://embed.music.apple.com/us/album/${track.appleId}`
+    : null;
 
   const youtubeUrl = track.youtubeUrl
     ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
@@ -220,7 +223,6 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
   );
   const [loading, setLoading] = useState(!savedData);
   const [error, setError] = useState<string | null>(null);
-  const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [dykExpanded, setDykExpanded] = useState(false);
 
   const pendingFetch = useRef<Promise<any> | null>(null);
@@ -239,8 +241,8 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
     setDykExpanded(false);
 
     const promise = d
-      ? fetchTimeMachine(c, d, resolveService(auth.service), auth.accessToken || undefined)
-      : fetchRecommendations(c, auth.accessToken || undefined);
+      ? fetchTimeMachine(c, d, resolveService(auth.service))
+      : fetchRecommendations(c);
 
     pendingFetch.current = promise
       .then(data => { pendingResult.current = data; })
@@ -400,7 +402,6 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
                 <ArtistCard
                   artist={artist}
                   service={auth.service}
-                  accessToken={auth.accessToken}
                   favoritesHook={favoritesHook}
                   country={country}
                   onNeedAuth={undefined}
@@ -454,7 +455,6 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
         onSelect={handleDecadeChange}
       />
       <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites ?? []} />
-      <ServiceModal visible={serviceModalVisible} onClose={() => setServiceModalVisible(false)} auth={auth} />
     </SafeAreaView>
   );
 }

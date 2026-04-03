@@ -14,7 +14,6 @@ import { TrackOptionsSheet } from '../components/TrackOptionsSheet';
 import type { AuthService, AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 import { FloatingNav } from '../components/FloatingNav';
-import { ServiceModal } from '../components/ServiceModal';
 import { haptics } from '../utils/haptics';
 
 interface FavoritesHook {
@@ -29,12 +28,11 @@ interface Props {
   navigation: any;
   route: { params: { genre: string; country: string; deeperReason?: string; visitedGenres?: string[]; relatedArtistNames?: string[] } };
   service: AuthService;
-  accessToken: string | null;
   favoritesHook: FavoritesHook;
-  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
+  auth: AuthState;
 }
 
-export function GenreSpotlightScreen({ navigation, route, service, accessToken, favoritesHook, auth }: Props) {
+export function GenreSpotlightScreen({ navigation, route, service, favoritesHook, auth }: Props) {
   const { genre, country, deeperReason, visitedGenres = [], relatedArtistNames = [] } = route.params;
   const insets = useSafeAreaInsets();
   const { currentTrackTitle } = useAudioPlayer();
@@ -45,7 +43,6 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
   const [hasLocalScene, setHasLocalScene] = useState(true);
   const [isNicheWorldGenre, setIsNicheWorldGenre] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [deeperLoading, setDeeperLoading] = useState(false);
 
   const handleTakeDeeper = async () => {
@@ -78,7 +75,7 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
   };
 
   useEffect(() => {
-    fetchGenreSpotlight(genre, country, resolveService(service), accessToken || undefined, relatedArtistNames)
+    fetchGenreSpotlight(genre, country, resolveService(service), undefined, relatedArtistNames)
       .then(data => {
         const niche = data.isNicheWorldGenre === true;
         setIsNicheWorldGenre(niche);
@@ -233,7 +230,6 @@ export function GenreSpotlightScreen({ navigation, route, service, accessToken, 
         favorites={favoritesHook.favorites}
         onShare={!loading && !error ? shareGenre : undefined}
       />
-      <ServiceModal visible={serviceModalVisible} onClose={() => setServiceModalVisible(false)} auth={auth} />
     </SafeAreaView>
   );
 }
@@ -249,15 +245,18 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
 }) {
   const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
   const [optionsVisible, setOptionsVisible] = useState(false);
-  const trackId = track.spotifyId || track.appleId || `${track.title}-${track.artist ?? ''}`;
+  const trackId = track.spotifyId || track.appleId || track.deezerId || `${track.title}-${track.artist ?? ''}`;
   const isThisTrack = currentTrackId === trackId;
 
-  const openUrl = track.spotifyUrl
+  const openUrl = (track.deezerUrl ?? null)
+    ?? track.spotifyUrl
     ?? (track.spotifyId ? `https://open.spotify.com/track/${track.spotifyId}` : null)
     ?? (track.appleId ? `https://music.apple.com/us/song/${track.appleId}` : null)
     ?? `https://open.spotify.com/search/${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
 
-  const embedUrl = track.spotifyId
+  const embedUrl = track.deezerId
+    ? `https://widget.deezer.com/widget/dark/track/${track.deezerId}`
+    : track.spotifyId
     ? `https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator`
     : track.appleId
     ? `https://embed.music.apple.com/us/album/${track.appleId}`

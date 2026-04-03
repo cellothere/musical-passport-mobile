@@ -14,7 +14,6 @@ import {
 } from '../services/api';
 import { ArtistCard } from '../components/ArtistCard';
 import { FloatingNav } from '../components/FloatingNav';
-import { ServiceModal } from '../components/ServiceModal';
 import { haptics } from '../utils/haptics';
 import type { AuthService, AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
@@ -31,9 +30,8 @@ interface Props {
   navigation: any;
   route?: { params?: { prefillArtist?: string; skipConfirm?: boolean } };
   service: AuthService;
-  accessToken: string | null;
   favoritesHook: FavoritesHook;
-  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
+  auth: AuthState;
 }
 
 type Phase = 'search' | 'confirm' | 'loading' | 'results';
@@ -49,7 +47,7 @@ function formatFollowers(n: number): string {
   return `${n} followers`;
 }
 
-export function ArtistSearchScreen({ navigation, route, service, accessToken, favoritesHook, auth }: Props) {
+export function ArtistSearchScreen({ navigation, route, service, favoritesHook, auth }: Props) {
   const insets = useSafeAreaInsets();
   const { currentTrackTitle } = useAudioPlayer();
   const contentBottomPad = insets.bottom + 76 + (currentTrackTitle ? 72 : 0);
@@ -57,7 +55,6 @@ export function ArtistSearchScreen({ navigation, route, service, accessToken, fa
   const skipConfirm = route?.params?.skipConfirm ?? false;
   const [query, setQuery] = useState(prefill);
   const [phase, setPhase] = useState<Phase>('search');
-  const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [foundArtist, setFoundArtist] = useState<FoundArtist | null>(null);
   const [matches, setMatches] = useState<ArtistMatch[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -276,7 +273,6 @@ export function ArtistSearchScreen({ navigation, route, service, accessToken, fa
               <ArtistCard
                 artist={matchToArtist(match)}
                 service={service}
-                accessToken={accessToken}
                 favoritesHook={favoritesHook}
                 country={match.country}
                 onNeedAuth={undefined}
@@ -289,7 +285,6 @@ export function ArtistSearchScreen({ navigation, route, service, accessToken, fa
         </ScrollView>
       )}
       <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} currentScreen="ArtistSearch" />
-      <ServiceModal visible={serviceModalVisible} onClose={() => setServiceModalVisible(false)} auth={auth} />
     </SafeAreaView>
   );
 }

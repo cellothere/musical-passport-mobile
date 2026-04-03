@@ -23,7 +23,7 @@ interface FavoritesHook {
 interface Props {
   navigation: any;
   favoritesHook: FavoritesHook;
-  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
+  auth: AuthState;
 }
 
 function TrackCard({ item, onRemove }: { item: SavedDiscovery; onRemove: () => void }) {
@@ -32,10 +32,12 @@ function TrackCard({ item, onRemove }: { item: SavedDiscovery; onRemove: () => v
   const country = item.country;
   const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
 
-  const trackId = track.spotifyId || track.appleId || track.previewUrl || track.title;
+  const trackId = track.spotifyId || track.appleId || track.deezerId || track.previewUrl || track.title;
   const isThisTrack = currentTrackId === trackId;
 
-  const embedUrl = track.spotifyId
+  const embedUrl = track.deezerId
+    ? `https://widget.deezer.com/widget/dark/track/${track.deezerId}`
+    : track.spotifyId
     ? `https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator`
     : track.appleId ? `https://embed.music.apple.com/us/album/${track.appleId}` : null;
   const youtubeUrl = track.youtubeUrl

@@ -39,7 +39,7 @@ const QUICK_PICKS = getQuickPicks();
 interface Props {
   navigation: any;
   stampsHook: { stamps: Set<string> };
-  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
+  auth: AuthState;
   favoritesHook: { favorites: SavedDiscovery[] };
 }
 

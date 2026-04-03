@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
   ActivityIndicator, Modal, Animated, Dimensions, Image,
@@ -7,7 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { FLAGS } from '../constants/flags';
-import { fetchInsights, fetchAppleMe, InsightsPick, StampRecord } from '../services/api';
+import { InsightsPick, StampRecord } from '../services/api';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 import { FloatingNav } from '../components/FloatingNav';
@@ -149,13 +149,12 @@ interface StampDetailData {
 
 interface Props {
   navigation: any;
-  auth: AuthState & { loginSpotify: () => void; loginAppleMusic: () => void; logout: () => void };
-  updateSyncData: (partial: { insights: any }) => void;
+  auth: AuthState;
   favoritesHook: { favorites: SavedDiscovery[] };
   stampsHook: { stamps: Set<string>; stampRecords: StampRecord[]; addStamp: (c: string) => void };
 }
 
-export function InsightsScreen({ navigation, auth, updateSyncData, favoritesHook, stampsHook }: Props) {
+export function InsightsScreen({ navigation, auth, favoritesHook, stampsHook }: Props) {
   const insets = useSafeAreaInsets();
   const { favorites } = favoritesHook;
   const { stamps, stampRecords } = stampsHook;
@@ -203,29 +202,6 @@ export function InsightsScreen({ navigation, auth, updateSyncData, favoritesHook
     }),
     [visitedSet]
   );
-
-  useEffect(() => {
-    if (auth.syncData?.insights?.picks?.length) {
-      setPicks(auth.syncData.insights.picks);
-      return;
-    }
-    async function loadPicks() {
-      let topArtists = auth.topArtists;
-      if (auth.service === 'apple-music' && !topArtists.length && auth.accessToken) {
-        try { const d = await fetchAppleMe(auth.accessToken); topArtists = d.topArtists; } catch {}
-      }
-      if (!topArtists.length) return;
-      setPicksLoading(true);
-      try {
-        const token = auth.service === 'spotify' ? auth.accessToken : null;
-        const data = await fetchInsights(topArtists, token ?? undefined);
-        setPicks(data.picks ?? []);
-        updateSyncData({ insights: data });
-      } catch {}
-      finally { setPicksLoading(false); }
-    }
-    loadPicks();
-  }, []);
 
   const openDetail = (country: string) => {
     haptics.light();
