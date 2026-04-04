@@ -129,6 +129,15 @@ export function LandingScreen({ navigation, favoritesHook }: Props) {
       </View>
 
 
+      {/* Bottom-left: home button */}
+      <TouchableOpacity
+        style={[styles.homeBtn, { bottom: 32 + miniPlayerOffset }]}
+        onPress={() => { haptics.light(); navigation.navigate('Home'); }}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="home-outline" size={22} color={Colors.text2} />
+      </TouchableOpacity>
+
       {/* Bottom-right: saved discoveries */}
       {favorites.length > 0 && (
         <View style={[styles.floatingBtnRight, { bottom: 32 + miniPlayerOffset }]}>
@@ -213,6 +222,13 @@ const styles = StyleSheet.create({
 
   floatingBtnLeft: {
     position: 'absolute', left: 24,
+  },
+  homeBtn: {
+    position: 'absolute', left: 24, zIndex: 20,
+    width: 62, height: 62, borderRadius: 31,
+    backgroundColor: Colors.surface2,
+    borderWidth: 1, borderColor: Colors.border2,
+    alignItems: 'center', justifyContent: 'center',
   },
   floatingBtnRight: {
     position: 'absolute', right: 24,
