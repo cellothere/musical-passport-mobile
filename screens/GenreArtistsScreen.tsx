@@ -14,13 +14,22 @@ import { haptics } from '../utils/haptics';
 import type { AuthService, AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 
-const ERAS = ['All', 'Contemporary', 'Golden Era', 'Pioneer'] as const;
-
 function flagEmoji(code: string): string {
   if (!code || code.length !== 2) return '';
   return code.toUpperCase().split('').map(c => String.fromCodePoint(127397 + c.charCodeAt(0))).join('');
 }
-type EraFilter = typeof ERAS[number];
+
+function sortedEraFilters(artists: import('../services/api').Artist[]): string[] {
+  const eras = new Set(artists.map(a => a.era).filter(Boolean) as string[]);
+  return ['All', ...[...eras].sort((a, b) => {
+    // Decade strings sort numerically; legacy labels sort alphabetically after
+    const na = parseInt(a), nb = parseInt(b);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    if (!isNaN(na)) return -1;
+    if (!isNaN(nb)) return 1;
+    return a.localeCompare(b);
+  })];
+}
 
 interface FavoritesHook {
   isTrackSaved: (trackId: string) => boolean;
@@ -47,7 +56,7 @@ export function GenreArtistsScreen({ navigation, route, service, favoritesHook, 
   const [loading, setLoading] = useState(true);
   const [artists, setArtists] = useState<Artist[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [eraFilter, setEraFilter] = useState<EraFilter>('All');
+  const [eraFilter, setEraFilter] = useState('All');
 
   const load = async () => {
     setLoading(true);
@@ -125,7 +134,7 @@ export function GenreArtistsScreen({ navigation, route, service, favoritesHook, 
             contentContainerStyle={styles.eraRow}
             style={styles.eraScroll}
           >
-            {ERAS.map(era => (
+            {sortedEraFilters(artists).map(era => (
               <TouchableOpacity
                 key={era}
                 style={[styles.eraChip, eraFilter === era && styles.eraChipActive]}

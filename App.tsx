@@ -174,8 +174,7 @@ function AppNavigator() {
 
 export default function App() {
   const [splashDone, setSplashDone] = useState(false);
-
-  return (
+return (
     <SafeAreaProvider>
       <StatusBar style="light" />
       <AudioPlayerProvider>

@@ -36,11 +36,21 @@ interface Props {
   testerUserId?: string | null;
 }
 
-function eraColors(era: string): { bg: string; border: string; text: string } {
+function eraColors(era: string): { bg: string; border: string; text: string; accent: string } {
   const e = era.toLowerCase();
-  if (e.includes('pioneer')) return { bg: Colors.goldBg, border: Colors.goldBorder, text: Colors.gold };
-  if (e.includes('golden')) return { bg: Colors.blueBg, border: Colors.blueBorder, text: Colors.gold };
-  return { bg: Colors.purpleBg, border: Colors.purpleBorder, text: Colors.gold };
+  if (e.includes('pioneer')) return { bg: Colors.goldBg, border: Colors.goldBorder, text: Colors.gold, accent: Colors.gold };
+  if (e.includes('golden')) return { bg: Colors.blueBg, border: Colors.blueBorder, text: Colors.blue, accent: Colors.blue };
+  const decade = parseInt(e);
+  if (!isNaN(decade)) {
+    if (decade < 1960) return { bg: Colors.goldBg, border: Colors.goldBorder, text: Colors.gold, accent: Colors.gold };
+    if (decade < 2000) return { bg: Colors.blueBg, border: Colors.blueBorder, text: Colors.blue, accent: Colors.blue };
+    return { bg: Colors.purpleBg, border: Colors.purpleBorder, text: Colors.purple, accent: Colors.purple };
+  }
+  return { bg: Colors.purpleBg, border: Colors.purpleBorder, text: Colors.purple, accent: Colors.purple };
+}
+
+function initials(name: string): string {
+  return name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('');
 }
 
 export function ArtistCard({
@@ -94,69 +104,98 @@ export function ArtistCard({
     });
   };
 
-  const era = eraColors(artist.era);
+  const era = eraColors(artist.era ?? '');
 
   return (
     <Animated.View style={[styles.card, { transform: [{ scaleX }] }]}>
       {!flipped ? (
         // ── Front ──────────────────────────────────────────
-        <TouchableOpacity style={styles.front} onPress={doFlip} activeOpacity={0.88}>
-          <View style={styles.frontTop}>
-            {artist.imageUrl && (
-              <Image source={{ uri: artist.imageUrl }} style={styles.artistThumb} resizeMode="cover" />
-            )}
-            <View style={styles.frontTopLeft}>
-              {onSearchSimilar ? (
-                <TouchableOpacity
-                  onPress={() => onSearchSimilar(artist.name)}
-                  activeOpacity={0.7}
-                  style={{ alignSelf: 'flex-start' }}
-                >
-                  <Text style={[styles.artistName, styles.artistNameTappable]}>{artist.name}</Text>
-                </TouchableOpacity>
+        <TouchableOpacity style={styles.front} onPress={doFlip} activeOpacity={0.82}>
+          {/* Era accent strip */}
+          <View style={[styles.eraStrip, { backgroundColor: era.accent }]} />
+
+          <View style={styles.frontContent}>
+            {/* Photo or initials */}
+            <View style={[styles.thumbRing, { borderColor: era.border }]}>
+              {artist.imageUrl ? (
+                <Image source={{ uri: artist.imageUrl }} style={styles.artistThumb} resizeMode="cover" />
               ) : (
-                <Text style={styles.artistName}>{artist.name}</Text>
-              )}
-              {onGenrePress ? (
-                <TouchableOpacity
-                  onPress={() => onGenrePress(artist.genre)}
-                  activeOpacity={0.7}
-                  style={[styles.genrePill, { marginTop: 6 }]}
-                >
-                  <Text style={styles.genrePillText} numberOfLines={1}>{artist.genre}</Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={[styles.artistGenre, { marginTop: 4 }]} numberOfLines={1}>{artist.genre}</Text>
+                <View style={[styles.initialsCircle, { backgroundColor: era.bg }]}>
+                  <Text style={[styles.initialsText, { color: era.accent }]}>{initials(artist.name)}</Text>
+                </View>
               )}
             </View>
-            <View style={[styles.eraBadge, { backgroundColor: era.bg, borderColor: era.border }]}>
-              <Text style={[styles.eraText, { color: era.text }]}>{artist.era}</Text>
+
+            {/* Info column */}
+            <View style={styles.infoCol}>
+              {/* Name row */}
+              <View style={styles.nameRow}>
+                {onSearchSimilar ? (
+                  <TouchableOpacity
+                    onPress={() => { haptics.light(); onSearchSimilar(artist.name); }}
+                    activeOpacity={0.7}
+                    style={styles.nameTouchable}
+                  >
+                    <Text style={[styles.artistName, styles.artistNameTappable]} numberOfLines={2}>
+                      {artist.name}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.artistName} numberOfLines={2}>{artist.name}</Text>
+                )}
+                <View style={[styles.eraBadge, { backgroundColor: era.bg, borderColor: era.border }]}>
+                  <Text style={[styles.eraText, { color: era.text }]}>{artist.era}</Text>
+                </View>
+              </View>
+
+              {/* Genre + hint row */}
+              <View style={styles.metaRow}>
+                {onGenrePress ? (
+                  <TouchableOpacity
+                    onPress={() => { haptics.light(); onGenrePress(artist.genre); }}
+                    activeOpacity={0.7}
+                    style={styles.genreTouch}
+                  >
+                    <Ionicons name="musical-notes" size={11} color={Colors.text3} />
+                    <Text style={styles.genreText} numberOfLines={1}>{artist.genre}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.genreTouch}>
+                    <Ionicons name="musical-notes" size={11} color={Colors.text3} />
+                    <Text style={styles.genreText} numberOfLines={1}>{artist.genre}</Text>
+                  </View>
+                )}
+                <Text style={styles.tapHint}>tracks ›</Text>
+              </View>
             </View>
           </View>
-
-          {/* <View style={styles.frontBottom}>
-            <View style={styles.flipHint}>
-              <Ionicons name="musical-notes" size={16} color={Colors.text3} />
-              <Text style={styles.flipHintText}>Tap to explore</Text>
-            </View>
-          </View> */}
         </TouchableOpacity>
       ) : (
         // ── Back ───────────────────────────────────────────
         <View style={styles.back}>
           <TouchableOpacity style={styles.backHeader} onPress={doFlip} activeOpacity={0.7}>
-            {artist.imageUrl && (
-              <Image source={{ uri: artist.imageUrl }} style={styles.artistThumb} resizeMode="cover" />
-            )}
-            <Text style={styles.backArtistName} numberOfLines={1}>{artist.name}</Text>
+            <View style={[styles.thumbRingSmall, { borderColor: era.border }]}>
+              {artist.imageUrl ? (
+                <Image source={{ uri: artist.imageUrl }} style={styles.artistThumbSmall} resizeMode="cover" />
+              ) : (
+                <View style={[styles.initialsCircleSmall, { backgroundColor: era.bg }]}>
+                  <Text style={[styles.initialsTextSmall, { color: era.accent }]}>{initials(artist.name)}</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.backHeaderInfo}>
+              <Text style={styles.backArtistName} numberOfLines={1}>{artist.name}</Text>
+              <Text style={styles.backGenre} numberOfLines={1}>{artist.genre}</Text>
+            </View>
             <View style={styles.backCloseBtn}>
-              <Ionicons name="chevron-up" size={18} color={Colors.text3} />
+              <Ionicons name="chevron-up" size={16} color={Colors.text3} />
             </View>
           </TouchableOpacity>
 
           {loading ? (
             <View style={styles.backLoading}>
               <ActivityIndicator size="small" color={Colors.gold} />
+              <Text style={styles.loadingText}>Finding tracks…</Text>
             </View>
           ) : error ? (
             <Text style={styles.errorText}>⚠️ {error}</Text>
@@ -292,106 +331,166 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
           </TouchableOpacity>
         )}
         <TouchableOpacity style={styles.moreBtn} onPress={() => setOptionsVisible(true)}>
-          <Text style={styles.moreBtnText}>•••</Text>
+          <Ionicons name="ellipsis-horizontal" size={16} color={Colors.text3} />
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
+const THUMB = 64;
+const THUMB_SM = 36;
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: 14,
+    borderRadius: 16,
     marginBottom: 12,
     overflow: 'hidden',
   },
 
   // ── Front ────────────────────────────────────────────────
   front: {
-    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    minHeight: 80,
+  },
+  eraStrip: {
+    width: 3,
+    borderRadius: 0,
+    opacity: 0.7,
+  },
+  frontContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     gap: 12,
   },
-  frontTop: {
+
+  // Photo / initials
+  thumbRing: {
+    width: THUMB, height: THUMB,
+    borderRadius: THUMB / 2,
+    borderWidth: 2,
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  artistThumb: {
+    width: THUMB, height: THUMB,
+  },
+  initialsCircle: {
+    width: THUMB, height: THUMB,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  initialsText: {
+    fontSize: 22, fontWeight: '700', letterSpacing: -0.5,
+  },
+
+  // Info column
+  infoCol: { flex: 1, gap: 5 },
+  nameRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 10,
+    gap: 8,
   },
-  frontTopLeft: { flex: 1 },
-  artistName: { color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.1 },
+  nameTouchable: { flex: 1 },
+  artistName: {
+    flex: 1,
+    color: Colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    lineHeight: 22,
+  },
   artistNameTappable: { color: Colors.blue },
-  artistGenre: { color: Colors.text2, fontSize: 15 },
-  eraBadge: {
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    flexShrink: 0
-  },
-  eraText: { fontSize: 12, fontWeight: '700' },
 
-  frontBottom: {
+  eraBadge: {
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    flexShrink: 0,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  eraText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
+
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
-  genrePill: {
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.purpleBg,
-    borderWidth: 1,
-    borderColor: Colors.purpleBorder,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  genrePillText: { color: Colors.purple, fontSize: 13, fontWeight: '700' },
-  flipHint: {
+  genreTouch: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    flex: 1,
   },
-  flipHintText: { color: Colors.text3, fontSize: 12 },
+  genreText: {
+    color: Colors.text3,
+    fontSize: 13,
+    flex: 1,
+  },
+  tapHint: {
+    color: Colors.text3,
+    fontSize: 12,
+    opacity: 0.6,
+    flexShrink: 0,
+  },
 
   // ── Back ─────────────────────────────────────────────────
-  back: {
-    paddingBottom: 8,
-  },
+  back: { paddingBottom: 4 },
   backHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-    gap: 8,
+    gap: 10,
   },
+  thumbRingSmall: {
+    width: THUMB_SM, height: THUMB_SM,
+    borderRadius: THUMB_SM / 2,
+    borderWidth: 1.5,
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  artistThumbSmall: { width: THUMB_SM, height: THUMB_SM },
+  initialsCircleSmall: {
+    width: THUMB_SM, height: THUMB_SM,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  initialsTextSmall: { fontSize: 13, fontWeight: '700' },
+  backHeaderInfo: { flex: 1 },
   backArtistName: {
-    flex: 1,
-    color: Colors.text2,
-    fontSize: 13,
-    fontWeight: '600',
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.1,
+  },
+  backGenre: {
+    color: Colors.text3,
+    fontSize: 12,
+    marginTop: 1,
   },
   backCloseBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 28, height: 28, borderRadius: 14,
     backgroundColor: Colors.surface2,
-    borderWidth: 1,
-    borderColor: Colors.border2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  artistThumb: {
-    width: 60, height: 60, borderRadius: 18, alignSelf: 'center',
+    borderWidth: 1, borderColor: Colors.border2,
+    alignItems: 'center', justifyContent: 'center',
   },
   backLoading: {
     paddingVertical: 24,
     alignItems: 'center',
+    gap: 8,
   },
+  loadingText: { color: Colors.text3, fontSize: 13 },
   youtubeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -411,28 +510,26 @@ const styles = StyleSheet.create({
   track: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-    gap: 12,
+    gap: 10,
   },
-  trackHighlighted: {
-    backgroundColor: Colors.goldBg,
-  },
+  trackHighlighted: { backgroundColor: Colors.goldBg },
   trackNumber: {
     color: Colors.text3,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    width: 24,
+    width: 20,
     textAlign: 'center',
   },
   trackInfo: { flex: 1 },
-  trackTitle: { color: Colors.text, fontSize: 15, fontWeight: '600' },
-  trackArtist: { color: Colors.text2, fontSize: 14, marginTop: 3 },
-  trackActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  trackTitle: { color: Colors.text, fontSize: 14, fontWeight: '600' },
+  trackArtist: { color: Colors.text2, fontSize: 13, marginTop: 2 },
+  trackActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   playBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: Colors.goldBg,
     borderWidth: 1, borderColor: Colors.goldBorder,
     alignItems: 'center', justifyContent: 'center',
@@ -442,7 +539,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,0,0,0.25)',
   },
   heartBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(240,101,101,0.08)',
     borderWidth: 1, borderColor: 'rgba(240,101,101,0.2)',
     alignItems: 'center', justifyContent: 'center',
@@ -452,12 +549,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(240,101,101,0.4)',
   },
   moreBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: Colors.surface2,
     borderWidth: 1, borderColor: Colors.border2,
     alignItems: 'center', justifyContent: 'center',
   },
-  moreBtnText: { color: Colors.text3, fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-
   errorText: { color: Colors.red, fontSize: 14, padding: 16 },
 });
