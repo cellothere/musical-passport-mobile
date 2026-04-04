@@ -128,7 +128,7 @@ export function ArtistCard({
 
             {/* Info column */}
             <View style={styles.infoCol}>
-              {/* Name row */}
+              {/* Name + era row */}
               <View style={styles.nameRow}>
                 {onSearchSimilar ? (
                   <TouchableOpacity
@@ -136,7 +136,7 @@ export function ArtistCard({
                     activeOpacity={0.7}
                     style={styles.nameTouchable}
                   >
-                    <Text style={[styles.artistName, styles.artistNameTappable]} numberOfLines={2}>
+                    <Text style={[styles.artistName, styles.artistNameTappable, { flex: 0 }]} numberOfLines={2}>
                       {artist.name}
                     </Text>
                   </TouchableOpacity>
@@ -394,10 +394,10 @@ const styles = StyleSheet.create({
   infoCol: { flex: 1, gap: 5 },
   nameRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 8,
   },
-  nameTouchable: { flex: 1 },
+  nameTouchable: { flexShrink: 1, flexGrow: 0 },
   artistName: {
     flex: 1,
     color: Colors.text,
@@ -414,8 +414,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     flexShrink: 0,
-    alignSelf: 'flex-start',
-    marginTop: 2,
+    marginLeft: 'auto',
   },
   eraText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
 
@@ -429,12 +428,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    flex: 1,
+    flexShrink: 1,
+    flexGrow: 0,
   },
   genreText: {
     color: Colors.text3,
     fontSize: 13,
-    flex: 1,
+    flexShrink: 1,
   },
   tapHint: {
     color: Colors.text3,
