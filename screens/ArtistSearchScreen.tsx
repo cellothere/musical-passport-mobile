@@ -295,6 +295,7 @@ function matchToArtist(match: ArtistMatch): Artist {
     genre: match.genre,
     era: match.era,
     similarTo: `${flagEmoji(match.countryCode)} ${match.country}`,
+    imageUrl: match.imageUrl ?? undefined,
   };
 }
 

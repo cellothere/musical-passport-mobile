@@ -11,6 +11,7 @@ import { FLAGS } from '../constants/flags';
 import { fetchStreamingFloors } from '../services/api';
 import * as Haptics from 'expo-haptics';
 import { FloatingNav } from '../components/FloatingNav';
+import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 
@@ -161,6 +162,8 @@ function DecadeFilterModal({ visible, selected, onSelect, onClose, floorDecade }
 export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Props) {
   const { stamps } = stampsHook;
   const insets = useSafeAreaInsets();
+  const { currentTrackTitle } = useAudioPlayer();
+  const miniPlayerOffset = currentTrackTitle ? 72 : 0;
   const [collapsedRegions, setCollapsedRegions] = useState<Set<string>>(new Set([...REGIONS.map(r => r.name), '__cultural__']));
   const [pickerVisible, setPickerVisible] = useState(false);
   const [selectedDecade, setSelectedDecade] = useState('');
@@ -243,7 +246,7 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
         <Text style={styles.headerTitle}>Explore Countries</Text>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + miniPlayerOffset + 32 }]} showsVerticalScrollIndicator={false}>
         {/* Search + era pill row */}
         <View style={styles.searchRow}>
           <TouchableOpacity style={[styles.pickerBtn, { flex: 1 }]} onPress={() => setPickerVisible(true)} activeOpacity={0.75}>

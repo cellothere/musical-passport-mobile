@@ -255,6 +255,7 @@ export interface ArtistMatch {
   countryCode: string;
   genre: string;
   era: string;
+  imageUrl?: string | null;
 }
 
 export interface SimilarArtistsResponse {
