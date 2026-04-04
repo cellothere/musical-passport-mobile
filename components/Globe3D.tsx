@@ -106,7 +106,7 @@ let idleTimer = null;
 // Spin-for-surprise state
 let spinning = false;
 let spinT = 0;
-let spinDir = 1;
+let spinAxis = new THREE.Vector3(0, 1, 0);
 
 const axisY = new THREE.Vector3(0, 1, 0);
 const axisZ = new THREE.Vector3(0, 0, 1);
@@ -188,13 +188,16 @@ canvas.addEventListener('touchend', e => {
   const dy = lastY - startY;
   const dist = Math.sqrt(dx * dx + dy * dy);
 
+  const speed = Math.sqrt(velX * velX + velY * velY);
   if (dist < 8) {
     idleTimer = setTimeout(() => { autoRotate = true; }, 500);
     window.ReactNativeWebView && window.ReactNativeWebView.postMessage('tap');
-  } else if (Math.abs(velX) > 0.09 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) {
+  } else if (speed > 0.09 && dist > 60) {
+    // Derive spin axis from swipe direction (same mapping as rotateGlobe)
+    const s = Math.sqrt(velX * velX + velY * velY);
+    spinAxis.set(velY / s, velX / s, 0).normalize();
     spinning = true;
     spinT = 0;
-    spinDir = velX > 0 ? 1 : -1;
     autoRotate = false;
     velX = velY = 0;
   } else {
@@ -204,9 +207,9 @@ canvas.addEventListener('touchend', e => {
 
 window.addEventListener('message', e => {
   if (e.data === 'spin') {
+    spinAxis.set(0, 1, 0);
     spinning = true;
     spinT = 0;
-    spinDir = 1;
     autoRotate = false;
     velX = velY = 0;
     isDragging = false;
@@ -218,7 +221,7 @@ function animate() {
 
   if (spinning) {
     spinT += 0.018;
-    _q.setFromAxisAngle(axisY, Math.sin(spinT * Math.PI) * 0.28 * spinDir);
+    _q.setFromAxisAngle(spinAxis, Math.sin(spinT * Math.PI) * 0.28);
     globe.quaternion.premultiply(_q);
     if (spinT >= 1) {
       spinning = false;
