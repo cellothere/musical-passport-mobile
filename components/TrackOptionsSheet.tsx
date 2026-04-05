@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Modal, View, Text, TouchableOpacity, Share, Linking,
+  Modal, View, Text, TouchableOpacity, Share, Linking, Alert,
   StyleSheet, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +19,45 @@ interface Props {
   userId?: string;
 }
 
+const SERVICE_OPTIONS = [
+  {
+    key: 'apple',
+    label: 'Open in Apple Music',
+    icon: 'musical-notes' as const,
+    color: '#fc3c44',
+    getUrl: (track: Track) => track.appleId ? `https://music.apple.com/song/${track.appleId}` : null,
+  },
+  {
+    key: 'spotify',
+    label: 'Open in Spotify',
+    icon: 'musical-note' as const,
+    color: '#1DB954',
+    getUrl: (track: Track) => {
+      if (track.spotifyUrl) return track.spotifyUrl;
+      if (track.spotifyId) return `https://open.spotify.com/track/${track.spotifyId}`;
+      const q = encodeURIComponent([track.artist, track.title].filter(Boolean).join(' '));
+      return q ? `https://open.spotify.com/search/${q}` : null;
+    },
+  },
+  {
+    key: 'deezer',
+    label: 'Open in Deezer',
+    icon: 'headset' as const,
+    color: '#ef5466',
+    getUrl: (track: Track) => {
+      // Use deezer:// scheme so the app opens directly instead of the browser.
+      // handleOpenService falls back to https://www.deezer.com/ if the app isn't installed.
+      if (track.deezerId) return `deezer://track/${track.deezerId}`;
+      if (track.deezerUrl) {
+        const id = track.deezerUrl.match(/\/track\/(\d+)/)?.[1];
+        if (id) return `deezer://track/${id}`;
+      }
+      const q = encodeURIComponent([track.artist, track.title].filter(Boolean).join(' '));
+      return q ? `deezer://search/${q}` : null;
+    },
+  },
+];
+
 export function TrackOptionsSheet({
   visible, onClose, track, country, genre, openUrl, isExpertTester, userId,
 }: Props) {
@@ -26,6 +65,26 @@ export function TrackOptionsSheet({
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  const serviceOptions = SERVICE_OPTIONS
+    .map(s => ({ ...s, url: s.getUrl(track) }))
+    .filter(s => s.url != null) as (typeof SERVICE_OPTIONS[number] & { url: string })[];
+
+  async function handleOpenService(url: string) {
+    const canOpen = await Linking.canOpenURL(url).catch(() => false);
+    if (canOpen) {
+      Linking.openURL(url);
+    } else {
+      // App not installed — try web fallback
+      const webUrl = url
+        .replace('spotify://', 'https://open.spotify.com/')
+        .replace('deezer://', 'https://www.deezer.com/');
+      Linking.openURL(webUrl).catch(() =>
+        Alert.alert('Could not open link', 'No compatible app or browser found.')
+      );
+    }
+    handleClose();
+  }
 
   function handleClose() {
     setFlagging(false);
@@ -83,10 +142,19 @@ export function TrackOptionsSheet({
                 <Text style={styles.optionText}>Share</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.option} onPress={() => { Linking.openURL(openUrl); handleClose(); }}>
-                <Ionicons name="open-outline" size={20} color={Colors.blue} />
-                <Text style={[styles.optionText, { color: Colors.blue }]}>Open in App</Text>
-              </TouchableOpacity>
+              {serviceOptions.length > 0 ? (
+                serviceOptions.map(s => (
+                  <TouchableOpacity key={s.key} style={styles.option} onPress={() => handleOpenService(s.url)}>
+                    <Ionicons name={s.icon} size={20} color={s.color} />
+                    <Text style={[styles.optionText, { color: s.color }]}>{s.label}</Text>
+                  </TouchableOpacity>
+                ))
+              ) : openUrl ? (
+                <TouchableOpacity style={styles.option} onPress={() => { Linking.openURL(openUrl); handleClose(); }}>
+                  <Ionicons name="open-outline" size={20} color={Colors.blue} />
+                  <Text style={[styles.optionText, { color: Colors.blue }]}>Open in App</Text>
+                </TouchableOpacity>
+              ) : null}
 
               {isExpertTester && (
                 <TouchableOpacity style={styles.option} onPress={() => setFlagging(true)}>
