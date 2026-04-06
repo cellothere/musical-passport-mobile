@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  ActivityIndicator, Share,
+  ActivityIndicator, Share, Image,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
-import { fetchGenreSpotlight, fetchGenreDeeper, Track } from '../services/api';
+import { fetchGenreSpotlight, fetchGenreDeeper, findArtist, Track } from '../services/api';
 import { resolveService } from '../utils/defaultService';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import { TrackOptionsSheet } from '../components/TrackOptionsSheet';
@@ -26,14 +26,18 @@ interface FavoritesHook {
 
 interface Props {
   navigation: any;
-  route: { params: { genre: string; country: string; deeperReason?: string; visitedGenres?: string[]; relatedArtistNames?: string[] } };
+  route: { params: { genre: string; country: string; visitedGenres?: string[]; relatedArtistNames?: string[]; seedArtist?: string } };
   service: AuthService;
   favoritesHook: FavoritesHook;
   auth: AuthState;
 }
 
+function initials(name: string): string {
+  return name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('');
+}
+
 export function GenreSpotlightScreen({ navigation, route, service, favoritesHook, auth }: Props) {
-  const { genre, country, deeperReason, visitedGenres = [], relatedArtistNames = [] } = route.params;
+  const { genre, country, visitedGenres = [], relatedArtistNames = [], seedArtist } = route.params;
   const insets = useSafeAreaInsets();
   const { currentTrackTitle } = useAudioPlayer();
   const contentBottomPad = insets.bottom + 76 + (currentTrackTitle ? 72 : 0);
@@ -44,6 +48,7 @@ export function GenreSpotlightScreen({ navigation, route, service, favoritesHook
   const [isNicheWorldGenre, setIsNicheWorldGenre] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deeperLoading, setDeeperLoading] = useState(false);
+  const [artistImages, setArtistImages] = useState<Record<string, string>>({});
 
   const handleTakeDeeper = async () => {
     setDeeperLoading(true);
@@ -55,7 +60,6 @@ export function GenreSpotlightScreen({ navigation, route, service, favoritesHook
       navigation.push('GenreSpotlight', {
         genre: deeper.genre,
         country: deeper.country,
-        deeperReason: deeper.reason,
         visitedGenres: alreadySeen,
       });
     } catch {
@@ -75,7 +79,7 @@ export function GenreSpotlightScreen({ navigation, route, service, favoritesHook
   };
 
   useEffect(() => {
-    fetchGenreSpotlight(genre, country, resolveService(service), undefined, relatedArtistNames)
+    fetchGenreSpotlight(genre, country, resolveService(service), undefined, relatedArtistNames, seedArtist)
       .then(data => {
         const niche = data.isNicheWorldGenre === true;
         setIsNicheWorldGenre(niche);
@@ -87,6 +91,42 @@ export function GenreSpotlightScreen({ navigation, route, service, favoritesHook
       .catch(err => setError(err.message || 'Failed to load'))
       .finally(() => setLoading(false));
   }, [genre, country]);
+
+  // Fetch artist images after tracks load
+  useEffect(() => {
+    if (tracks.length === 0) return;
+    const names = [...new Set(tracks.map(t => t.artist).filter((a): a is string => Boolean(a)))];
+    Promise.allSettled(
+      names.map(name =>
+        findArtist(name)
+          .then(data => ({ name, imageUrl: data.imageUrl }))
+          .catch(() => ({ name, imageUrl: null }))
+      )
+    ).then(results => {
+      const imgs: Record<string, string> = {};
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value.imageUrl) {
+          imgs[r.value.name] = r.value.imageUrl;
+        }
+      }
+      setArtistImages(imgs);
+    });
+  }, [tracks]);
+
+  // Group tracks by artist, preserving original order
+  const artistGroups = useMemo(() => {
+    const groups: { artist: string; tracks: Track[] }[] = [];
+    const map = new Map<string, Track[]>();
+    for (const track of tracks) {
+      const key = track.artist || 'Unknown Artist';
+      if (!map.has(key)) {
+        map.set(key, []);
+        groups.push({ artist: key, tracks: map.get(key)! });
+      }
+      map.get(key)!.push(track);
+    }
+    return groups;
+  }, [tracks]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -122,6 +162,19 @@ export function GenreSpotlightScreen({ navigation, route, service, favoritesHook
         >
           {/* Hero */}
           <View style={styles.hero}>
+            {/* Breadcrumb trail — shown when the user has gone deeper */}
+            {visitedGenres.length > 0 && (
+              <View style={styles.breadcrumbRow}>
+                {visitedGenres.map((g, i) => (
+                  <React.Fragment key={`${g}-${i}`}>
+                    <Text style={styles.breadcrumbPast}>{g}</Text>
+                    <Ionicons name="chevron-forward" size={12} color={Colors.text3} />
+                  </React.Fragment>
+                ))}
+                <Text style={styles.breadcrumbCurrent}>{genre}</Text>
+              </View>
+            )}
+
             <Text style={styles.heroGenre}>{genre}</Text>
             {isNicheWorldGenre ? (
               <View style={styles.worldwideChip}>
@@ -138,89 +191,81 @@ export function GenreSpotlightScreen({ navigation, route, service, favoritesHook
                 <Ionicons name="arrow-forward" size={11} color={Colors.blue} />
               </TouchableOpacity>
             ) : null}
-
-            {deeperReason && (
-              <View style={styles.deeperReasonCard}>
-                <Ionicons name="footsteps" size={14} color={Colors.purple} />
-                <Text style={styles.deeperReasonText}>{deeperReason}</Text>
-              </View>
-            )}
           </View>
 
-
-          {/* Tracks */}
-          <View style={styles.tracksSection}>
-            <Text style={styles.tracksLabel}>Essential Tracks</Text>
-
-            {tracks.length === 0 ? (
-              <View style={styles.noTracksState}>
-                <Ionicons name="musical-notes-outline" size={40} color={Colors.text3} />
-                <Text style={styles.noTracksTitle}>
-                  We couldn't find {genre} in {country} — try these artists instead:
+          {/* Track groups */}
+          {tracks.length === 0 ? (
+            <View style={styles.noTracksState}>
+              <Ionicons name="musical-notes-outline" size={40} color={Colors.text3} />
+              <Text style={styles.noTracksTitle}>
+                We couldn't find {genre} in {country} — try these artists instead:
+              </Text>
+              <TouchableOpacity
+                style={styles.worldwideBtn}
+                onPress={() => navigation.replace('GenreArtists', { genre })}
+                activeOpacity={0.82}
+              >
+                <Ionicons name="globe-outline" size={18} color={Colors.bg} />
+                <Text style={styles.worldwideBtnText}>
+                  Check out {genre} artists worldwide
                 </Text>
-                <TouchableOpacity
-                  style={styles.worldwideBtn}
-                  onPress={() => navigation.replace('GenreArtists', { genre })}
-                  activeOpacity={0.82}
-                >
-                  <Ionicons name="globe-outline" size={18} color={Colors.bg} />
-                  <Text style={styles.worldwideBtnText}>
-                    Check out {genre} artists worldwide
-                  </Text>
-                </TouchableOpacity>
-                {suggestedGenres.length > 0 && (
-                  <>
-                    <Text style={styles.orTryText}>or try {country}'s genres:</Text>
-                    <View style={styles.suggestedRow}>
-                      {suggestedGenres.map(g => (
-                        <TouchableOpacity
-                          key={g}
-                          style={styles.suggestedPill}
-                          onPress={() => navigation.replace('GenreSpotlight', { genre: g, country })}
-                          activeOpacity={0.75}
-                        >
-                          <Ionicons name="musical-notes" size={13} color={Colors.purple} />
-                          <Text style={styles.suggestedPillText}>{g}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </>
-                )}
-              </View>
-            ) : (
-              <View style={styles.trackList}>
-                {tracks.map((track, i) => (
-                  <SpotlightTrack
-                    key={i}
-                    index={i + 1}
-                    track={track}
-                    genre={genre}
-                    country={country}
-                    favoritesHook={favoritesHook}
-                    isTester={auth.isTester}
-                    testerUserId={auth.testerUserId ?? null}
-                  />
-                ))}
-              </View>
-            )}
-          </View>
+              </TouchableOpacity>
+              {suggestedGenres.length > 0 && (
+                <>
+                  <Text style={styles.orTryText}>or try {country}'s genres:</Text>
+                  <View style={styles.suggestedRow}>
+                    {suggestedGenres.map(g => (
+                      <TouchableOpacity
+                        key={g}
+                        style={styles.suggestedPill}
+                        onPress={() => navigation.replace('GenreSpotlight', { genre: g, country })}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons name="musical-notes" size={13} color={Colors.purple} />
+                        <Text style={styles.suggestedPillText}>{g}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+            </View>
+          ) : (
+            <View style={styles.tracksSection}>
+              <Text style={styles.tracksLabel}>Essential Tracks</Text>
+              {artistGroups.map(({ artist, tracks: artistTracks }) => (
+                <ArtistSection
+                  key={artist}
+                  artistName={artist}
+                  imageUrl={artistImages[artist] ?? null}
+                  tracks={artistTracks}
+                  genre={genre}
+                  country={country}
+                  favoritesHook={favoritesHook}
+                  isTester={auth.isTester}
+                  testerUserId={auth.testerUserId ?? null}
+                />
+              ))}
+            </View>
+          )}
 
           {/* Take deeper */}
-          {hasLocalScene && (<TouchableOpacity
-            style={styles.deeperBtn}
-            onPress={handleTakeDeeper}
-            disabled={deeperLoading}
-            activeOpacity={0.8}
-          >
-            {deeperLoading ? (
-              <ActivityIndicator size="small" color={Colors.purple} />
-            ) : (
-              <>
-                <Ionicons name="footsteps" size={18} color={Colors.purple} />
-                <Text style={styles.deeperBtnText}>Go deeper into this genre</Text>
-              </>
-            )}
-          </TouchableOpacity>)}
+          {hasLocalScene && (
+            <TouchableOpacity
+              style={styles.deeperBtn}
+              onPress={handleTakeDeeper}
+              disabled={deeperLoading}
+              activeOpacity={0.8}
+            >
+              {deeperLoading ? (
+                <ActivityIndicator size="small" color={Colors.purple} />
+              ) : (
+                <>
+                  <Ionicons name="footsteps" size={18} color={Colors.purple} />
+                  <Text style={styles.deeperBtnText}>Go deeper into this genre</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </ScrollView>
       )}
 
@@ -234,7 +279,60 @@ export function GenreSpotlightScreen({ navigation, route, service, favoritesHook
   );
 }
 
-function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester, testerUserId }: {
+function ArtistSection({
+  artistName, imageUrl, tracks, genre, country, favoritesHook, isTester, testerUserId,
+}: {
+  artistName: string;
+  imageUrl: string | null;
+  tracks: Track[];
+  genre: string;
+  country: string;
+  favoritesHook: FavoritesHook;
+  isTester: boolean;
+  testerUserId: string | null;
+}) {
+  return (
+    <View style={styles.artistCard}>
+      {/* Artist header */}
+      <View style={styles.artistHeader}>
+        <View style={styles.artistThumbRing}>
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.artistThumb} resizeMode="cover" />
+          ) : (
+            <View style={styles.artistInitialsCircle}>
+              <Text style={styles.artistInitialsText}>{initials(artistName)}</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.artistHeaderInfo}>
+          <Text style={styles.artistHeaderName} numberOfLines={1}>{artistName}</Text>
+          <Text style={styles.artistHeaderMeta}>
+            {tracks.length} {tracks.length === 1 ? 'track' : 'tracks'} · {genre}
+          </Text>
+        </View>
+      </View>
+
+      {/* Tracks */}
+      <View style={styles.artistTrackList}>
+        {tracks.map((track, i) => (
+          <SpotlightTrack
+            key={i}
+            index={i + 1}
+            track={track}
+            genre={genre}
+            country={country}
+            favoritesHook={favoritesHook}
+            isTester={isTester}
+            testerUserId={testerUserId}
+            isLast={i === tracks.length - 1}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester, testerUserId, isLast }: {
   track: Track;
   index: number;
   genre: string;
@@ -242,6 +340,7 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
   favoritesHook: FavoritesHook;
   isTester: boolean;
   testerUserId: string | null;
+  isLast: boolean;
 }) {
   const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
   const [optionsVisible, setOptionsVisible] = useState(false);
@@ -289,34 +388,37 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
   const isYouTubeOnly = !track.previewUrl && !embedUrl;
 
   return (
-    <View style={styles.track}>
+    <View style={[styles.track, isLast && styles.trackLast]}>
       <Text style={styles.trackNumber}>{index}</Text>
       <View style={styles.trackInfo}>
         <Text style={styles.trackTitle} numberOfLines={1}>{track.title}</Text>
-        {track.artist && <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>}
       </View>
       <View style={styles.trackActions}>
         <TouchableOpacity
-          style={[styles.playBtn, isThisTrack && !isYouTubeOnly && styles.playBtnActive, isYouTubeOnly && styles.playBtnYouTube]}
+          style={[
+            styles.playBtn,
+            isThisTrack && !isYouTubeOnly && styles.playBtnActive,
+            isYouTubeOnly && styles.playBtnYouTube,
+          ]}
           onPress={handlePlay}
         >
           {isThisTrack && isLoading ? (
             <ActivityIndicator size="small" color={Colors.gold} />
           ) : isYouTubeOnly ? (
-            <Ionicons name="logo-youtube" size={18} color="#FF0000" />
+            <Ionicons name="logo-youtube" size={17} color="#FF0000" />
           ) : (
             <Ionicons
               name={isThisTrack && isPlaying ? 'pause' : 'play'}
-              size={18}
+              size={17}
               color={isThisTrack ? Colors.gold : Colors.text2}
             />
           )}
         </TouchableOpacity>
         <TouchableOpacity style={[styles.heartBtn, isSaved && styles.heartBtnActive]} onPress={toggleSave}>
-          <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
+          <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={17} color={Colors.red} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.moreBtn} onPress={() => setOptionsVisible(true)}>
-          <Ionicons name="ellipsis-horizontal" size={18} color={Colors.text2} />
+          <Ionicons name="ellipsis-horizontal" size={17} color={Colors.text2} />
         </TouchableOpacity>
       </View>
       <TrackOptionsSheet
@@ -332,6 +434,8 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
     </View>
   );
 }
+
+const THUMB = 52;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
@@ -370,6 +474,23 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 20,
     gap: 8,
+  },
+  breadcrumbRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 2,
+  },
+  breadcrumbPast: {
+    color: Colors.text3,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  breadcrumbCurrent: {
+    color: Colors.purple,
+    fontSize: 13,
+    fontWeight: '700',
   },
   countryChip: {
     flexDirection: 'row',
@@ -412,25 +533,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     lineHeight: 40,
   },
-  deeperReasonCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: Colors.purpleBg,
-    borderWidth: 1,
-    borderColor: Colors.purpleBorder,
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 4,
-  },
-  deeperReasonText: {
-    flex: 1,
-    color: Colors.purple,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-
-  // ── Tracks ────────────────────────────────────────────────
+  // ── Track groups ──────────────────────────────────────────
   tracksSection: { marginBottom: 8 },
   tracksLabel: {
     color: Colors.text3,
@@ -438,15 +541,69 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1,
     textTransform: 'uppercase',
-    marginBottom: 4,
+    marginBottom: 10,
   },
-  trackList: {
+
+  // ── Artist card ───────────────────────────────────────────
+  artistCard: {
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: 14,
+    borderRadius: 16,
     overflow: 'hidden',
+    marginBottom: 12,
   },
+  artistHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  artistThumbRing: {
+    width: THUMB,
+    height: THUMB,
+    borderRadius: THUMB / 2,
+    borderWidth: 2,
+    borderColor: Colors.purpleBorder,
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  artistThumb: {
+    width: THUMB,
+    height: THUMB,
+  },
+  artistInitialsCircle: {
+    width: THUMB,
+    height: THUMB,
+    backgroundColor: Colors.purpleBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  artistInitialsText: {
+    color: Colors.purple,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  artistHeaderInfo: { flex: 1 },
+  artistHeaderName: {
+    color: Colors.text,
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  artistHeaderMeta: {
+    color: Colors.text3,
+    fontSize: 12,
+    marginTop: 3,
+  },
+
+  artistTrackList: {},
+
+  // ── Track rows ────────────────────────────────────────────
   track: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -454,22 +611,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-    gap: 12,
+    gap: 10,
   },
-  trackNumber: { color: Colors.text3, fontSize: 13, fontWeight: '700', width: 20, textAlign: 'center' },
+  trackLast: { borderBottomWidth: 0 },
+  trackNumber: { color: Colors.text3, fontSize: 12, fontWeight: '700', width: 18, textAlign: 'center' },
   trackInfo: { flex: 1 },
   trackTitle: { color: Colors.text, fontSize: 15, fontWeight: '600' },
-  trackArtist: { color: Colors.text2, fontSize: 13, marginTop: 2 },
   trackActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   playBtn: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 38, height: 38, borderRadius: 19,
     backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.border2,
     alignItems: 'center', justifyContent: 'center',
   },
   playBtnActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
   playBtnYouTube: { backgroundColor: 'rgba(255,0,0,0.08)', borderColor: 'rgba(255,0,0,0.25)' },
   heartBtn: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 38, height: 38, borderRadius: 19,
     backgroundColor: 'rgba(240,101,101,0.08)', borderWidth: 1, borderColor: 'rgba(240,101,101,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
@@ -477,11 +634,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(240,101,101,0.2)', borderColor: 'rgba(240,101,101,0.4)',
   },
   moreBtn: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 38, height: 38, borderRadius: 19,
     backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.border2,
     alignItems: 'center', justifyContent: 'center',
   },
 
+  // ── No tracks state ───────────────────────────────────────
   noTracksState: {
     alignItems: 'center',
     paddingVertical: 32,
@@ -535,14 +693,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  youtubeBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginTop: 8,
-    backgroundColor: 'rgba(255,0,0,0.08)',
-    borderWidth: 1, borderColor: 'rgba(255,0,0,0.25)',
-    borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12,
-  },
-  youtubeBtnText: { color: '#FF0000', fontSize: 15, fontWeight: '700' },
 
   // ── Deeper button ─────────────────────────────────────────
   deeperBtn: {

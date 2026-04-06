@@ -277,7 +277,7 @@ export function ArtistSearchScreen({ navigation, route, service, favoritesHook, 
                 country={match.country}
                 onNeedAuth={undefined}
                 onSearchSimilar={(name) => searchDirect(name)}
-                onGenrePress={(genre) => navigation.navigate('GenreSpotlight', { genre, country: match.country })}
+                onGenrePress={(genre, artistName) => navigation.navigate('GenreSpotlight', { genre, country: match.country, seedArtist: artistName })}
               />
             </View>
           ))}

@@ -204,11 +204,12 @@ export async function fetchGenreSpotlight(
   country: string,
   service: 'spotify' | 'apple-music',
   accessToken?: string,
-  relatedArtistNames?: string[]
+  relatedArtistNames?: string[],
+  seedArtist?: string
 ): Promise<GenreSpotlightResponse> {
   const res = await apiFetch('/api/genre-spotlight', {
     method: 'POST',
-    body: JSON.stringify({ genre, country, service, relatedArtistNames }),
+    body: JSON.stringify({ genre, country, service, relatedArtistNames, seedArtist }),
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
   });
   if (!res.ok) {
@@ -221,7 +222,6 @@ export async function fetchGenreSpotlight(
 export interface GenreDeeperResponse {
   genre: string;
   country: string;
-  reason: string;
 }
 
 export async function fetchGenreDeeper(

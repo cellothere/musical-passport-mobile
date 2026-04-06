@@ -173,7 +173,7 @@ export function GenreArtistsScreen({ navigation, route, service, favoritesHook, 
                   favoritesHook={favoritesHook}
                   onNeedAuth={undefined}
                   onSearchSimilar={name => navigation.push('ArtistSearch', { initialQuery: name })}
-                  onGenrePress={g => navigation.push('GenreSpotlight', { genre: g, country: '' })}
+                  onGenrePress={(g, artistName) => navigation.push('GenreSpotlight', { genre: g, country: '', seedArtist: artistName })}
                   isTester={false}
                 />
               </View>

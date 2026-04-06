@@ -31,7 +31,7 @@ interface Props {
   autoExpand?: boolean;
   highlightTrack?: string;
   onSearchSimilar?: (name: string) => void;
-  onGenrePress?: (genre: string) => void;
+  onGenrePress?: (genre: string, artistName: string) => void;
   isTester?: boolean;
   testerUserId?: string | null;
 }
@@ -152,12 +152,13 @@ export function ArtistCard({
               <View style={styles.metaRow}>
                 {onGenrePress ? (
                   <TouchableOpacity
-                    onPress={() => { haptics.light(); onGenrePress(artist.genre); }}
+                    onPress={() => { haptics.light(); onGenrePress(artist.genre, artist.name); }}
                     activeOpacity={0.7}
                     style={styles.genreTouch}
                   >
                     <Ionicons name="musical-notes" size={11} color={Colors.text3} />
                     <Text style={styles.genreText} numberOfLines={1}>{artist.genre}</Text>
+                    <Ionicons name="open-outline" size={13} color={Colors.text3} />
                   </TouchableOpacity>
                 ) : (
                   <View style={styles.genreTouch}>
@@ -433,7 +434,7 @@ const styles = StyleSheet.create({
   },
   genreText: {
     color: Colors.text3,
-    fontSize: 13,
+    fontSize: 14,
     flexShrink: 1,
   },
   tapHint: {
