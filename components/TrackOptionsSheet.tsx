@@ -33,8 +33,7 @@ const SERVICE_OPTIONS = [
     icon: 'musical-note' as const,
     color: '#1DB954',
     getUrl: (track: Track) => {
-      if (track.spotifyUrl) return track.spotifyUrl;
-      if (track.spotifyId) return `https://open.spotify.com/track/${track.spotifyId}`;
+      if (track.spotifyId) return `spotify:track:${track.spotifyId}`;
       const q = encodeURIComponent([track.artist, track.title].filter(Boolean).join(' '));
       return q ? `https://open.spotify.com/search/${q}` : null;
     },
@@ -53,7 +52,7 @@ const SERVICE_OPTIONS = [
         if (id) return `deezer://track/${id}`;
       }
       const q = encodeURIComponent([track.artist, track.title].filter(Boolean).join(' '));
-      return q ? `deezer://search/${q}` : null;
+      return q ? `https://www.deezer.com/search/${q}` : null;
     },
   },
 ];
@@ -77,6 +76,7 @@ export function TrackOptionsSheet({
     } else {
       // App not installed — try web fallback
       const webUrl = url
+        .replace(/^spotify:track:(.+)/, 'https://open.spotify.com/track/$1')
         .replace('spotify://', 'https://open.spotify.com/')
         .replace('deezer://', 'https://www.deezer.com/');
       Linking.openURL(webUrl).catch(() =>
