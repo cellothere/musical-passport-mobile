@@ -209,8 +209,8 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
   const [selectedDecade, setSelectedDecade] = useState(initialDecade ?? '');
   const [decadePickerVisible, setDecadePickerVisible] = useState(false);
 
-  // Globe state
-  const [globeVisible, setGlobeVisible] = useState(true);
+  // Globe state — skip if data was pre-fetched by the caller (e.g. LandingScreen spin)
+  const [globeVisible, setGlobeVisible] = useState(!savedData);
   const [globeCountry, setGlobeCountry] = useState(country);
   const [globeDecade, setGlobeDecade] = useState(initialDecade ?? '');
 
@@ -224,6 +224,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
   const [loading, setLoading] = useState(!savedData);
   const [error, setError] = useState<string | null>(null);
   const [dykExpanded, setDykExpanded] = useState(false);
+  const [fetchDone, setFetchDone] = useState(!!savedData);
 
   const pendingFetch = useRef<Promise<any> | null>(null);
   const pendingResult = useRef<any>(null);
@@ -239,6 +240,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
     pendingResult.current = null;
     pendingError.current = null;
     setDykExpanded(false);
+    setFetchDone(false);
 
     const promise = d
       ? fetchTimeMachine(c, d, resolveService(auth.service))
@@ -251,7 +253,8 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
         pendingError.current = msg.toLowerCase().includes('overload')
           ? 'Our servers are busy right now. Try again in a moment.'
           : msg || 'Something went wrong';
-      });
+      })
+      .finally(() => { setFetchDone(true); });
   };
 
   // Initial load — kick off fetch in parallel with globe animation
@@ -447,6 +450,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
         decade={globeDecade}
         onDone={handleGlobeDone}
         onCancel={() => navigation.goBack()}
+        dataReady={fetchDone}
       />
 
       <DecadePickerModal

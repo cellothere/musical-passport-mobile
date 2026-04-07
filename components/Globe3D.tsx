@@ -46,7 +46,7 @@ while (s < starCount) {
   const x = (Math.random() - 0.5) * 22;
   const y = (Math.random() - 0.5) * 22;
   const z = (Math.random() - 0.5) * 22;
-  if (x * x + y * y + z * z > 9) { // minimum radius 3 from origin
+  if (x * x + y * y + z * z > 9) {
     starPositions[s * 3]     = x;
     starPositions[s * 3 + 1] = y;
     starPositions[s * 3 + 2] = z;
@@ -69,25 +69,47 @@ const globeMat = new THREE.MeshPhongMaterial({ color: 0x2255bb, specular: 0x1122
 const globe = new THREE.Mesh(globeGeo, globeMat);
 scene.add(globe);
 
-// Atmospheric glow
-const atmMat = new THREE.MeshPhongMaterial({ color: 0x55aaff, transparent: true, opacity: 0.07, side: THREE.FrontSide });
-scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.03, 32, 32), atmMat));
+// Fresnel atmosphere glow — visible rim-light effect around the globe edge
+const atmMat = new THREE.ShaderMaterial({
+  vertexShader: \`
+    varying vec3 vNormal;
+    void main() {
+      vNormal = normalize(normalMatrix * normal);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  \`,
+  fragmentShader: \`
+    varying vec3 vNormal;
+    void main() {
+      float intensity = pow(1.0 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.5);
+      gl_FragColor = vec4(0.25, 0.58, 1.0, 1.0) * intensity;
+    }
+  \`,
+  side: THREE.FrontSide,
+  blending: THREE.AdditiveBlending,
+  transparent: true,
+  depthWrite: false,
+});
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.18, 32, 32), atmMat));
 
-// Earth texture — Blue Marble composite
+// Texture fade-in: start blue, smoothly reveal Earth texture on load
+let texFade = 0;
+let texLoaded = false;
+const baseR = 0x22 / 255, baseG = 0x55 / 255, baseB = 0xbb / 255;
+
 new THREE.TextureLoader().load(
   'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/land_ocean_ice_cloud_2048.jpg',
-  tex => { globeMat.map = tex; globeMat.color.set(0xffffff); globeMat.needsUpdate = true; }
+  tex => { globeMat.map = tex; globeMat.needsUpdate = true; texLoaded = true; }
 );
 
 // Quaternion rotation helpers — all rotations applied in world space via premultiply,
 // which eliminates gimbal lock. No clamping — fully free rotation.
-const _q = new THREE.Quaternion(); // reusable scratch quaternion
-const _axis = new THREE.Vector3(); // reusable axis
+const _q = new THREE.Quaternion();
+const _axis = new THREE.Vector3();
 
 function rotateGlobe(dx, dy) {
   const angle = Math.sqrt(dx * dx + dy * dy);
   if (angle < 1e-6) return;
-  // Axis perpendicular to the drag direction, in world space
   _axis.set(dy / angle, dx / angle, 0).normalize();
   _q.setFromAxisAngle(_axis, angle);
   globe.quaternion.premultiply(_q);
@@ -96,7 +118,7 @@ function rotateGlobe(dx, dy) {
 // Interaction state
 let isDragging = false;
 let isTwoFinger = false;
-let hadTwoFingers = false; // stays true until all fingers are fully lifted
+let hadTwoFingers = false;
 let lastX = 0, lastY = 0, startX = 0, startY = 0;
 let velX = 0, velY = 0;
 let lastTwistAngle = 0;
@@ -139,12 +161,10 @@ canvas.addEventListener('touchstart', e => {
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
   if (e.touches.length >= 2) {
-    // Two-finger twist — rotate around the view axis (Z)
     isTwoFinger = true;
     isDragging = false;
     const newAngle = getTouchAngle(e.touches[0], e.touches[1]);
     let delta = newAngle - lastTwistAngle;
-    // Unwrap angle to avoid ±π jump
     if (delta > Math.PI)  delta -= 2 * Math.PI;
     if (delta < -Math.PI) delta += 2 * Math.PI;
     _q.setFromAxisAngle(axisZ, -delta);
@@ -164,7 +184,6 @@ canvas.addEventListener('touchmove', e => {
 
 canvas.addEventListener('touchend', e => {
   if (e.touches.length === 1 && isTwoFinger) {
-    // One finger lifted — absorb into single-finger drag without a jump
     isTwoFinger = false;
     isDragging = true;
     const t = e.touches[0];
@@ -174,7 +193,6 @@ canvas.addEventListener('touchend', e => {
     return;
   }
   if (e.touches.length === 0 && hadTwoFingers) {
-    // All fingers lifted after a two-finger gesture — never treat as tap
     isTwoFinger = false;
     hadTwoFingers = false;
     isDragging = false;
@@ -193,9 +211,8 @@ canvas.addEventListener('touchend', e => {
     idleTimer = setTimeout(() => { autoRotate = true; }, 500);
     window.ReactNativeWebView && window.ReactNativeWebView.postMessage('tap');
   } else if (speed > 0.09 && dist > 60) {
-    // Derive spin axis from swipe direction (same mapping as rotateGlobe)
-    const s = Math.sqrt(velX * velX + velY * velY);
-    spinAxis.set(velY / s, velX / s, 0).normalize();
+    const sp = Math.sqrt(velX * velX + velY * velY);
+    spinAxis.set(velY / sp, velX / sp, 0).normalize();
     spinning = true;
     spinT = 0;
     autoRotate = false;
@@ -218,6 +235,17 @@ window.addEventListener('message', e => {
 
 function animate() {
   requestAnimationFrame(animate);
+
+  // Smooth texture reveal
+  if (texLoaded && texFade < 1) {
+    texFade = Math.min(1, texFade + 0.016);
+    globeMat.color.setRGB(
+      baseR + (1 - baseR) * texFade,
+      baseG + (1 - baseG) * texFade,
+      baseB + (1 - baseB) * texFade
+    );
+    globeMat.needsUpdate = true;
+  }
 
   if (spinning) {
     spinT += 0.018;

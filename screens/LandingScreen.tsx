@@ -1,6 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Image,
+  View, Text, TouchableOpacity, StyleSheet, Image, Animated, Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
@@ -11,7 +11,7 @@ import { getAllCountries, MUSIC_REGIONS } from '../constants/regions';
 import { haptics } from '../utils/haptics';
 import { DiscoverSheet } from '../components/DiscoverSheet';
 import { useFocusEffect } from '@react-navigation/native';
-import { fetchCountryOfDay, recordCountryOfDayHit } from '../services/api';
+import { fetchCountryOfDay, recordCountryOfDayHit, fetchRecommendations, RecommendationResponse } from '../services/api';
 import { Globe3D, Globe3DHandle } from '../components/Globe3D';
 import type { AuthState } from '../hooks/useAuth';
 
@@ -47,11 +47,49 @@ export function LandingScreen({ navigation, favoritesHook }: Props) {
   const allCountries = useRef([...getAllCountries(), ...MUSIC_REGIONS]).current;
   const globeRef = useRef<Globe3DHandle>(null);
 
+  // Spin-reveal state
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [spinCountry, setSpinCountry] = useState('');
+  const spinCountryRef = useRef('');
+  const spinDataRef = useRef<RecommendationResponse | null>(null);
+  const spinFetchDoneRef = useRef(false);
+  const spinMinDoneRef = useRef(false);
+  const spinNavFiredRef = useRef(false);
+  const spinMinTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Animated values
+  const uiFadeAnim = useRef(new Animated.Value(1)).current;
+  const globeScaleAnim = useRef(new Animated.Value(1)).current;
+  const countryOpacityAnim = useRef(new Animated.Value(0)).current;
+  const countryTranslateAnim = useRef(new Animated.Value(12)).current;
+
+  // tryNavigate ref keeps it up to date without stale closure issues
+  const tryNavigateRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    tryNavigateRef.current = () => {
+      if (spinMinDoneRef.current && spinFetchDoneRef.current && !spinNavFiredRef.current) {
+        spinNavFiredRef.current = true;
+        navigation.navigate('Recommendations', {
+          country: spinCountryRef.current,
+          ...(spinDataRef.current ? { savedData: spinDataRef.current } : {}),
+        });
+      }
+    };
+  });
+
   useFocusEffect(useCallback(() => {
     todayDateRef.current = new Date().toISOString().slice(0, 10);
     fetchCountryOfDay()
       .then(({ country }) => setTodayEntry({ country, flag: FLAGS[country] ?? '🌐' }))
       .catch(() => {});
+
+    // Reset spin animations when returning to screen
+    setIsSpinning(false);
+    uiFadeAnim.setValue(1);
+    globeScaleAnim.setValue(1);
+    countryOpacityAnim.setValue(0);
+    countryTranslateAnim.setValue(12);
+    if (spinMinTimerRef.current) clearTimeout(spinMinTimerRef.current);
   }, []));
 
   const hasInsights = true; // passport always accessible
@@ -62,35 +100,70 @@ export function LandingScreen({ navigation, favoritesHook }: Props) {
   };
 
   const triggerSurprise = () => {
+    if (isSpinning) return;
     haptics.light();
+    setIsSpinning(true);
     globeRef.current?.spinForSurprise();
   };
 
   const handleSpinComplete = () => {
     const country = allCountries[Math.floor(Math.random() * allCountries.length)];
-    navigation.navigate('Recommendations', { country });
+    spinCountryRef.current = country;
+    spinDataRef.current = null;
+    spinFetchDoneRef.current = false;
+    spinMinDoneRef.current = false;
+    spinNavFiredRef.current = false;
+    setSpinCountry(country);
+
+    // Fade UI out + scale globe up
+    Animated.parallel([
+      Animated.timing(uiFadeAnim, { toValue: 0, duration: 350, useNativeDriver: true }),
+      Animated.timing(globeScaleAnim, { toValue: 1.14, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+
+    // Country name slides in after slight pause
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(countryOpacityAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(countryTranslateAnim, { toValue: 0, duration: 500, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      ]).start();
+    }, 250);
+
+    // Minimum display time
+    spinMinTimerRef.current = setTimeout(() => {
+      spinMinDoneRef.current = true;
+      tryNavigateRef.current();
+    }, 2000);
+
+    fetchRecommendations(country)
+      .then(data => { spinDataRef.current = data; })
+      .catch(() => {})
+      .finally(() => {
+        spinFetchDoneRef.current = true;
+        tryNavigateRef.current();
+      });
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Top-left: Country of the Day pill */}
-      <View style={styles.dailyPillWrap}>
+      <Animated.View style={[styles.dailyPillWrap, { opacity: uiFadeAnim }]}>
         <TouchableOpacity
           style={styles.dailyPill}
-          onPress={() => { haptics.light(); recordCountryOfDayHit(todayDateRef.current).catch(() => {}); navigation.navigate('Recommendations', { country: todayEntry.country }); }}
+          onPress={() => { if (isSpinning) return; haptics.light(); recordCountryOfDayHit(todayDateRef.current).catch(() => {}); navigation.navigate('Recommendations', { country: todayEntry.country }); }}
           activeOpacity={0.75}
         >
           <Text style={styles.dailyPillFlag}>{todayEntry.flag}</Text>
           <Text style={styles.dailyPillLabel}>Today</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       {/* Top-right icon buttons */}
-      <View style={styles.topRightBtns}>
+      <Animated.View style={[styles.topRightBtns, { opacity: uiFadeAnim }]}>
         {hasInsights && (
           <TouchableOpacity
             style={styles.dnaBtn}
-            onPress={() => { haptics.light(); navigation.navigate('Insights'); }}
+            onPress={() => { if (isSpinning) return; haptics.light(); navigation.navigate('Insights'); }}
             activeOpacity={0.7}
             hitSlop={{ top: 16, bottom: 12, left: 12, right: 12 }}
           >
@@ -99,56 +172,68 @@ export function LandingScreen({ navigation, favoritesHook }: Props) {
         )}
         <TouchableOpacity
           style={styles.searchBtn}
-          onPress={() => { haptics.light(); setDiscoverVisible(true); }}
+          onPress={() => { if (isSpinning) return; haptics.light(); setDiscoverVisible(true); }}
           activeOpacity={0.7}
           hitSlop={{ top: 16, bottom: 12, left: 12, right: 12 }}
         >
           <Ionicons name="compass" size={36} color={Colors.green} />
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       {/* Globe */}
       <View style={styles.cards}>
         <View style={styles.globeWrap}>
-          <Text style={styles.tapHint}>tap to explore</Text>
-          <Globe3D
-            ref={globeRef}
-            size={280}
-            onTap={handleGlobeTap}
-            onSpinComplete={handleSpinComplete}
-          />
-          <TouchableOpacity
-            style={styles.spinBtn}
-            onPress={triggerSurprise}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="refresh" size={20} color={Colors.text3} style={{ marginTop: 20 }} />
-            <Text style={styles.spinHint}>spin for a random drop</Text>
-          </TouchableOpacity>
+          <Animated.Text style={[styles.tapHint, { opacity: uiFadeAnim }]}>tap to explore</Animated.Text>
+          <Animated.View style={{ transform: [{ scale: globeScaleAnim }] }}>
+            <Globe3D
+              ref={globeRef}
+              size={280}
+              onTap={handleGlobeTap}
+              onSpinComplete={handleSpinComplete}
+            />
+          </Animated.View>
+          <Animated.View style={{ opacity: uiFadeAnim }}>
+            <TouchableOpacity
+              style={styles.spinBtn}
+              onPress={triggerSurprise}
+              activeOpacity={0.7}
+              disabled={isSpinning}
+            >
+              <Ionicons name="refresh" size={20} color={Colors.text3} style={{ marginTop: 20 }} />
+              <Text style={styles.spinHint}>spin for a random drop</Text>
+            </TouchableOpacity>
+          </Animated.View>
+          <Animated.Text style={[styles.spinCountryLabel, {
+            opacity: countryOpacityAnim,
+            transform: [{ translateY: countryTranslateAnim }],
+          }]}>
+            {FLAGS[spinCountry] ? `${FLAGS[spinCountry]}  ` : ''}{spinCountry}
+          </Animated.Text>
         </View>
       </View>
 
-
       {/* Bottom-left: home button */}
-      <TouchableOpacity
-        style={[styles.homeBtn, { bottom: 32 + miniPlayerOffset }]}
-        onPress={() => { haptics.light(); navigation.navigate('Home'); }}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="home-outline" size={22} color={Colors.text2} />
-      </TouchableOpacity>
+      <Animated.View style={[styles.homeBtn, { bottom: 32 + miniPlayerOffset, opacity: uiFadeAnim }]}>
+        <TouchableOpacity
+          style={styles.homeBtnInner}
+          onPress={() => { if (isSpinning) return; haptics.light(); navigation.navigate('Home'); }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="home-outline" size={22} color={Colors.text2} />
+        </TouchableOpacity>
+      </Animated.View>
 
       {/* Bottom-right: saved discoveries */}
       {favorites.length > 0 && (
-        <View style={[styles.floatingBtnRight, { bottom: 32 + miniPlayerOffset }]}>
+        <Animated.View style={[styles.floatingBtnRight, { bottom: 32 + miniPlayerOffset, opacity: uiFadeAnim }]}>
           <TouchableOpacity
             style={styles.floatingBtnRightInner}
-            onPress={() => navigation.navigate('Saved')}
+            onPress={() => { if (isSpinning) return; navigation.navigate('Saved'); }}
             activeOpacity={0.7}
           >
             <Ionicons name="heart" size={26} color={Colors.red} />
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       )}
 
       <DiscoverSheet
@@ -228,7 +313,19 @@ const styles = StyleSheet.create({
     width: 62, height: 62, borderRadius: 31,
     backgroundColor: Colors.surface2,
     borderWidth: 1, borderColor: Colors.border2,
+    overflow: 'hidden',
+  },
+  homeBtnInner: {
+    width: 62, height: 62, borderRadius: 31,
     alignItems: 'center', justifyContent: 'center',
+  },
+  spinCountryLabel: {
+    color: '#ffffff',
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    textAlign: 'center',
+    marginTop: 28,
   },
   floatingBtnRight: {
     position: 'absolute', right: 24,

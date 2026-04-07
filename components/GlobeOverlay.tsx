@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
-const SHOW_MS = 5000;
+const MIN_SHOW_MS = 2200;
 const { width: SW } = Dimensions.get('window');
 const SIZE = Math.min(SW, 340);
 
@@ -57,18 +57,49 @@ const globeMat = new THREE.MeshPhongMaterial({ color: 0x2255bb, specular: 0x1122
 const globe = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), globeMat);
 scene.add(globe);
 
-scene.add(new THREE.Mesh(
-  new THREE.SphereGeometry(1.03, 32, 32),
-  new THREE.MeshPhongMaterial({ color: 0x55aaff, transparent: true, opacity: 0.07, side: THREE.FrontSide })
-));
+// Fresnel atmosphere glow
+const atmMat = new THREE.ShaderMaterial({
+  vertexShader: \`
+    varying vec3 vNormal;
+    void main() {
+      vNormal = normalize(normalMatrix * normal);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  \`,
+  fragmentShader: \`
+    varying vec3 vNormal;
+    void main() {
+      float intensity = pow(1.0 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.5);
+      gl_FragColor = vec4(0.25, 0.58, 1.0, 1.0) * intensity;
+    }
+  \`,
+  side: THREE.FrontSide,
+  blending: THREE.AdditiveBlending,
+  transparent: true,
+  depthWrite: false,
+});
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.18, 32, 32), atmMat));
+
+// Texture fade-in
+let texFade = 0, texLoaded = false;
+const baseR = 0x22/255, baseG = 0x55/255, baseB = 0xbb/255;
 
 new THREE.TextureLoader().load(
   'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/land_ocean_ice_cloud_2048.jpg',
-  tex => { globeMat.map = tex; globeMat.color.set(0xffffff); globeMat.needsUpdate = true; }
+  tex => { globeMat.map = tex; globeMat.needsUpdate = true; texLoaded = true; }
 );
 
 function tick() {
   requestAnimationFrame(tick);
+  if (texLoaded && texFade < 1) {
+    texFade = Math.min(1, texFade + 0.016);
+    globeMat.color.setRGB(
+      baseR + (1 - baseR) * texFade,
+      baseG + (1 - baseG) * texFade,
+      baseB + (1 - baseB) * texFade
+    );
+    globeMat.needsUpdate = true;
+  }
   globe.rotation.y += 0.003;
   renderer.render(scene, camera);
 }
@@ -83,9 +114,10 @@ interface Props {
   decade: string;
   onDone: () => void;
   onCancel?: () => void;
+  dataReady?: boolean;
 }
 
-export function GlobeOverlay({ visible, country, decade, onDone, onCancel }: Props) {
+export function GlobeOverlay({ visible, country, decade, onDone, onCancel, dataReady }: Props) {
   const insets = useSafeAreaInsets();
   const overlayOpacity = useRef(new Animated.Value(1)).current;
   const labelCountryOpacity = useRef(new Animated.Value(0)).current;
@@ -93,14 +125,36 @@ export function GlobeOverlay({ visible, country, decade, onDone, onCancel }: Pro
   const labelDecadeOpacity = useRef(new Animated.Value(0)).current;
   const labelDecadeY = useRef(new Animated.Value(8)).current;
 
+  const minTimeDone = useRef(false);
+  const dataReadyRef = useRef(false);
+  const closeFired = useRef(false);
+
+  // Re-assigned every render so timer callback and dataReady effect always call the latest version
+  const tryCloseRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    tryCloseRef.current = () => {
+      if (minTimeDone.current && dataReadyRef.current && !closeFired.current) {
+        closeFired.current = true;
+        Animated.timing(overlayOpacity, {
+          toValue: 0, duration: 450, useNativeDriver: true,
+        }).start(() => onDone());
+      }
+    };
+  });
+
   useEffect(() => {
     if (!visible) return;
 
+    // Reset state
     overlayOpacity.setValue(1);
     labelCountryOpacity.setValue(0);
     labelCountryY.setValue(10);
     labelDecadeOpacity.setValue(0);
     labelDecadeY.setValue(8);
+    minTimeDone.current = false;
+    dataReadyRef.current = false;
+    closeFired.current = false;
 
     const countryTimer = setTimeout(() => {
       Animated.parallel([
@@ -116,18 +170,25 @@ export function GlobeOverlay({ visible, country, decade, onDone, onCancel }: Pro
       ]).start();
     }, 1000);
 
-    const doneTimer = setTimeout(() => {
-      Animated.timing(overlayOpacity, {
-        toValue: 0, duration: 450, useNativeDriver: true,
-      }).start(() => onDone());
-    }, SHOW_MS);
+    const minTimer = setTimeout(() => {
+      minTimeDone.current = true;
+      tryCloseRef.current();
+    }, MIN_SHOW_MS);
 
     return () => {
       clearTimeout(countryTimer);
       clearTimeout(decadeTimer);
-      clearTimeout(doneTimer);
+      clearTimeout(minTimer);
     };
   }, [visible, country, decade]);
+
+  // React to dataReady becoming true
+  useEffect(() => {
+    if (dataReady && visible) {
+      dataReadyRef.current = true;
+      tryCloseRef.current();
+    }
+  }, [dataReady, visible]);
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
