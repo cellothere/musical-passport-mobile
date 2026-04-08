@@ -402,3 +402,25 @@ export async function fetchStreamingFloors(): Promise<Record<string, string>> {
   if (!res.ok) return {};
   return res.json();
 }
+
+export interface DecadeSpotlightResponse {
+  decade: string;
+  artists: Artist[];
+}
+
+export async function fetchDecadeSpotlight(
+  decade: string,
+  service: 'spotify' | 'apple-music' = 'spotify',
+  accessToken?: string
+): Promise<DecadeSpotlightResponse> {
+  const res = await apiFetch('/api/decade-spotlight', {
+    method: 'POST',
+    body: JSON.stringify({ decade, service }),
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error || 'Failed to load decade spotlight');
+  }
+  return res.json();
+}

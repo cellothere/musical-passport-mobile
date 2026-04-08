@@ -13,6 +13,7 @@ import { SavedScreen } from './screens/SavedScreen';
 import { GenreSpotlightScreen } from './screens/GenreSpotlightScreen';
 import { ArtistSearchScreen } from './screens/ArtistSearchScreen';
 import { GenreArtistsScreen } from './screens/GenreArtistsScreen';
+import { DecadeSpotlightScreen } from './screens/DecadeSpotlightScreen';
 import { Colors } from './constants/colors';
 import { useAuth } from './hooks/useAuth';
 import { useStamps } from './hooks/useStamps';
@@ -156,6 +157,16 @@ function AppNavigator() {
         <Stack.Screen name="GenreArtists">
           {props => (
             <GenreArtistsScreen
+              {...props}
+              service={auth.service}
+              favoritesHook={favoritesHook}
+              auth={auth}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="DecadeSpotlight">
+          {props => (
+            <DecadeSpotlightScreen
               {...props}
               service={auth.service}
               favoritesHook={favoritesHook}

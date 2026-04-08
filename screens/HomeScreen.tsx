@@ -303,8 +303,12 @@ export function HomeScreen({ navigation, stampsHook, auth, favoritesHook }: Prop
             style={styles.randomBtn}
             onPress={() => {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-              const country = ALL_COUNTRIES[Math.floor(Math.random() * ALL_COUNTRIES.length)];
-              navigation.push('Recommendations', selectedDecade ? { country, decade: selectedDecade } : { country });
+              if (selectedDecade && !selectedCountry) {
+                navigation.push('DecadeSpotlight', { decade: selectedDecade });
+              } else {
+                const country = selectedCountry ?? ALL_COUNTRIES[Math.floor(Math.random() * ALL_COUNTRIES.length)];
+                navigation.push('Recommendations', selectedDecade ? { country, decade: selectedDecade } : { country });
+              }
             }}
             activeOpacity={0.8}
           >
