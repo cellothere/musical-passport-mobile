@@ -229,6 +229,8 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
   const pendingFetch = useRef<Promise<any> | null>(null);
   const pendingResult = useRef<any>(null);
   const pendingError = useRef<string | null>(null);
+  const [isFromCache, setIsFromCache] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(4);
   const exploreScrollRef = useRef<any>(null);
   const highlightedY = useRef<number | null>(null);
 
@@ -239,6 +241,8 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
     setTmData(null);
     pendingResult.current = null;
     pendingError.current = null;
+    setIsFromCache(false);
+    setVisibleCount(4);
     setDykExpanded(false);
     setFetchDone(false);
 
@@ -247,7 +251,10 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
       : fetchRecommendations(c);
 
     pendingFetch.current = promise
-      .then(data => { pendingResult.current = data; })
+      .then(data => {
+        pendingResult.current = data;
+        if ((data as RecommendationResponse).fromCache) setIsFromCache(true);
+      })
       .catch(err => {
         const msg = err.message || '';
         pendingError.current = msg.toLowerCase().includes('overload')
@@ -391,38 +398,73 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
               {selectedDecade ? <Text style={styles.decadePillTextActive}>{selectedDecade}</Text> : null}
             </TouchableOpacity>
           </View>
-          {([...(recs.artists || [])].sort((a, b) => {
-            if (a.hasVerifiedTracks && !b.hasVerifiedTracks) return -1;
-            if (!a.hasVerifiedTracks && b.hasVerifiedTracks) return 1;
-            return 0;
-          })).map((artist, i) => {
-            const isHighlighted = !!highlightArtist && artist.name.toLowerCase() === highlightArtist.toLowerCase();
+          {(() => {
+            const sortedArtists = [...(recs.artists || [])].sort((a, b) => {
+              if (a.hasVerifiedTracks && !b.hasVerifiedTracks) return -1;
+              if (!a.hasVerifiedTracks && b.hasVerifiedTracks) return 1;
+              return 0;
+            });
+            const totalArtists = sortedArtists.length;
+            const visibleArtists = sortedArtists.slice(0, visibleCount);
+            const canShowMore = visibleCount < totalArtists && visibleCount < 12;
+            const canShowLess = visibleCount > 4;
             return (
-              <View
-                key={i}
-                onLayout={isHighlighted ? (e) => { highlightedY.current = e.nativeEvent.layout.y; } : undefined}
-              >
-                <ArtistCard
-                  artist={artist}
-                  service={auth.service}
-                  favoritesHook={favoritesHook}
-                  country={country}
-                  onNeedAuth={undefined}
-                  autoExpand={isHighlighted}
-                  highlightTrack={isHighlighted ? highlightTrack : undefined}
-                  onSearchSimilar={(name) => navigation.navigate('ArtistSearch', { prefillArtist: name, skipConfirm: true })}
-                  onGenrePress={(genre, artistName) => navigation.navigate('GenreSpotlight', {
-                    genre,
-                    country,
-                    seedArtist: artistName,
-                    relatedArtistNames: recs.artists?.filter(a => a.genre === genre).map(a => a.name) ?? [],
-                  })}
-                  isTester={auth.isTester}
-                  testerUserId={auth.testerUserId}
-                />
-              </View>
+              <>
+                {visibleArtists.map((artist, i) => {
+                  const isHighlighted = !!highlightArtist && artist.name.toLowerCase() === highlightArtist.toLowerCase();
+                  return (
+                    <View
+                      key={i}
+                      onLayout={isHighlighted ? (e) => { highlightedY.current = e.nativeEvent.layout.y; } : undefined}
+                    >
+                      <ArtistCard
+                        artist={artist}
+                        service={auth.service}
+                        favoritesHook={favoritesHook}
+                        country={country}
+                        onNeedAuth={undefined}
+                        autoExpand={isHighlighted}
+                        highlightTrack={isHighlighted ? highlightTrack : undefined}
+                        onSearchSimilar={(name) => navigation.navigate('ArtistSearch', { prefillArtist: name, skipConfirm: true })}
+                        onGenrePress={(genre, artistName) => navigation.navigate('GenreSpotlight', {
+                          genre,
+                          country,
+                          seedArtist: artistName,
+                          relatedArtistNames: recs.artists?.filter(a => a.genre === genre).map(a => a.name) ?? [],
+                        })}
+                        isTester={auth.isTester}
+                        testerUserId={auth.testerUserId}
+                      />
+                    </View>
+                  );
+                })}
+                {(canShowMore || canShowLess) && (
+                  <View style={styles.showMoreRow}>
+                    {canShowMore && (
+                      <TouchableOpacity
+                        style={styles.showMoreBtn}
+                        onPress={() => { haptics.light(); setVisibleCount(c => Math.min(c + 4, 12)); }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.showMoreBtnText}>Show More</Text>
+                        <Ionicons name="chevron-down" size={14} color={Colors.blue} />
+                      </TouchableOpacity>
+                    )}
+                    {canShowLess && (
+                      <TouchableOpacity
+                        style={styles.showMoreBtn}
+                        onPress={() => { haptics.light(); setVisibleCount(4); }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.showMoreBtnText}>Show Less</Text>
+                        <Ionicons name="chevron-up" size={14} color={Colors.blue} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              </>
             );
-          })}
+          })()}
           {recs.didYouKnow && (
             <TouchableOpacity
               style={styles.dyk}
@@ -451,6 +493,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
         onDone={handleGlobeDone}
         onCancel={() => navigation.goBack()}
         dataReady={fetchDone}
+        instant={isFromCache}
       />
 
       <DecadePickerModal
@@ -587,4 +630,14 @@ const styles = StyleSheet.create({
   },
 
   bottomPad: { height: 48 },
+
+  showMoreRow: {
+    flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 8, marginBottom: 4,
+  },
+  showMoreBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.border2,
+    borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8,
+  },
+  showMoreBtnText: { color: Colors.blue, fontSize: 14, fontWeight: '600' },
 });

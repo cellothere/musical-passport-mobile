@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
 const MIN_SHOW_MS = 2200;
+const MIN_SHOW_MS_FAST = 900;
 const { width: SW } = Dimensions.get('window');
 const SIZE = Math.min(SW, 340);
 
@@ -115,9 +116,10 @@ interface Props {
   onDone: () => void;
   onCancel?: () => void;
   dataReady?: boolean;
+  instant?: boolean;
 }
 
-export function GlobeOverlay({ visible, country, decade, onDone, onCancel, dataReady }: Props) {
+export function GlobeOverlay({ visible, country, decade, onDone, onCancel, dataReady, instant }: Props) {
   const insets = useSafeAreaInsets();
   const overlayOpacity = useRef(new Animated.Value(1)).current;
   const labelCountryOpacity = useRef(new Animated.Value(0)).current;
@@ -181,6 +183,14 @@ export function GlobeOverlay({ visible, country, decade, onDone, onCancel, dataR
       clearTimeout(minTimer);
     };
   }, [visible, country, decade]);
+
+  // When instant becomes true mid-animation (cache hit), bypass the remaining min wait
+  useEffect(() => {
+    if (instant && visible) {
+      minTimeDone.current = true;
+      tryCloseRef.current();
+    }
+  }, [instant, visible]);
 
   // React to dataReady becoming true
   useEffect(() => {

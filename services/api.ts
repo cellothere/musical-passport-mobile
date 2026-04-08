@@ -19,6 +19,7 @@ export interface RecommendationResponse {
   genres: string[];
   artists: Artist[];
   didYouKnow?: string;
+  fromCache?: boolean;
 }
 
 export interface Track {
