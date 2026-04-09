@@ -137,11 +137,13 @@ export function ArtistCard({
                     style={styles.nameTouchable}
                   >
                     <Text style={[styles.artistName, styles.artistNameTappable, { flex: 0 }]} numberOfLines={2}>
-                      {artist.name}
+                      {artist.name}{artist.romanizedName ? ` (${artist.romanizedName})` : ''}
                     </Text>
                   </TouchableOpacity>
                 ) : (
-                  <Text style={styles.artistName} numberOfLines={2}>{artist.name}</Text>
+                  <Text style={styles.artistName} numberOfLines={2}>
+                    {artist.name}{artist.romanizedName ? ` (${artist.romanizedName})` : ''}
+                  </Text>
                 )}
                 <View style={[styles.eraBadge, { backgroundColor: era.bg, borderColor: era.border }]}>
                   <Text style={[styles.eraText, { color: era.text }]}>{artist.era}</Text>
@@ -224,6 +226,7 @@ export function ArtistCard({
                 highlighted={!!highlightTrack && track.title.toLowerCase() === highlightTrack.toLowerCase()}
                 isTester={isTester}
                 testerUserId={testerUserId}
+                artworkUrl={artist.imageUrl ?? undefined}
               />
             ))
           )}
@@ -234,7 +237,7 @@ export function ArtistCard({
 }
 
 
-function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenre, highlighted, isTester, testerUserId }: {
+function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenre, highlighted, isTester, testerUserId, artworkUrl }: {
   track: Track;
   index: number;
   favoritesHook?: TrackFavoritesHook;
@@ -244,6 +247,7 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
   highlighted?: boolean;
   isTester?: boolean;
   testerUserId?: string | null;
+  artworkUrl?: string;
 }) {
   const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
   const [optionsVisible, setOptionsVisible] = useState(false);
@@ -282,7 +286,7 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
 
   const handlePlay = () => {
     if (track.previewUrl) {
-      play(trackId, track.previewUrl, track.title, track.artist);
+      play(trackId, track.previewUrl, track.title, track.artist, artworkUrl);
     } else if (embedUrl) {
       WebBrowser.openBrowserAsync(embedUrl);
     } else {

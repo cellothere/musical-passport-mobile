@@ -5,6 +5,7 @@ export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://musical-
 
 export interface Artist {
   name: string;
+  romanizedName?: string;
   genre: string;
   era: string;
   country?: string;
@@ -252,6 +253,7 @@ export interface FoundArtist {
 
 export interface ArtistMatch {
   name: string;
+  romanizedName?: string;
   country: string;
   countryCode: string;
   genre: string;

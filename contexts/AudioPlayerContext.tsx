@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
-import { AppState } from 'react-native';
 import { useAudioPlayer as useExpoAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 
 interface AudioPlayerState {
@@ -11,7 +10,7 @@ interface AudioPlayerState {
 }
 
 interface AudioPlayerContextValue extends AudioPlayerState {
-  play: (trackId: string, url: string, title: string, artist?: string) => Promise<void>;
+  play: (trackId: string, url: string, title: string, artist?: string, artworkUrl?: string) => Promise<void>;
   togglePlay: () => void;
   stop: () => void;
   currentTime: number;
@@ -31,42 +30,22 @@ const EMPTY: AudioPlayerState = {
 export function AudioPlayerProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AudioPlayerState>(EMPTY);
   const currentIdRef = useRef<string | null>(null);
-  const pausedByBackground = useRef(false);
-  const switchingRef = useRef(false); // true while loading a new track — suppresses false "track ended" events
+  const switchingRef = useRef(false);
 
-  // expo-audio hook — source is replaced dynamically when a track is played
   const player = useExpoAudioPlayer(undefined);
   const playerStatus = useAudioPlayerStatus(player);
-
-  // Pause when backgrounded; prevent auto-resume when returning to foreground
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', nextState => {
-      if (!currentIdRef.current) return;
-      if (nextState === 'background' || nextState === 'inactive') {
-        pausedByBackground.current = true;
-        player.pause();
-        setState(s => ({ ...s, isPlaying: false }));
-      } else if (nextState === 'active' && pausedByBackground.current) {
-        // expo-audio may auto-resume — explicitly keep it paused
-        player.pause();
-        pausedByBackground.current = false;
-      }
-    });
-    return () => sub.remove();
-  }, [player]);
 
   // Detect natural end of track — reset to start and show play button
   useEffect(() => {
     if (!currentIdRef.current) return;
     if (playerStatus.playing) {
-      // New track is now stably playing — clear the switching guard and ensure isPlaying: true
       switchingRef.current = false;
       setState(s => s.isPlaying ? s : { ...s, isPlaying: true });
       return;
     }
-    if (switchingRef.current || pausedByBackground.current) return;
+    if (switchingRef.current) return;
     setState(s => {
-      if (!s.isPlaying) return s; // already paused by user, no-op
+      if (!s.isPlaying) return s;
       player.seekTo(0);
       return { ...s, isPlaying: false };
     });
@@ -77,10 +56,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     switchingRef.current = false;
     currentIdRef.current = null;
     setState(EMPTY);
+    player.clearLockScreenControls();
   }, [player]);
 
-  const play = useCallback(async (trackId: string, url: string, title: string, artist?: string) => {
-    // Tap same track → stop
+  const play = useCallback(async (trackId: string, url: string, title: string, artist?: string, artworkUrl?: string) => {
     if (currentIdRef.current === trackId) {
       stop();
       return;
@@ -91,9 +70,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setState({ currentTrackId: trackId, currentTrackTitle: title, currentTrackArtist: artist ?? null, isPlaying: true, isLoading: true });
 
     try {
-      await setAudioModeAsync({ playsInSilentMode: true });
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        interruptionMode: 'doNotMix',
+      });
       player.replace({ uri: url });
       player.play();
+      player.setActiveForLockScreen(true, {
+        title,
+        artist: artist ?? 'Musical Passport',
+        artworkUrl: artworkUrl ?? undefined,
+      }, { showSeekForward: false, showSeekBackward: false });
       setState(s => s.currentTrackId === trackId ? { ...s, isLoading: false } : s);
     } catch (err) {
       console.error('Audio playback error:', err);

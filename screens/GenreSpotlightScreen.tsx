@@ -325,6 +325,7 @@ function ArtistSection({
             isTester={isTester}
             testerUserId={testerUserId}
             isLast={i === tracks.length - 1}
+            artworkUrl={imageUrl ?? undefined}
           />
         ))}
       </View>
@@ -332,7 +333,7 @@ function ArtistSection({
   );
 }
 
-function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester, testerUserId, isLast }: {
+function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester, testerUserId, isLast, artworkUrl }: {
   track: Track;
   index: number;
   genre: string;
@@ -341,6 +342,7 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
   isTester: boolean;
   testerUserId: string | null;
   isLast: boolean;
+  artworkUrl?: string | null;
 }) {
   const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
   const [optionsVisible, setOptionsVisible] = useState(false);
@@ -377,7 +379,7 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
 
   const handlePlay = () => {
     if (track.previewUrl) {
-      play(trackId, track.previewUrl, track.title, track.artist);
+      play(trackId, track.previewUrl, track.title, track.artist, artworkUrl ?? undefined);
     } else if (embedUrl) {
       WebBrowser.openBrowserAsync(embedUrl);
     } else {

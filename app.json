@@ -16,7 +16,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.musicalpassport.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["audio"]
       }
     },
     "android": {

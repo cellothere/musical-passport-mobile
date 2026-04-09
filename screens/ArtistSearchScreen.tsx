@@ -207,7 +207,12 @@ export function ArtistSearchScreen({ navigation, route, service, favoritesHook, 
       {phase === 'confirm' && foundArtist && (
         <View style={styles.confirmCard}>
           <View style={styles.confirmInfo}>
-            <Text style={styles.confirmName}>{foundArtist.name}</Text>
+            <Text style={styles.confirmName}>
+              {foundArtist.name}
+              {query.trim() && foundArtist.name.toLowerCase() !== query.trim().toLowerCase() && (
+                <Text style={styles.confirmNameRomanized}> ({query.trim()})</Text>
+              )}
+            </Text>
             {foundArtist.genres.length > 0 && (
               <Text style={styles.confirmMeta}>
                 {foundArtist.genres.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(' · ')}
@@ -292,6 +297,7 @@ export function ArtistSearchScreen({ navigation, route, service, favoritesHook, 
 function matchToArtist(match: ArtistMatch): Artist {
   return {
     name: match.name,
+    romanizedName: match.romanizedName,
     genre: match.genre,
     era: match.era,
     similarTo: `${flagEmoji(match.countryCode)} ${match.country}`,
@@ -381,6 +387,7 @@ const styles = StyleSheet.create({
   },
   confirmInfo: { gap: 4 },
   confirmName: { color: Colors.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+  confirmNameRomanized: { color: Colors.text2, fontSize: 16, fontWeight: '500', letterSpacing: 0 },
   confirmMeta: { color: Colors.text2, fontSize: 15 },
   confirmFollowers: { color: Colors.text3, fontSize: 13 },
   confirmQuestion: { color: Colors.text2, fontSize: 15 },
