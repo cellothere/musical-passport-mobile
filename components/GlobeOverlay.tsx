@@ -117,15 +117,18 @@ interface Props {
   onCancel?: () => void;
   dataReady?: boolean;
   instant?: boolean;
+  subtitle?: string;
 }
 
-export function GlobeOverlay({ visible, country, decade, onDone, onCancel, dataReady, instant }: Props) {
+export function GlobeOverlay({ visible, country, decade, onDone, onCancel, dataReady, instant, subtitle }: Props) {
   const insets = useSafeAreaInsets();
   const overlayOpacity = useRef(new Animated.Value(1)).current;
   const labelCountryOpacity = useRef(new Animated.Value(0)).current;
   const labelCountryY = useRef(new Animated.Value(10)).current;
   const labelDecadeOpacity = useRef(new Animated.Value(0)).current;
   const labelDecadeY = useRef(new Animated.Value(8)).current;
+  const subtitleOpacity = useRef(new Animated.Value(0)).current;
+  const [displayedSubtitle, setDisplayedSubtitle] = React.useState(subtitle);
 
   const minTimeDone = useRef(false);
   const dataReadyRef = useRef(false);
@@ -200,6 +203,20 @@ export function GlobeOverlay({ visible, country, decade, onDone, onCancel, dataR
     }
   }, [dataReady, visible]);
 
+  // Crossfade subtitle when text changes
+  useEffect(() => {
+    if (!subtitle) {
+      subtitleOpacity.setValue(0);
+      setDisplayedSubtitle(undefined);
+      return;
+    }
+    // Fade out → swap text → fade in
+    Animated.timing(subtitleOpacity, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => {
+      setDisplayedSubtitle(subtitle);
+      Animated.timing(subtitleOpacity, { toValue: 1, duration: 350, useNativeDriver: true }).start();
+    });
+  }, [subtitle]);
+
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
       <Animated.View style={[styles.backdrop, { opacity: overlayOpacity }]}>
@@ -237,6 +254,11 @@ export function GlobeOverlay({ visible, country, decade, onDone, onCancel, dataR
           }]}>
             {decade}
           </Animated.Text>
+          {displayedSubtitle ? (
+            <Animated.Text style={[styles.labelSubtitle, { opacity: subtitleOpacity }]}>
+              {displayedSubtitle}
+            </Animated.Text>
+          ) : null}
         </View>
       </Animated.View>
     </Modal>
@@ -296,5 +318,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 1,
     textAlign: 'center',
+  },
+  labelSubtitle: {
+    color: 'rgba(255, 255, 255, 0.55)',
+    fontSize: 14,
+    fontWeight: '400',
+    textAlign: 'center',
+    marginTop: 4,
+    paddingHorizontal: 32,
+    lineHeight: 20,
   },
 });

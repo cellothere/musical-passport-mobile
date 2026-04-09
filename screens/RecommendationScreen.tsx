@@ -11,7 +11,7 @@ import { DECADES } from '../constants/regions';
 import { FLAGS } from '../constants/flags';
 import { haptics } from '../utils/haptics';
 import {
-  fetchRecommendations, fetchTimeMachine,
+  fetchRecommendations, fetchTimeMachine, enrichDecade, fetchStreamingFloors,
   RecommendationResponse, TimeMachineResponse, Track,
 } from '../services/api';
 import { resolveService } from '../utils/defaultService';
@@ -45,21 +45,23 @@ interface FavoritesHook {
 
 interface Props {
   navigation: any;
-  route: { params: { country: string; decade?: string; savedData?: RecommendationResponse | TimeMachineResponse; highlightArtist?: string; highlightTrack?: string } };
+  route: { params: { country: string; decade?: string; filterDecade?: string; savedData?: RecommendationResponse | TimeMachineResponse; highlightArtist?: string; highlightTrack?: string } };
   auth: AuthState;
   stampsHook: StampsHook;
   favoritesHook: FavoritesHook;
 }
 
 // ── Decade picker modal ────────────────────────────────────
-function DecadePickerModal({ visible, selected, onClose, onSelect }: {
+function DecadePickerModal({ visible, selected, onClose, onSelect, floor }: {
   visible: boolean;
   selected: string;
   onClose: () => void;
   onSelect: (decade: string) => void;
+  floor?: string | null;
 }) {
   const insets = useSafeAreaInsets();
-  const items = ['', ...DECADES];
+  const floorIdx = floor ? DECADES.indexOf(floor) : -1;
+  const items = ['', ...DECADES.filter((_d, i) => floorIdx < 0 || i >= floorIdx)];
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: Colors.bg, paddingBottom: insets.bottom }}>
@@ -200,7 +202,7 @@ function TrackRow({ track, index, favoritesHook, country, genre, onNeedAuth, isT
 
 // ── Main screen ────────────────────────────────────────────
 export function RecommendationScreen({ navigation, route, auth, stampsHook, favoritesHook }: Props) {
-  const { country, decade: initialDecade, savedData, highlightArtist, highlightTrack } = route.params;
+  const { country, decade: initialDecade, filterDecade, savedData, highlightArtist, highlightTrack } = route.params;
   const { stamps, addStamp } = stampsHook;
   const insets = useSafeAreaInsets();
   const { currentTrackTitle } = useAudioPlayer();
@@ -231,6 +233,11 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
   const pendingError = useRef<string | null>(null);
   const [isFromCache, setIsFromCache] = useState(false);
   const [visibleCount, setVisibleCount] = useState(4);
+  const [localDecadeFilter, setLocalDecadeFilter] = useState<string | undefined>(filterDecade);
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [enrichingDone, setEnrichingDone] = useState(false);
+  const [enrichingMsg, setEnrichingMsg] = useState('');
+  const [streamingFloor, setStreamingFloor] = useState<string | null>(null);
   const exploreScrollRef = useRef<any>(null);
   const highlightedY = useRef<number | null>(null);
 
@@ -267,7 +274,78 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
   // Initial load — kick off fetch in parallel with globe animation
   useEffect(() => {
     if (!savedData) fetchContent(country, initialDecade ?? '');
+    fetchStreamingFloors().then(floors => setStreamingFloor(floors[country] ?? null)).catch(() => {});
   }, []);
+
+  // Decade enrichment — if 0 matches, show loading globe and poll; if < 5, fire-and-forget
+  useEffect(() => {
+    if (!localDecadeFilter || !recs?.artists || loading || isEnriching) return;
+    // Skip enrichment if this decade is below the streaming floor for this country
+    if (streamingFloor) {
+      const floorIdx = DECADES.indexOf(streamingFloor);
+      const decadeIdx = DECADES.indexOf(localDecadeFilter);
+      if (decadeIdx < floorIdx) return;
+    }
+    const decadeYear = localDecadeFilter.slice(0, 4);
+    const matchCount = recs.artists.filter(a => a.era && a.era.includes(decadeYear)).length;
+    if (matchCount === 0) {
+      // Nothing cached yet — start enrichment with visible loading UX
+      setIsEnriching(true);
+      setEnrichingDone(false);
+      enrichDecade(country, localDecadeFilter);
+    } else if (matchCount < 5) {
+      // Some results — silently enrich in background for next time
+      enrichDecade(country, localDecadeFilter);
+    }
+  }, [recs?.artists?.length, localDecadeFilter, loading]);
+
+  // Poll for results while enriching
+  useEffect(() => {
+    if (!isEnriching || !localDecadeFilter) return;
+    const decadeYear = localDecadeFilter.slice(0, 4);
+    let attempts = 0;
+    const MAX_ATTEMPTS = 10;
+    const poll = setInterval(async () => {
+      attempts++;
+      try {
+        const fresh = await fetchRecommendations(country);
+        const count = fresh.artists?.filter((a: any) => a.era && a.era.includes(decadeYear)).length ?? 0;
+        if (count > 0 || attempts >= MAX_ATTEMPTS) {
+          clearInterval(poll);
+          if (count > 0) setRecs(fresh);
+          setEnrichingDone(true);
+        }
+      } catch {
+        if (attempts >= MAX_ATTEMPTS) {
+          clearInterval(poll);
+          setEnrichingDone(true);
+        }
+      }
+    }, 3500);
+    return () => clearInterval(poll);
+  }, [isEnriching, localDecadeFilter]);
+
+  // Rotate enrichment messages
+  useEffect(() => {
+    if (!isEnriching || !localDecadeFilter) return;
+    const msgs = [
+      'Hang tight, we\'re researching this...',
+      `Digging into ${country}'s ${localDecadeFilter} music scene...`,
+      `Researching ${country} in the ${localDecadeFilter}...`,
+      'Verifying tracks on streaming platforms...',
+      `Looking for hidden gems from ${country}...`,
+      'Cross-referencing our music sources...',
+      `Almost there — sourcing ${localDecadeFilter} artists...`,
+      ...(recs?.didYouKnow ? [`Did you know?\n${recs.didYouKnow}`] : ['Scouring the archives for you...']),
+    ];
+    let idx = 0;
+    setEnrichingMsg(msgs[0]);
+    const rotate = setInterval(() => {
+      idx = (idx + 1) % msgs.length;
+      setEnrichingMsg(msgs[idx]);
+    }, 3000);
+    return () => clearInterval(rotate);
+  }, [isEnriching]);
 
   // Scroll to highlighted artist after expand animation settles
   useEffect(() => {
@@ -309,10 +387,8 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
 
   const handleDecadeChange = (decade: string) => {
     setSelectedDecade(decade);
-    setGlobeCountry(country);
-    setGlobeDecade(decade);
-    setGlobeVisible(true);
-    fetchContent(country, decade);
+    setLocalDecadeFilter(decade || undefined);
+    setVisibleCount(4);
   };
 
   const isStamped = stamps.has(country);
@@ -390,12 +466,12 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
               <Text style={styles.sectionHint}>Tap any artist to reveal tracks</Text>
             </View>
             <TouchableOpacity
-              style={[styles.decadePill, selectedDecade ? styles.decadePillActive : null]}
+              style={[styles.decadePill, localDecadeFilter ? styles.decadePillActive : null]}
               onPress={() => setDecadePickerVisible(true)}
               activeOpacity={0.7}
             >
               <Ionicons name="time-outline" size={22} color={Colors.gold} />
-              {selectedDecade ? <Text style={styles.decadePillTextActive}>{selectedDecade}</Text> : null}
+              {localDecadeFilter ? <Text style={styles.decadePillTextActive}>{localDecadeFilter}</Text> : null}
             </TouchableOpacity>
           </View>
           {(() => {
@@ -404,8 +480,12 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
               if (!a.hasVerifiedTracks && b.hasVerifiedTracks) return 1;
               return 0;
             });
-            const totalArtists = sortedArtists.length;
-            const visibleArtists = sortedArtists.slice(0, visibleCount);
+            const eraFiltered = localDecadeFilter
+              ? sortedArtists.filter(a => a.era && a.era.includes(localDecadeFilter.slice(0, 4)))
+              : sortedArtists;
+            const artistPool = eraFiltered;
+            const totalArtists = artistPool.length;
+            const visibleArtists = artistPool.slice(0, visibleCount);
             const canShowMore = visibleCount < totalArtists && visibleCount < 12;
             const canShowLess = visibleCount > 4;
             return (
@@ -487,13 +567,18 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
       ) : null}
 
       <GlobeOverlay
-        visible={globeVisible}
-        country={globeCountry}
-        decade={globeDecade}
-        onDone={handleGlobeDone}
-        onCancel={() => navigation.goBack()}
-        dataReady={fetchDone}
-        instant={isFromCache}
+        visible={globeVisible || isEnriching}
+        country={isEnriching ? country : globeCountry}
+        decade={isEnriching ? (localDecadeFilter ?? '') : globeDecade}
+        onDone={isEnriching
+          ? () => { setIsEnriching(false); setEnrichingDone(false); }
+          : handleGlobeDone}
+        onCancel={isEnriching
+          ? () => setIsEnriching(false)
+          : () => navigation.goBack()}
+        dataReady={isEnriching ? enrichingDone : fetchDone}
+        instant={isEnriching ? false : isFromCache}
+        subtitle={isEnriching ? enrichingMsg : undefined}
       />
 
       <DecadePickerModal
@@ -501,6 +586,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
         selected={selectedDecade}
         onClose={() => setDecadePickerVisible(false)}
         onSelect={handleDecadeChange}
+        floor={streamingFloor}
       />
       <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites ?? []} />
     </SafeAreaView>

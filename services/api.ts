@@ -427,3 +427,11 @@ export async function fetchDecadeSpotlight(
   }
   return res.json();
 }
+
+export async function enrichDecade(country: string, decade: string): Promise<void> {
+  // Fire and forget — called in background when fewer than 5 era-matching artists exist
+  apiFetch('/api/enrich-decade', {
+    method: 'POST',
+    body: JSON.stringify({ country, decade }),
+  }).catch(() => {});
+}
