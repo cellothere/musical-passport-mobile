@@ -3,7 +3,6 @@ import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
   ActivityIndicator, Linking, Modal, FlatList, Platform, Image,
 } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
@@ -11,8 +10,8 @@ import { DECADES } from '../constants/regions';
 import { FLAGS } from '../constants/flags';
 import { haptics } from '../utils/haptics';
 import {
-  fetchRecommendations, fetchTimeMachine, enrichDecade, fetchStreamingFloors,
-  RecommendationResponse, TimeMachineResponse, Track,
+  fetchRecommendations, enrichDecade, fetchStreamingFloors,
+  RecommendationResponse,
 } from '../services/api';
 import { resolveService } from '../utils/defaultService';
 import { ArtistCard } from '../components/ArtistCard';
@@ -45,7 +44,7 @@ interface FavoritesHook {
 
 interface Props {
   navigation: any;
-  route: { params: { country: string; decade?: string; filterDecade?: string; savedData?: RecommendationResponse | TimeMachineResponse; highlightArtist?: string; highlightTrack?: string } };
+  route: { params: { country: string; filterDecade?: string; savedData?: RecommendationResponse; highlightArtist?: string; highlightTrack?: string } };
   auth: AuthState;
   stampsHook: StampsHook;
   favoritesHook: FavoritesHook;
@@ -103,126 +102,23 @@ function DecadePickerModal({ visible, selected, onClose, onSelect, floor }: {
   );
 }
 
-// ── Track row (for time-machine mode) ─────────────────────
-function TrackRow({ track, index, favoritesHook, country, genre, onNeedAuth, isTester, testerUserId }: {
-  track: Track;
-  index: number;
-  favoritesHook?: FavoritesHook;
-  country?: string;
-  genre?: string;
-  onNeedAuth?: () => void;
-  isTester?: boolean;
-  testerUserId?: string | null;
-}) {
-  const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
-  const [optionsVisible, setOptionsVisible] = useState(false);
-  const trackId = track.spotifyId || track.appleId || track.deezerId || track.previewUrl || `${track.title}-${index}`;
-  const isThisTrack = currentTrackId === trackId;
-  const isSaved = favoritesHook?.isTrackSaved(trackId) ?? false;
-  const toggleSave = async () => {
-    if (onNeedAuth) { onNeedAuth(); return; }
-    if (!favoritesHook) return;
-    if (isSaved) {
-      const entry = favoritesHook.findSavedTrack(trackId);
-      if (entry) await favoritesHook.remove(entry.id);
-    } else {
-      await favoritesHook.save({ type: 'track', country: country ?? '', data: { trackId, track, genre: '', country: country ?? '' } });
-    }
-  };
-
-  const openUrl = (track.deezerUrl ?? null)
-    ?? track.spotifyUrl
-    ?? (track.spotifyId ? `https://open.spotify.com/track/${track.spotifyId}` : null)
-    ?? (track.appleId ? `https://music.apple.com/us/song/${track.appleId}` : null)
-    ?? `https://open.spotify.com/search/${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
-
-  const embedUrl = track.deezerId
-    ? `https://widget.deezer.com/widget/dark/track/${track.deezerId}`
-    : track.spotifyId
-    ? `https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator`
-    : track.appleId ? `https://embed.music.apple.com/us/album/${track.appleId}`
-    : null;
-
-  const youtubeUrl = track.youtubeUrl
-    ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
-
-  const handlePlay = () => {
-    if (track.previewUrl) {
-      play(trackId, track.previewUrl, track.title, track.artist);
-    } else if (embedUrl) {
-      WebBrowser.openBrowserAsync(embedUrl);
-    } else {
-      WebBrowser.openBrowserAsync(youtubeUrl);
-    }
-  };
-
-  const isYouTubeOnly = !track.previewUrl && !embedUrl;
-
-  return (
-    <View style={styles.track}>
-      <Text style={styles.trackNumber}>{index}</Text>
-      <View style={styles.trackInfo}>
-        <Text style={styles.trackTitle}>{track.title}</Text>
-        {track.artist && <Text style={styles.trackArtist}>{track.artist}</Text>}
-      </View>
-      <View style={styles.trackActions}>
-        <TouchableOpacity
-          style={[styles.playBtn, isThisTrack && !isYouTubeOnly && styles.playBtnActive, isYouTubeOnly && styles.playBtnYouTube]}
-          onPress={handlePlay}
-        >
-          {isThisTrack && isLoading
-            ? <ActivityIndicator size="small" color={Colors.gold} />
-            : isYouTubeOnly
-            ? <Ionicons name="logo-youtube" size={18} color="#FF0000" />
-            : <Ionicons name={isThisTrack && isPlaying ? 'pause' : 'play'} size={18} color={isThisTrack ? Colors.gold : Colors.text2} />
-          }
-        </TouchableOpacity>
-        {favoritesHook && (
-          <TouchableOpacity style={[styles.heartBtn, isSaved && styles.heartBtnActive]} onPress={toggleSave}>
-            <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity style={styles.openBtn} onPress={() => setOptionsVisible(true)}>
-          <Ionicons name="ellipsis-horizontal" size={18} color={Colors.text2} />
-        </TouchableOpacity>
-      </View>
-      <TrackOptionsSheet
-        visible={optionsVisible}
-        onClose={() => setOptionsVisible(false)}
-        track={track}
-        country={country ?? ''}
-        openUrl={openUrl}
-        isExpertTester={isTester ?? false}
-        userId={testerUserId ?? undefined}
-        genre={genre}
-      />
-    </View>
-  );
-}
-
 // ── Main screen ────────────────────────────────────────────
 export function RecommendationScreen({ navigation, route, auth, stampsHook, favoritesHook }: Props) {
-  const { country, decade: initialDecade, filterDecade, savedData, highlightArtist, highlightTrack } = route.params;
+  const { country, filterDecade, savedData, highlightArtist, highlightTrack } = route.params;
   const { stamps, addStamp } = stampsHook;
   const insets = useSafeAreaInsets();
   const { currentTrackTitle } = useAudioPlayer();
   const contentBottomPad = insets.bottom + 76 + (currentTrackTitle ? 72 : 0);
 
-  const [selectedDecade, setSelectedDecade] = useState(initialDecade ?? '');
+  const [selectedDecade, setSelectedDecade] = useState('');
   const [decadePickerVisible, setDecadePickerVisible] = useState(false);
 
   // Globe state — skip if data was pre-fetched by the caller (e.g. LandingScreen spin)
   const [globeVisible, setGlobeVisible] = useState(!savedData);
   const [globeCountry, setGlobeCountry] = useState(country);
-  const [globeDecade, setGlobeDecade] = useState(initialDecade ?? '');
 
   // Content state
-  const [recs, setRecs] = useState<RecommendationResponse | null>(
-    savedData && !('tracks' in savedData) ? savedData as RecommendationResponse : null
-  );
-  const [tmData, setTmData] = useState<TimeMachineResponse | null>(
-    savedData && 'tracks' in savedData ? savedData as TimeMachineResponse : null
-  );
+  const [recs, setRecs] = useState<RecommendationResponse | null>(savedData ?? null);
   const [loading, setLoading] = useState(!savedData);
   const [error, setError] = useState<string | null>(null);
   const [dykExpanded, setDykExpanded] = useState(false);
@@ -241,11 +137,10 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
   const exploreScrollRef = useRef<any>(null);
   const highlightedY = useRef<number | null>(null);
 
-  const fetchContent = (c: string, d: string) => {
+  const fetchContent = (c: string) => {
     setLoading(true);
     setError(null);
     setRecs(null);
-    setTmData(null);
     pendingResult.current = null;
     pendingError.current = null;
     setIsFromCache(false);
@@ -253,9 +148,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
     setDykExpanded(false);
     setFetchDone(false);
 
-    const promise = d
-      ? fetchTimeMachine(c, d, resolveService(auth.service))
-      : fetchRecommendations(c);
+    const promise = fetchRecommendations(c);
 
     pendingFetch.current = promise
       .then(data => {
@@ -273,7 +166,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
 
   // Initial load — kick off fetch in parallel with globe animation
   useEffect(() => {
-    if (!savedData) fetchContent(country, initialDecade ?? '');
+    if (!savedData) fetchContent(country);
     fetchStreamingFloors().then(floors => setStreamingFloor(floors[country] ?? null)).catch(() => {});
   }, []);
 
@@ -367,13 +260,8 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
         setError(pendingError.current);
       } else if (pendingResult.current) {
         const data = pendingResult.current;
-        if ('tracks' in data) {
-          setTmData(data);
-          addStamp(country, { source: 'time_machine', genre: data.genre });
-        } else {
-          setRecs(data);
-          addStamp(country, { source: 'recommendation', genre: data.genres?.[0] });
-        }
+        setRecs(data);
+        addStamp(country, { source: 'recommendation', genre: data.genres?.[0] });
         haptics.success();
       } else {
         setError('Something went wrong. Please try again.');
@@ -429,34 +317,6 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
             <Text style={styles.goBackBtnText}>← Go back</Text>
           </TouchableOpacity>
         </View>
-      ) : tmData ? (
-        // ── Time Machine mode ────────────────────────────────
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.genreBadgeWrap}>
-            <TouchableOpacity
-              style={styles.genreBadge}
-              onPress={() => navigation.navigate('GenreSpotlight', { genre: tmData.genre, country })}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.genreBadgeText}>{tmData.genre}</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.tracksHeading}>Essential tracks</Text>
-          {tmData.tracks.map((track, i) => (
-            <TrackRow
-              key={i}
-              track={track}
-              index={i + 1}
-              favoritesHook={favoritesHook}
-              country={country}
-              genre={tmData.genre}
-              onNeedAuth={undefined}
-              isTester={auth.isTester}
-              testerUserId={auth.testerUserId}
-            />
-          ))}
-          <View style={{ height: contentBottomPad }} />
-        </ScrollView>
       ) : recs ? (
         // ── Explore mode ─────────────────────────────────────
         <ScrollView ref={exploreScrollRef} style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -569,7 +429,7 @@ export function RecommendationScreen({ navigation, route, auth, stampsHook, favo
       <GlobeOverlay
         visible={globeVisible || isEnriching}
         country={isEnriching ? country : globeCountry}
-        decade={isEnriching ? (localDecadeFilter ?? '') : globeDecade}
+        decade={isEnriching ? (localDecadeFilter ?? '') : ''}
         onDone={isEnriching
           ? () => { setIsEnriching(false); setEnrichingDone(false); }
           : handleGlobeDone}
@@ -673,47 +533,6 @@ const styles = StyleSheet.create({
   dykHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dykLabel: { color: Colors.gold, fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
   dykText: { color: Colors.text, fontSize: 15, lineHeight: 23, marginTop: 10 },
-
-  // Time Machine mode
-  genreBadgeWrap: { marginBottom: 14 },
-  genreBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.goldBg, borderWidth: 1, borderColor: Colors.goldBorder,
-    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5,
-  },
-  genreBadgeText: { color: Colors.gold, fontSize: 13, fontWeight: '700' },
-  tmDesc: { color: Colors.text2, fontSize: 14, lineHeight: 21, marginBottom: 20 },
-  tracksHeading: { color: Colors.text3, fontSize: 12, fontWeight: '500', marginBottom: 10 },
-  track: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 12, borderTopWidth: 1, borderTopColor: Colors.border, gap: 12,
-  },
-  trackNumber: { color: Colors.text3, fontSize: 14, fontWeight: '700', width: 24, textAlign: 'center' },
-  trackInfo: { flex: 1 },
-  trackTitle: { color: Colors.text, fontSize: 15, fontWeight: '600' },
-  trackArtist: { color: Colors.text2, fontSize: 14, marginTop: 3 },
-  trackActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  playBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.border2,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  playBtnActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
-  playBtnDisabled: { opacity: 0.35 },
-  playBtnYouTube: { backgroundColor: 'rgba(255,0,0,0.08)', borderColor: 'rgba(255,0,0,0.25)' },
-  heartBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(240,101,101,0.08)', borderWidth: 1, borderColor: 'rgba(240,101,101,0.2)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  heartBtnActive: {
-    backgroundColor: 'rgba(240,101,101,0.18)', borderColor: 'rgba(240,101,101,0.4)',
-  },
-  openBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: Colors.blueBg, borderWidth: 1, borderColor: Colors.blueBorder,
-    alignItems: 'center', justifyContent: 'center',
-  },
 
   bottomPad: { height: 48 },
 

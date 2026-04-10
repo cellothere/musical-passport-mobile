@@ -1,18 +1,16 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Linking, ActivityIndicator,
+  View, Text, TouchableOpacity, FlatList, StyleSheet, Image,
 } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const HEART_ICON = require('../assets/favorite-music-heart-icon-png.png');
+import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
-import { FLAGS } from '../constants/flags';
+import { haptics } from '../utils/haptics';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 import type { AuthState } from '../hooks/useAuth';
 import { FloatingNav } from '../components/FloatingNav';
+import { TrackOptionsSheet } from '../components/TrackOptionsSheet';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 
 interface FavoritesHook {
@@ -26,83 +24,63 @@ interface Props {
   auth: AuthState;
 }
 
-function TrackCard({ item, onRemove }: { item: SavedDiscovery; onRemove: () => void }) {
+function TrackRow({ item, onRemove, auth }: { item: SavedDiscovery; onRemove: () => void; auth: AuthState }) {
+  const [optionsVisible, setOptionsVisible] = React.useState(false);
+  const swipeableRef = useRef<SwipeableMethods>(null);
   const track = (item.data as any).track ?? {};
   const genre = (item.data as any).genre ?? '';
-  const country = item.country;
-  const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
-
-  const trackId = track.spotifyId || track.appleId || track.deezerId || track.previewUrl || track.title;
-  const isThisTrack = currentTrackId === trackId;
-
-  const embedUrl = track.deezerId
-    ? `https://widget.deezer.com/widget/dark/track/${track.deezerId}`
-    : track.spotifyId
-    ? `https://open.spotify.com/embed/track/${track.spotifyId}?utm_source=generator`
-    : track.appleId ? `https://embed.music.apple.com/us/album/${track.appleId}` : null;
-  const youtubeUrl = track.youtubeUrl
-    ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title ?? ''} ${track.artist ?? ''}`)}`;
-  const isYouTubeOnly = !track.previewUrl && !embedUrl;
+  const artistImageUrl = (item.data as any).artistImageUrl ?? null;
 
   const openUrl = track.spotifyUrl
+    ?? track.deezerUrl
     ?? (track.spotifyId ? `https://open.spotify.com/track/${track.spotifyId}` : null)
     ?? (track.appleId ? `https://music.apple.com/us/song/${track.appleId}` : null)
     ?? `https://open.spotify.com/search/${encodeURIComponent(`${track.title ?? ''} ${track.artist ?? ''}`)}`;
 
+  const handleUnlike = () => {
+    haptics.error();
+    swipeableRef.current?.close();
+    onRemove();
+  };
+
+  const renderLeftActions = () => (
+    <TouchableOpacity style={styles.unlikeAction} onPress={handleUnlike} activeOpacity={0.8}>
+      <Ionicons name="heart-dislike" size={22} color="#fff" />
+      <Text style={styles.unlikeText}>Unlike</Text>
+    </TouchableOpacity>
+  );
+
   return (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardInfo}>
-          <Text style={styles.trackTitle} numberOfLines={1}>{track.title ?? 'Unknown track'}</Text>
-          {track.artist && <Text style={styles.trackArtist} numberOfLines={1}>{track.artist}</Text>}
-          <View style={styles.cardMeta}>
-            {genre ? (
-              <View style={styles.genreBadge}>
-                <Text style={styles.genreBadgeText}>{genre}</Text>
-              </View>
-            ) : null}
-            <Text style={styles.countryText}>{FLAGS[country] ?? '🌐'} {country}</Text>
+    <>
+      <TrackOptionsSheet
+        visible={optionsVisible}
+        onClose={() => setOptionsVisible(false)}
+        track={track}
+        country={item.country}
+        genre={genre}
+        openUrl={openUrl}
+        isExpertTester={auth.isTester}
+        userId={auth.testerUserId ?? undefined}
+      />
+      <ReanimatedSwipeable ref={swipeableRef} renderLeftActions={renderLeftActions} overshootLeft={false}>
+        <View style={styles.row}>
+          {artistImageUrl ? (
+            <Image source={{ uri: artistImageUrl }} style={styles.thumb} resizeMode="cover" />
+          ) : (
+            <View style={styles.thumbPlaceholder}>
+              <Ionicons name="musical-note" size={20} color={Colors.text3} />
+            </View>
+          )}
+          <View style={styles.info}>
+            <Text style={styles.title} numberOfLines={1}>{track.title ?? 'Unknown track'}</Text>
+            <Text style={styles.artist} numberOfLines={1}>{track.artist ?? item.country}</Text>
           </View>
-        </View>
-        <View style={styles.cardActions}>
-          <TouchableOpacity
-            style={[styles.playBtn, isThisTrack && !isYouTubeOnly && styles.playBtnActive, isYouTubeOnly && styles.playBtnYouTube]}
-            onPress={() => {
-              if (track.previewUrl) play(trackId, track.previewUrl, track.title, track.artist);
-              else if (embedUrl) WebBrowser.openBrowserAsync(embedUrl);
-              else WebBrowser.openBrowserAsync(youtubeUrl);
-            }}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            {isThisTrack && isLoading ? (
-              <ActivityIndicator size="small" color={Colors.gold} />
-            ) : isYouTubeOnly ? (
-              <Ionicons name="logo-youtube" size={18} color="#FF0000" />
-            ) : (
-              <Ionicons
-                name={isThisTrack && isPlaying ? 'pause' : 'play'}
-                size={18}
-                color={isThisTrack ? Colors.gold : Colors.text2}
-              />
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.openBtn}
-            onPress={() => Linking.openURL(openUrl)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="open-outline" size={18} color={Colors.blue} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onRemove}
-            style={styles.removeBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="heart" size={18} color={Colors.red} />
+          <TouchableOpacity style={styles.moreBtn} onPress={() => { haptics.light(); setOptionsVisible(true); }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Ionicons name="ellipsis-horizontal" size={20} color={Colors.text3} />
           </TouchableOpacity>
         </View>
-      </View>
-    </View>
+      </ReanimatedSwipeable>
+    </>
   );
 }
 
@@ -122,33 +100,29 @@ export function SavedScreen({ navigation, favoritesHook, auth }: Props) {
         >
           <Ionicons name="chevron-back" size={24} color={Colors.blue} />
         </TouchableOpacity>
-        <View style={styles.headerTitleRow}>
-          <Image source={HEART_ICON} style={{ width: 22, height: 22 }} />
-          <Text style={styles.headerTitle}>Saved Songs</Text>
-        </View>
+        <Text style={styles.headerTitle}>Liked Songs</Text>
+        <View style={{ width: 32 }} />
       </View>
 
       {tracks.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="heart-outline" size={48} color={Colors.text3} />
-          <Text style={styles.emptyTitle}>No saved songs yet</Text>
-          <Text style={styles.emptyText}>
-            Tap the heart icon on any track to save it here.
-          </Text>
+          <Text style={styles.emptyTitle}>No liked songs yet</Text>
+          <Text style={styles.emptyText}>Tap the heart on any track to save it here.</Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <Text style={styles.countLabel}>{tracks.length} saved</Text>
-          {tracks.map(item => (
-            <TrackCard
-              key={item.id}
-              item={item}
-              onRemove={() => favoritesHook.remove(item.id)}
-            />
-          ))}
-          <View style={{ height: contentBottomPad }} />
-        </ScrollView>
+        <FlatList
+          data={tracks}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <TrackRow item={item} onRemove={() => favoritesHook.remove(item.id)} auth={auth} />
+          )}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          contentContainerStyle={{ paddingBottom: contentBottomPad }}
+          showsVerticalScrollIndicator={false}
+        />
       )}
+
       <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} />
     </SafeAreaView>
   );
@@ -158,57 +132,58 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
 
   header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
-    gap: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
-  backBtn: { padding: 4 },
-  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
+  backBtn: { width: 32 },
+  headerTitle: { color: Colors.text, fontSize: 17, fontWeight: '700' },
 
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 },
   emptyTitle: { color: Colors.text, fontSize: 18, fontWeight: '700' },
   emptyText: { color: Colors.text2, fontSize: 15, textAlign: 'center', lineHeight: 22 },
 
-  content: { padding: 16 },
-  countLabel: {
-    color: Colors.text3, fontSize: 11, fontWeight: '700',
-    letterSpacing: 0.8, textTransform: 'uppercase',
-    marginBottom: 12,
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: Colors.bg,
+    gap: 14,
   },
+  thumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  thumbPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 4,
+    backgroundColor: Colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  info: { flex: 1, minWidth: 0, gap: 4 },
+  title: { color: Colors.text, fontSize: 15, fontWeight: '600' },
+  artist: { color: Colors.text3, fontSize: 13 },
+  moreBtn: { paddingHorizontal: 4 },
 
-  card: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1, borderColor: Colors.border,
-    borderRadius: 14, marginBottom: 10, overflow: 'hidden',
+  separator: { height: 1, backgroundColor: Colors.border, marginLeft: 82 },
+
+  unlikeAction: {
+    backgroundColor: Colors.red,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    flexDirection: 'column',
+    gap: 4,
   },
-  cardHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    padding: 14, gap: 12,
-  },
-  cardInfo: { flex: 1 },
-  trackTitle: { color: Colors.text, fontSize: 16, fontWeight: '700', marginBottom: 2 },
-  trackArtist: { color: Colors.text2, fontSize: 14, marginBottom: 8 },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  genreBadge: {
-    backgroundColor: Colors.purpleBg, borderWidth: 1, borderColor: Colors.purpleBorder,
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3,
-  },
-  genreBadgeText: { color: Colors.purple, fontSize: 11, fontWeight: '600' },
-  countryText: { color: Colors.text3, fontSize: 11 },
-  cardActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  playBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.border2,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  playBtnActive: { backgroundColor: Colors.goldBg, borderColor: Colors.goldBorder },
-  playBtnYouTube: { backgroundColor: 'rgba(255,0,0,0.08)', borderColor: 'rgba(255,0,0,0.25)' },
-  openBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: Colors.blueBg, borderWidth: 1, borderColor: Colors.blueBorder,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  removeBtn: { padding: 4 },
+  unlikeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 });

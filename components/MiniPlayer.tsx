@@ -5,6 +5,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
+import { haptics } from '../utils/haptics';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 
 // ── Animated equalizer bars ───────────────────────────────
@@ -112,7 +113,7 @@ export function MiniPlayer() {
               <ActivityIndicator size="small" color={Colors.gold} />
             </View>
           ) : (
-            <TouchableOpacity style={styles.controlBtn} onPress={togglePlay} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.controlBtn} onPress={() => { haptics.light(); togglePlay(); }} activeOpacity={0.7}>
               <Ionicons
                 name={isPlaying ? 'pause' : 'play'}
                 size={20}

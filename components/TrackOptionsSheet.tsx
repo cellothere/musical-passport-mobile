@@ -3,8 +3,22 @@ import {
   Modal, View, Text, TouchableOpacity, Share, Linking, Alert,
   StyleSheet, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import Svg, { Path, G } from 'react-native-svg';
 import { Colors } from '../constants/colors';
+
+function DeezerLogo({ size, color }: { size: number; color: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0.5 115 115">
+      <G fill={color}>
+        <Path d="m100.804 7.99168c-1.7301.00606-3.2894 3.88512-4.3536 10.05142-1.7235-10.63022-4.5283-17.5431-7.6826-17.5431-3.756 0-7.0079 9.7742-8.5445 23.9668-1.5121-10.3285-3.7966-16.91534-6.3493-16.91534-3.5853 0-6.634 12.95354-7.764 31.01834-2.1219-9.2607-5.195-15.0731-8.6013-15.0731-3.4064 0-6.4795 5.8124-8.6014 15.0731-1.13-18.0648-4.1787-31.01834-7.7639-31.01834-2.5609 0-4.8454 6.58684-6.3494 16.91534-1.5447-14.1926-4.7966-23.9668-8.5526-23.9668-3.1625 0-5.9591 6.91288-7.6827 17.5431-1.0731-6.1629-2.6259-10.05143-4.3575-10.05143-3.2276 0-5.84536 13.45893-5.84536 30.06453s2.61776 30.0645 5.84536 30.0645c1.3251 0 2.5527-2.2744 3.5283-6.114 1.5528 14.0214 4.7803 23.657 8.5119 23.657 2.8942 0 5.4795-5.7879 7.2193-14.9181 1.1951 17.3637 4.1787 29.6814 7.6745 29.6814 2.2032 0 4.2031-4.8831 5.6746-12.8312 1.7723 16.4102 5.8941 27.9042 10.6907 27.9042s8.9103-11.494 10.6907-27.9042c1.4796 7.9481 3.4796 12.8312 5.6746 12.8312 3.4958 0 6.4876-12.3177 7.6746-29.6814 1.7397 9.1302 4.3332 14.9181 7.2192 14.9181 3.7316 0 6.9591-9.6356 8.5119-23.657.9837 3.8314 2.2032 6.114 3.5285 6.114 3.227 0 5.845-13.4589 5.845-30.0645 0-16.5986-2.615-30.05323-5.841-30.06452z" />
+        <Path d="m3.31727 48.5447c1.83207 0 3.31726-6.018 3.31726-13.4415 0-7.4236-1.48519-13.4416-3.31726-13.4416-1.83208 0-3.31727 6.018-3.31727 13.4416 0 7.4235 1.48519 13.4415 3.31727 13.4415z" />
+        <Path d="m115 35.1032c0 7.4235-1.485 13.4415-3.317 13.4415s-3.318-6.018-3.318-13.4415c0-7.4236 1.486-13.4416 3.318-13.4416s3.317 6.018 3.317 13.4416z" />
+      </G>
+    </Svg>
+  );
+}
+import { haptics } from '../utils/haptics';
 import { flagTrack } from '../services/api';
 import type { Track } from '../services/api';
 
@@ -23,14 +37,16 @@ const SERVICE_OPTIONS = [
   {
     key: 'apple',
     label: 'Open in Apple Music',
-    icon: 'musical-notes' as const,
+    iconLib: 'fa5' as const,
+    icon: 'apple' as const,
     color: '#fc3c44',
     getUrl: (track: Track) => track.appleId ? `https://music.apple.com/song/${track.appleId}` : null,
   },
   {
     key: 'spotify',
     label: 'Open in Spotify',
-    icon: 'musical-note' as const,
+    iconLib: 'fa5' as const,
+    icon: 'spotify' as const,
     color: '#1DB954',
     getUrl: (track: Track) => {
       if (track.spotifyId) return `spotify:track:${track.spotifyId}`;
@@ -41,8 +57,9 @@ const SERVICE_OPTIONS = [
   {
     key: 'deezer',
     label: 'Open in Deezer',
-    icon: 'headset' as const,
-    color: '#ef5466',
+    iconLib: 'deezer' as const,
+    icon: 'deezer' as const,
+    color: '#a238ff',
     getUrl: (track: Track) => {
       // Use deezer:// scheme so the app opens directly instead of the browser.
       // handleOpenService falls back to https://www.deezer.com/ if the app isn't installed.
@@ -70,6 +87,7 @@ export function TrackOptionsSheet({
     .filter(s => s.url != null) as (typeof SERVICE_OPTIONS[number] & { url: string })[];
 
   async function handleOpenService(url: string) {
+    haptics.light();
     const canOpen = await Linking.canOpenURL(url).catch(() => false);
     if (canOpen) {
       Linking.openURL(url);
@@ -94,6 +112,7 @@ export function TrackOptionsSheet({
   }
 
   async function handleShare() {
+    haptics.light();
     await Share.share({
       message: `${track.title}${track.artist ? ` · ${track.artist}` : ''}\n${openUrl}`,
     });
@@ -101,6 +120,7 @@ export function TrackOptionsSheet({
   }
 
   async function handleSubmitFlag() {
+    haptics.light();
     setSubmitting(true);
     try {
       await flagTrack({
@@ -113,6 +133,7 @@ export function TrackOptionsSheet({
         comment: comment.trim() || null,
         userId: userId ?? null,
       });
+      haptics.success();
       setSubmitted(true);
     } catch {
       // Silently fail — don't block the expert tester
@@ -145,7 +166,9 @@ export function TrackOptionsSheet({
               {serviceOptions.length > 0 ? (
                 serviceOptions.map(s => (
                   <TouchableOpacity key={s.key} style={styles.option} onPress={() => handleOpenService(s.url)}>
-                    <Ionicons name={s.icon} size={20} color={s.color} />
+                    {s.iconLib === 'deezer'
+                      ? <DeezerLogo size={20} color={s.color} />
+                      : <FontAwesome5 name={s.icon} size={20} color={s.color} brand />}
                     <Text style={[styles.optionText, { color: s.color }]}>{s.label}</Text>
                   </TouchableOpacity>
                 ))
@@ -157,7 +180,7 @@ export function TrackOptionsSheet({
               ) : null}
 
               {isExpertTester && (
-                <TouchableOpacity style={styles.option} onPress={() => setFlagging(true)}>
+                <TouchableOpacity style={styles.option} onPress={() => { haptics.light(); setFlagging(true); }}>
                   <Ionicons name="flag-outline" size={20} color={Colors.gold} />
                   <Text style={[styles.optionText, { color: Colors.gold }]}>Flag for Review</Text>
                 </TouchableOpacity>

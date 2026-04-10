@@ -39,8 +39,9 @@ export const MODERN_REGIONS: Region[] = [
     "Tajikistan","Thailand","Timor-Leste","Turkmenistan","Uzbekistan","Vietnam",
   ] },
   { name: "Oceania", countries: [
-    "Australia","Fiji","Kiribati","Marshall Islands","Micronesia","Nauru","New Zealand","Palau",
+    "Australia","Fiji","Kiribati","Marshall Islands","Micronesia","Nauru","New Zealand",
     "Papua New Guinea","Samoa","Solomon Islands","Tonga","Tuvalu","Vanuatu","Hawaii",
+    // "Palau" we don't have enough data for Palau yet.
   ] },
   { name: "North America", countries: ["Canada","USA"] },
 ];

@@ -258,10 +258,12 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
     if (onNeedAuth) { onNeedAuth(); return; }
     if (!favoritesHook) return;
     if (isSaved) {
+      haptics.error();
       const entry = favoritesHook.findSavedTrack(trackId);
       if (entry) await favoritesHook.remove(entry.id);
     } else {
-      await favoritesHook.save({ type: 'track', country: country ?? '', data: { trackId, track, genre: artistGenre ?? '', country: country ?? '' } });
+      haptics.success();
+      await favoritesHook.save({ type: 'track', country: country ?? '', data: { trackId, track, genre: artistGenre ?? '', country: country ?? '', artistImageUrl: artworkUrl ?? null } });
     }
   };
 
@@ -285,6 +287,7 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
     ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
 
   const handlePlay = () => {
+    haptics.light();
     if (track.previewUrl) {
       play(trackId, track.previewUrl, track.title, track.artist, artworkUrl);
     } else if (embedUrl) {
@@ -335,7 +338,7 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
             <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={18} color={Colors.red} />
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={styles.moreBtn} onPress={() => setOptionsVisible(true)}>
+        <TouchableOpacity style={styles.moreBtn} onPress={() => { haptics.light(); setOptionsVisible(true); }}>
           <Ionicons name="ellipsis-horizontal" size={16} color={Colors.text3} />
         </TouchableOpacity>
       </View>

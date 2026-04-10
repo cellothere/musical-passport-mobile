@@ -369,15 +369,17 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
   const isSaved = favoritesHook.isTrackSaved(trackId);
   const toggleSave = async () => {
     if (isSaved) {
+      haptics.error();
       const entry = favoritesHook.findSavedTrack(trackId);
       if (entry) await favoritesHook.remove(entry.id);
     } else {
-      haptics.light();
-      await favoritesHook.save({ type: 'track', country, data: { trackId, track, genre, country } });
+      haptics.success();
+      await favoritesHook.save({ type: 'track', country, data: { trackId, track, genre, country, artistImageUrl: artworkUrl ?? null } });
     }
   };
 
   const handlePlay = () => {
+    haptics.light();
     if (track.previewUrl) {
       play(trackId, track.previewUrl, track.title, track.artist, artworkUrl ?? undefined);
     } else if (embedUrl) {
@@ -419,7 +421,7 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
         <TouchableOpacity style={[styles.heartBtn, isSaved && styles.heartBtnActive]} onPress={toggleSave}>
           <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={17} color={Colors.red} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.moreBtn} onPress={() => setOptionsVisible(true)}>
+        <TouchableOpacity style={styles.moreBtn} onPress={() => { haptics.light(); setOptionsVisible(true); }}>
           <Ionicons name="ellipsis-horizontal" size={17} color={Colors.text2} />
         </TouchableOpacity>
       </View>

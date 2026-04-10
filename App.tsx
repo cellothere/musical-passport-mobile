@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LandingScreen } from './screens/LandingScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { RecommendationScreen } from './screens/RecommendationScreen';
@@ -189,13 +190,15 @@ function AppNavigator() {
 export default function App() {
   const [splashDone, setSplashDone] = useState(false);
 return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
-      <AudioPlayerProvider>
-        <AppNavigator />
-      </AudioPlayerProvider>
-{!splashDone && <SplashAnimation onDone={() => setSplashDone(true)} />}
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <AudioPlayerProvider>
+          <AppNavigator />
+        </AudioPlayerProvider>
+        {!splashDone && <SplashAnimation onDone={() => setSplashDone(true)} />}
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
