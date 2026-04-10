@@ -3,14 +3,50 @@ export interface Region {
   countries: string[];
 }
 
+export const MODERN_REGIONS: Region[] = [
+  { name: "Europe", countries: [
+    "Albania","Andorra","Austria","Belarus","Belgium","Bosnia","Bulgaria","Croatia","Cyprus",
+    "Czechia","Denmark","England","Estonia","Finland","France","Germany","Greece","Hungary",
+    "Iceland","Ireland","Italy","Kosovo","Latvia","Liechtenstein","Lithuania","Luxembourg",
+    "Malta","Moldova","Monaco","Montenegro","Netherlands","North Macedonia","Norway","Poland",
+    "Portugal","Romania","Russia","San Marino","Scotland","Serbia","Slovakia","Slovenia",
+    "Spain","Sweden","Switzerland","Turkey","Ukraine","United Kingdom","Vatican City","Wales",
+  ] },
+  { name: "Latin America", countries: [
+    "Antigua and Barbuda","Argentina","Bahamas","Barbados","Belize","Bolivia","Brazil","Chile",
+    "Colombia","Costa Rica","Cuba","Dominica","Dominican Republic","Ecuador","El Salvador",
+    "Grenada","Guatemala","Guyana","Haiti","Honduras","Jamaica","Mexico","Nicaragua","Panama",
+    "Paraguay","Peru","Puerto Rico","Saint Kitts and Nevis","Saint Lucia",
+    "Saint Vincent and the Grenadines","Suriname","Trinidad & Tobago","Uruguay","Venezuela",
+  ] },
+  { name: "Africa", countries: [
+    "Algeria","Angola","Benin","Botswana","Burkina Faso","Burundi","Cameroon","Cape Verde",
+    "Central African Republic","Chad","Comoros","Congo","DR Congo","Djibouti","Egypt",
+    "Equatorial Guinea","Eritrea","Eswatini","Ethiopia","Gabon","Gambia","Ghana","Guinea",
+    "Guinea-Bissau","Ivory Coast","Kenya","Lesotho","Liberia","Libya","Madagascar","Malawi",
+    "Mali","Mauritania","Mauritius","Morocco","Mozambique","Namibia","Niger","Nigeria","Rwanda",
+    "Sao Tome & Principe","Senegal","Seychelles","Sierra Leone","Somalia","South Africa",
+    "South Sudan","Sudan","Tanzania","Togo","Tunisia","Uganda","Zambia","Zimbabwe",
+  ] },
+  { name: "Middle East", countries: [
+    "Armenia","Azerbaijan","Bahrain","Georgia","Iran","Iraq","Israel","Jordan","Kuwait","Lebanon",
+    "Oman","Palestine","Qatar","Saudi Arabia","Syria","UAE","Yemen",
+  ] },
+  { name: "Asia", countries: [
+    "Afghanistan","Bangladesh","Bhutan","Brunei","Cambodia","China","Hong Kong","India","Indonesia",
+    "Japan","Kazakhstan","Kyrgyzstan","Laos","Malaysia","Maldives","Mongolia","Myanmar","Nepal",
+    "North Korea","Pakistan","Philippines","Singapore","South Korea","Sri Lanka","Taiwan",
+    "Tajikistan","Thailand","Timor-Leste","Turkmenistan","Uzbekistan","Vietnam",
+  ] },
+  { name: "Oceania", countries: [
+    "Australia","Fiji","Kiribati","Marshall Islands","Micronesia","Nauru","New Zealand","Palau",
+    "Papua New Guinea","Samoa","Solomon Islands","Tonga","Tuvalu","Vanuatu","Hawaii",
+  ] },
+  { name: "North America", countries: ["Canada","USA"] },
+];
+
 export const REGIONS: Region[] = [
-  { name: "Europe", countries: ["France","Germany","Sweden","Norway","Portugal","Spain","Italy","Greece","Poland","Iceland","Finland","Ireland","Netherlands","Romania","Serbia","Ukraine","Hungary","Czechia","Turkey","Belgium","Switzerland","Austria","Denmark","England","Scotland","Wales","Croatia","Bulgaria","Slovakia","Slovenia","Lithuania","Latvia","Estonia","Albania","North Macedonia","Bosnia","Kosovo","Montenegro","Luxembourg","Malta","Cyprus"] },
-  { name: "Latin America", countries: ["Brazil","Argentina","Colombia","Cuba","Mexico","Chile","Peru","Jamaica","Venezuela","Bolivia","Ecuador","Panama","Uruguay","Paraguay","Costa Rica","Dominican Republic","Puerto Rico","Guatemala","Honduras","El Salvador","Nicaragua","Belize","Guyana","Suriname","Trinidad & Tobago","Barbados","Haiti"] },
-  { name: "Africa", countries: ["Nigeria","Ghana","Senegal","Mali","Ethiopia","Eritrea", "South Africa","Egypt","Cameroon","Congo","Kenya","Algeria","Morocco","Tanzania","Ivory Coast","Angola","Mozambique","Zimbabwe","Uganda","Rwanda","Zambia","Tunisia","Libya","Sudan","Guinea","Burkina Faso","Benin","Togo","Sierra Leone","Liberia","Namibia","Botswana","Malawi","Madagascar","Mauritius","Cape Verde"] },
-  { name: "Middle East", countries: ["Lebanon","Iran","Israel","Saudi Arabia","Armenia","Azerbaijan","Georgia","Iraq","Syria","Jordan","Yemen","Oman","UAE","Kuwait","Qatar","Bahrain","Palestine"] },
-  { name: "Asia", countries: ["Japan","South Korea","India","China","Indonesia","Thailand","Vietnam","Philippines","Pakistan","Bangladesh","Taiwan","Mongolia","Myanmar","Cambodia","Laos","Malaysia","Singapore","Sri Lanka","Nepal","Afghanistan","Kazakhstan","Uzbekistan","Tajikistan","Kyrgyzstan","Turkmenistan","Hong Kong"] },
-  { name: "Oceania", countries: ["Australia","New Zealand","Papua New Guinea","Fiji","Samoa","Tonga","Vanuatu","Solomon Islands","Hawaii"] },
-  { name: "North America", countries: ["USA","Canada"] },
+  ...MODERN_REGIONS,
   { name: "Indigenous Nations", countries: [
     "Māori Nation",
     "Aboriginal Australia",

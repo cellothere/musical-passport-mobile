@@ -134,7 +134,8 @@ function AppNavigator() {
         <Stack.Screen name="GenreSpotlight">
           {props => (
             <GenreSpotlightScreen
-              {...props}
+              navigation={props.navigation as any}
+              route={props.route as any}
               service={auth.service}
               favoritesHook={favoritesHook}
               auth={auth}
@@ -157,7 +158,8 @@ function AppNavigator() {
         <Stack.Screen name="GenreArtists">
           {props => (
             <GenreArtistsScreen
-              {...props}
+              navigation={props.navigation as any}
+              route={props.route as any}
               service={auth.service}
               favoritesHook={favoritesHook}
               auth={auth}
@@ -167,7 +169,8 @@ function AppNavigator() {
         <Stack.Screen name="DecadeSpotlight">
           {props => (
             <DecadeSpotlightScreen
-              {...props}
+              navigation={props.navigation as any}
+              route={props.route as any}
               service={auth.service}
               favoritesHook={favoritesHook}
               auth={auth}

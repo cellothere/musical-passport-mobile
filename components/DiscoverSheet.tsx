@@ -103,9 +103,9 @@ export function DiscoverSheet({ visible, onClose, onSoundAlike, onGenreGo }: Pro
       <GenrePanel
         visible={genrePanelVisible}
         onClose={() => setGenrePanelVisible(false)}
-        onGo={(genre, country) => {
+        onGo={(genre: string) => {
           setGenrePanelVisible(false);
-          onGenreGo(genre, country);
+          onGenreGo(genre);
         }}
       />
     </>

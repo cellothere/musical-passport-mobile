@@ -32,6 +32,7 @@ export const COUNTRY_COORDS: Record<string, Coords> = {
   Switzerland:      { lat: 46.82,  lng: 8.23   },
   Austria:          { lat: 47.52,  lng: 14.55  },
   Denmark:          { lat: 56.26,  lng: 9.50   },
+  England:          { lat: 52.36,  lng: -1.17  },
   Scotland:         { lat: 56.49,  lng: -4.20  },
   Wales:            { lat: 52.13,  lng: -3.78  },
   Croatia:          { lat: 45.10,  lng: 15.20  },
@@ -49,6 +50,7 @@ export const COUNTRY_COORDS: Record<string, Coords> = {
   Luxembourg:       { lat: 49.82,  lng: 6.13   },
   Malta:            { lat: 35.94,  lng: 14.38  },
   Cyprus:           { lat: 35.13,  lng: 33.43  },
+  Moldova:          { lat: 47.41,  lng: 28.37  },
 
   // ── Latin America ────────────────────────────────────────
   Brazil:               { lat: -14.24, lng: -51.93 },

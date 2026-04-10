@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { FLAGS } from '../constants/flags';
+import { MODERN_REGIONS } from '../constants/regions';
 import { InsightsPick, StampRecord } from '../services/api';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
@@ -17,71 +18,25 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const STAMP_W = (SCREEN_W - 52) / 2;
 
 // ── Continent definitions ────────────────────────────────
-const CONTINENTS: Record<string, { color: string; countries: string[] }> = {
-  'North America': {
-    color: '#3b82f6',
-    countries: ['USA', 'Canada', 'Mexico', 'Hawaii'],
-  },
-  'Latin America': {
-    color: '#10b981',
-    countries: [
-      'Brazil', 'Argentina', 'Colombia', 'Cuba', 'Chile', 'Peru', 'Jamaica',
-      'Venezuela', 'Bolivia', 'Ecuador', 'Panama', 'Uruguay', 'Paraguay',
-      'Costa Rica', 'Dominican Republic', 'Puerto Rico', 'Guatemala', 'Honduras',
-      'El Salvador', 'Nicaragua', 'Trinidad & Tobago', 'Barbados', 'Haiti',
-      'Guyana', 'Suriname',
-    ],
-  },
-  'Europe': {
-    color: '#8b5cf6',
-    countries: [
-      'France', 'Germany', 'UK', 'England', 'Spain', 'Italy', 'Portugal',
-      'Netherlands', 'Belgium', 'Sweden', 'Norway', 'Denmark', 'Finland',
-      'Switzerland', 'Austria', 'Poland', 'Ukraine', 'Greece', 'Turkey',
-      'Romania', 'Serbia', 'Croatia', 'Hungary', 'Czechia', 'Scotland',
-      'Ireland', 'Iceland', 'Slovakia', 'Slovenia', 'Bulgaria', 'Bosnia',
-      'Albania', 'North Macedonia', 'Kosovo', 'Montenegro', 'Lithuania',
-      'Latvia', 'Estonia', 'Luxembourg', 'Malta', 'Cyprus', 'Wales',
-    ],
-  },
-  'Africa': {
-    color: '#f59e0b',
-    countries: [
-      'Nigeria', 'Ghana', 'Senegal', 'Mali', 'Ethiopia', 'South Africa',
-      'Egypt', 'Cameroon', 'Congo', 'Kenya', 'Algeria', 'Morocco', 'Tanzania',
-      'Ivory Coast', 'Angola', 'Mozambique', 'Zimbabwe', 'Uganda', 'Rwanda',
-      'Zambia', 'Tunisia', 'Libya', 'Sudan', 'Guinea', 'Burkina Faso',
-      'Benin', 'Togo', 'Sierra Leone', 'Liberia', 'Namibia', 'Botswana',
-      'Malawi', 'Madagascar', 'Mauritius', 'Cape Verde', 'Eritrea',
-      'Somalia', 'Djibouti',
-    ],
-  },
-  'Middle East': {
-    color: '#f97316',
-    countries: [
-      'Lebanon', 'Iran', 'Israel', 'Saudi Arabia', 'Armenia', 'Azerbaijan',
-      'Georgia', 'Iraq', 'Syria', 'Jordan', 'Yemen', 'Oman', 'UAE',
-      'Kuwait', 'Qatar', 'Bahrain', 'Palestine',
-    ],
-  },
-  'Asia': {
-    color: '#ec4899',
-    countries: [
-      'Japan', 'South Korea', 'India', 'China', 'Indonesia', 'Thailand',
-      'Vietnam', 'Philippines', 'Pakistan', 'Bangladesh', 'Taiwan', 'Mongolia',
-      'Myanmar', 'Cambodia', 'Laos', 'Malaysia', 'Singapore', 'Sri Lanka',
-      'Nepal', 'Afghanistan', 'Kazakhstan', 'Uzbekistan', 'Tajikistan',
-      'Kyrgyzstan', 'Turkmenistan', 'Hong Kong',
-    ],
-  },
-  'Oceania': {
-    color: '#06b6d4',
-    countries: [
-      'Australia', 'New Zealand', 'Papua New Guinea', 'Fiji',
-      'Vanuatu', 'Solomon Islands', 'Tonga', 'Samoa',
-    ],
-  },
+const CONTINENT_COLORS: Record<string, string> = {
+  'North America': '#3b82f6',
+  'Latin America': '#10b981',
+  'Europe': '#8b5cf6',
+  'Africa': '#f59e0b',
+  'Middle East': '#f97316',
+  'Asia': '#ec4899',
+  'Oceania': '#06b6d4',
 };
+
+const CONTINENTS: Record<string, { color: string; countries: string[] }> = Object.fromEntries(
+  MODERN_REGIONS.map(region => [
+    region.name,
+    {
+      color: CONTINENT_COLORS[region.name] ?? Colors.purple,
+      countries: region.countries,
+    },
+  ])
+);
 
 // ── Flag colors ─────────────────────────────────────────
 const STAMP_COLORS: Record<string, string> = {
