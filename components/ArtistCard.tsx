@@ -74,7 +74,14 @@ export function ArtistCard({
     setLoading(true);
     try {
       const data = await fetchArtistTracks(artist.name, resolveService(service));
-      setTracks(data.tracks);
+      const seen = new Set<string>();
+      const unique = data.tracks.filter(t => {
+        const id = t.appleId || t.spotifyId || t.previewUrl || t.title;
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+      setTracks(unique);
       setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to load tracks');
