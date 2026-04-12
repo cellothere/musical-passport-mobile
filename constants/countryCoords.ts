@@ -190,7 +190,7 @@ export const COUNTRY_COORDS: Record<string, Coords> = {
   Ceylon:                 { lat: 7.87,   lng: 80.77  },
   Rhodesia:               { lat: -19.02, lng: 29.15  },
   Zaire:                  { lat: -0.23,  lng: 15.83  },
-  Siam:                   { lat: 15.87,  lng: 100.99 },
+  // Siam:                   { lat: 15.87,  lng: 100.99 },
   'Byzantine Empire':     { lat: 41.01,  lng: 28.98  },
   Prussia:                { lat: 54.00,  lng: 19.00  },
   'Austro-Hungarian Empire': { lat: 47.50, lng: 17.00 },

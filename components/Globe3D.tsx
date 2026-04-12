@@ -139,6 +139,14 @@ function getTouchAngle(t0, t1) {
 
 const canvas = renderer.domElement;
 
+// Recover from WebGL context loss (iOS reclaims GPU memory when the view is
+// hidden or under memory pressure). A full page reload re-initialises Three.js
+// and the WebGL context cleanly.
+canvas.addEventListener('webglcontextlost', e => {
+  e.preventDefault();
+  setTimeout(() => window.location.reload(), 100);
+}, false);
+
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
   autoRotate = false;
@@ -289,6 +297,7 @@ export const Globe3D = forwardRef<Globe3DHandle, Props>(
         `);
       },
     }));
+
 
     return (
       <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden' }}>
