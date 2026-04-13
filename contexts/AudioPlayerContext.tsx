@@ -1,16 +1,26 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { useAudioPlayer as useExpoAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 
+export interface TrackMeta {
+  spotifyId?: string;
+  appleId?: string;
+  deezerId?: string;
+  deezerUrl?: string;
+  spotifyUrl?: string;
+}
+
 interface AudioPlayerState {
   currentTrackId: string | null;
   currentTrackTitle: string | null;
   currentTrackArtist: string | null;
+  currentArtworkUrl: string | null;
+  currentTrackMeta: TrackMeta | null;
   isPlaying: boolean;
   isLoading: boolean;
 }
 
 interface AudioPlayerContextValue extends AudioPlayerState {
-  play: (trackId: string, url: string, title: string, artist?: string, artworkUrl?: string) => Promise<void>;
+  play: (trackId: string, url: string, title: string, artist?: string, artworkUrl?: string, trackMeta?: TrackMeta) => Promise<void>;
   togglePlay: () => void;
   stop: () => void;
   currentTime: number;
@@ -23,6 +33,8 @@ const EMPTY: AudioPlayerState = {
   currentTrackId: null,
   currentTrackTitle: null,
   currentTrackArtist: null,
+  currentArtworkUrl: null,
+  currentTrackMeta: null,
   isPlaying: false,
   isLoading: false,
 };
@@ -59,7 +71,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     player.clearLockScreenControls();
   }, [player]);
 
-  const play = useCallback(async (trackId: string, url: string, title: string, artist?: string, artworkUrl?: string) => {
+  const play = useCallback(async (trackId: string, url: string, title: string, artist?: string, artworkUrl?: string, trackMeta?: TrackMeta) => {
     if (currentIdRef.current === trackId) {
       stop();
       return;
@@ -67,7 +79,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     switchingRef.current = true;
     currentIdRef.current = trackId;
-    setState({ currentTrackId: trackId, currentTrackTitle: title, currentTrackArtist: artist ?? null, isPlaying: true, isLoading: true });
+    setState({ currentTrackId: trackId, currentTrackTitle: title, currentTrackArtist: artist ?? null, currentArtworkUrl: artworkUrl ?? null, currentTrackMeta: trackMeta ?? null, isPlaying: true, isLoading: true });
 
     try {
       await setAudioModeAsync({

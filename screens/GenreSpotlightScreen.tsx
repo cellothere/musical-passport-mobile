@@ -381,7 +381,13 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
   const handlePlay = () => {
     haptics.light();
     if (track.previewUrl) {
-      play(trackId, track.previewUrl, track.title, track.artist, artworkUrl ?? undefined);
+      play(trackId, track.previewUrl, track.title, track.artist, artworkUrl ?? undefined, {
+        spotifyId: track.spotifyId,
+        appleId: track.appleId,
+        deezerId: track.deezerId,
+        deezerUrl: track.deezerUrl,
+        spotifyUrl: track.spotifyUrl,
+      });
     } else if (embedUrl) {
       WebBrowser.openBrowserAsync(embedUrl);
     } else {

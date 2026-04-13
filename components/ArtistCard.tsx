@@ -296,7 +296,13 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
   const handlePlay = () => {
     haptics.light();
     if (track.previewUrl) {
-      play(trackId, track.previewUrl, track.title, track.artist, artworkUrl);
+      play(trackId, track.previewUrl, track.title, track.artist, artworkUrl, {
+        spotifyId: track.spotifyId,
+        appleId: track.appleId,
+        deezerId: track.deezerId,
+        deezerUrl: track.deezerUrl,
+        spotifyUrl: track.spotifyUrl,
+      });
     } else if (embedUrl) {
       WebBrowser.openBrowserAsync(embedUrl);
     } else {
