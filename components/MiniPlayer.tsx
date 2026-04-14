@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { haptics } from '../utils/haptics';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
-import type { TrackMeta } from '../contexts/AudioPlayerContext';
+import type { TrackMeta, PreviewSource } from '../contexts/AudioPlayerContext';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -22,6 +22,18 @@ function formatTime(secs: number) {
   const m = Math.floor(secs / 60);
   const s = Math.floor(secs % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+// ── Preview source badge ──────────────────────────────────────────────────────
+
+function PreviewSourceBadge({ source }: { source: PreviewSource }) {
+  if (source === 'spotify') {
+    return <FontAwesome5 name="spotify" size={11} color="#1DB954" brand style={{ opacity: 0.85 }} />;
+  }
+  if (source === 'deezer') {
+    return <DeezerLogo size={11} color="#a238ff" />;
+  }
+  return null;
 }
 
 // ── Deezer logo ───────────────────────────────────────────────────────────────
@@ -146,7 +158,7 @@ async function openServiceUrl(url: string) {
 function PlayerModal({ onClose }: { onClose: () => void }) {
   const {
     currentTrackTitle, currentTrackArtist, currentArtworkUrl, currentTrackMeta,
-    isPlaying, isLoading, togglePlay, stop, currentTime, duration,
+    currentPreviewSource, isPlaying, isLoading, togglePlay, stop, currentTime, duration,
   } = useAudioPlayer();
 
   const insets = useSafeAreaInsets();
@@ -239,7 +251,10 @@ function PlayerModal({ onClose }: { onClose: () => void }) {
           <View style={modalStyles.trackInfo}>
             <Text style={modalStyles.title} numberOfLines={2}>{currentTrackTitle}</Text>
             {currentTrackArtist && (
-              <Text style={modalStyles.artist} numberOfLines={1}>{currentTrackArtist}</Text>
+              <View style={modalStyles.artistRow}>
+                <PreviewSourceBadge source={currentPreviewSource} />
+                <Text style={modalStyles.artist} numberOfLines={1}>{currentTrackArtist}</Text>
+              </View>
             )}
           </View>
 
@@ -383,6 +398,12 @@ const modalStyles = StyleSheet.create({
     letterSpacing: -0.3,
     marginBottom: 6,
   },
+  artistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
   artist: {
     color: Colors.text2,
     fontSize: 15,
@@ -476,7 +497,7 @@ const modalStyles = StyleSheet.create({
 export function MiniPlayer() {
   const {
     currentTrackTitle, currentTrackArtist, currentArtworkUrl,
-    isPlaying, isLoading, togglePlay, stop,
+    currentPreviewSource, isPlaying, isLoading, togglePlay, stop,
     currentTime, duration,
   } = useAudioPlayer();
 
@@ -535,7 +556,10 @@ export function MiniPlayer() {
               <Text style={styles.title} numberOfLines={1}>{currentTrackTitle}</Text>
             </View>
             {currentTrackArtist && (
-              <Text style={styles.artist} numberOfLines={1}>{currentTrackArtist}</Text>
+              <View style={styles.artistRow}>
+                <PreviewSourceBadge source={currentPreviewSource} />
+                <Text style={styles.artist} numberOfLines={1}>{currentTrackArtist}</Text>
+              </View>
             )}
           </View>
 
@@ -640,10 +664,16 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     flex: 1,
   },
+  artistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
   artist: {
     color: Colors.text2,
     fontSize: 11,
-    marginTop: 2,
+    flex: 1,
   },
   controlsRow: {
     position: 'absolute',

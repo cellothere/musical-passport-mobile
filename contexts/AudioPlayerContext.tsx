@@ -14,12 +14,23 @@ export function buildTrackMeta({ spotifyId, appleId, deezerId, deezerUrl, spotif
   return { spotifyId, appleId, deezerId, deezerUrl, spotifyUrl };
 }
 
+export type PreviewSource = 'spotify' | 'deezer' | 'apple' | null;
+
+export function getPreviewSource(url: string | undefined): PreviewSource {
+  if (!url) return null;
+  if (url.includes('scdn.co')) return 'spotify';
+  if (url.includes('dzcdn.net') || url.includes('cdnt-preview')) return 'deezer';
+  if (url.includes('itunes.apple.com') || url.includes('itunes-assets')) return 'apple';
+  return null;
+}
+
 interface AudioPlayerState {
   currentTrackId: string | null;
   currentTrackTitle: string | null;
   currentTrackArtist: string | null;
   currentArtworkUrl: string | null;
   currentTrackMeta: TrackMeta | null;
+  currentPreviewSource: PreviewSource;
   isPlaying: boolean;
   isLoading: boolean;
 }
@@ -40,6 +51,7 @@ const EMPTY: AudioPlayerState = {
   currentTrackArtist: null,
   currentArtworkUrl: null,
   currentTrackMeta: null,
+  currentPreviewSource: null,
   isPlaying: false,
   isLoading: false,
 };
@@ -90,6 +102,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       currentTrackArtist: artist ?? null,
       currentArtworkUrl: artworkUrl ?? null,
       currentTrackMeta: trackMeta ?? null,
+      currentPreviewSource: null,
       isPlaying: true,
       isLoading: true,
     });
@@ -113,6 +126,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         setState(EMPTY);
         return false;
       }
+
+      setState(s => s.currentTrackId === trackId ? { ...s, currentPreviewSource: getPreviewSource(resolvedUrl) } : s);
 
       await setAudioModeAsync({
         playsInSilentMode: true,
