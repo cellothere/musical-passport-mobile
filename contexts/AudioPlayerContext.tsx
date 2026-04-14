@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { useAudioPlayer as useExpoAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
+import { fetchPreviewUrl } from '../services/api';
 
 export interface TrackMeta {
   spotifyId?: string;
@@ -24,7 +25,7 @@ interface AudioPlayerState {
 }
 
 interface AudioPlayerContextValue extends AudioPlayerState {
-  play: (trackId: string, url: string, title: string, artist?: string, artworkUrl?: string, trackMeta?: TrackMeta) => Promise<void>;
+  play: (trackId: string, url: string | undefined, title: string, artist?: string, artworkUrl?: string, trackMeta?: TrackMeta) => Promise<boolean>;
   togglePlay: () => void;
   stop: () => void;
   currentTime: number;
@@ -75,10 +76,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     player.clearLockScreenControls();
   }, [player]);
 
-  const play = useCallback(async (trackId: string, url: string, title: string, artist?: string, artworkUrl?: string, trackMeta?: TrackMeta) => {
+  const play = useCallback(async (trackId: string, url: string | undefined, title: string, artist?: string, artworkUrl?: string, trackMeta?: TrackMeta): Promise<boolean> => {
     if (currentIdRef.current === trackId) {
       stop();
-      return;
+      return false;
     }
 
     switchingRef.current = true;
@@ -94,12 +95,31 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     });
 
     try {
+      // Fetch preview URL on-demand if not supplied
+      let resolvedUrl = url;
+      if (!resolvedUrl && trackMeta) {
+        resolvedUrl = await fetchPreviewUrl({
+          title,
+          artist,
+          deezerId: trackMeta.deezerId,
+          appleId: trackMeta.appleId,
+          spotifyId: trackMeta.spotifyId,
+        }) ?? undefined;
+      }
+
+      if (!resolvedUrl) {
+        switchingRef.current = false;
+        currentIdRef.current = null;
+        setState(EMPTY);
+        return false;
+      }
+
       await setAudioModeAsync({
         playsInSilentMode: true,
         shouldPlayInBackground: true,
         interruptionMode: 'doNotMix',
       });
-      player.replace({ uri: url });
+      player.replace({ uri: resolvedUrl });
       player.play();
       player.setActiveForLockScreen(true, {
         title,
@@ -107,11 +127,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         artworkUrl: artworkUrl ?? undefined,
       }, { showSeekForward: false, showSeekBackward: false });
       setState(s => s.currentTrackId === trackId ? { ...s, isLoading: false } : s);
+      return true;
     } catch (err) {
       console.error('Audio playback error:', err);
       switchingRef.current = false;
       currentIdRef.current = null;
       setState(EMPTY);
+      return false;
     }
   }, [player, stop]);
 

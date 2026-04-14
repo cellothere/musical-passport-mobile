@@ -400,6 +400,23 @@ export async function flagTrack(payload: TrackFlagPayload): Promise<void> {
   });
 }
 
+export async function fetchPreviewUrl(track: Pick<Track, 'deezerId' | 'appleId' | 'spotifyId' | 'title' | 'artist'>): Promise<string | null> {
+  const params = new URLSearchParams();
+  if (track.deezerId) params.set('deezerId', track.deezerId);
+  if (track.appleId) params.set('appleId', track.appleId);
+  if (track.spotifyId) params.set('spotifyId', track.spotifyId);
+  if (track.title) params.set('title', track.title);
+  if (track.artist) params.set('artist', track.artist);
+  try {
+    const res = await apiFetch(`/api/preview?${params.toString()}`);
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    return data.previewUrl ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchStreamingFloors(): Promise<Record<string, string>> {
   const res = await apiFetch('/api/streaming-floors');
   if (!res.ok) return {};

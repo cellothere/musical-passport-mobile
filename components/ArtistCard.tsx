@@ -256,7 +256,7 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
   testerUserId?: string | null;
   artworkUrl?: string;
 }) {
-  const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
+  const { play, togglePlay, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
   const [optionsVisible, setOptionsVisible] = useState(false);
   const trackId = track.spotifyId || track.appleId || track.previewUrl || `${track.title}-${index}`;
   const isSaved = favoritesHook?.isTrackSaved(trackId) ?? false;
@@ -293,10 +293,17 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
   const youtubeUrl = track.youtubeUrl
     ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.title} ${track.artist ?? ''}`)}`;
 
-  const handlePlay = () => {
+  const handlePlay = async () => {
     haptics.light();
-    if (track.previewUrl) {
-      play(trackId, track.previewUrl, track.title, track.artist, artworkUrl, buildTrackMeta(track));
+    if (isThisTrack) {
+      togglePlay();
+      return;
+    }
+    const hasIds = !!(track.deezerId || track.appleId || track.spotifyId);
+    if (hasIds) {
+      const started = await play(trackId, undefined, track.title, track.artist, artworkUrl, buildTrackMeta(track));
+      if (!started && embedUrl) WebBrowser.openBrowserAsync(embedUrl);
+      else if (!started) WebBrowser.openBrowserAsync(youtubeUrl);
     } else if (embedUrl) {
       WebBrowser.openBrowserAsync(embedUrl);
     } else {
@@ -304,7 +311,7 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
     }
   };
 
-  const isYouTubeOnly = !track.previewUrl && !embedUrl;
+  const isYouTubeOnly = !track.deezerId && !track.appleId && !track.spotifyId && !embedUrl;
 
   return (
     <View style={[styles.track, highlighted && styles.trackHighlighted]}>

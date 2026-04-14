@@ -344,7 +344,7 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
   isLast: boolean;
   artworkUrl?: string | null;
 }) {
-  const { play, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
+  const { play, togglePlay, currentTrackId, isPlaying, isLoading } = useAudioPlayer();
   const [optionsVisible, setOptionsVisible] = useState(false);
   const trackId = track.spotifyId || track.appleId || track.deezerId || `${track.title}-${track.artist ?? ''}`;
   const isThisTrack = currentTrackId === trackId;
@@ -378,10 +378,17 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
     }
   };
 
-  const handlePlay = () => {
+  const handlePlay = async () => {
     haptics.light();
-    if (track.previewUrl) {
-      play(trackId, track.previewUrl, track.title, track.artist, artworkUrl ?? undefined, buildTrackMeta(track));
+    if (isThisTrack) {
+      togglePlay();
+      return;
+    }
+    const hasIds = !!(track.deezerId || track.appleId || track.spotifyId);
+    if (hasIds) {
+      const started = await play(trackId, undefined, track.title, track.artist, artworkUrl ?? undefined, buildTrackMeta(track));
+      if (!started && embedUrl) WebBrowser.openBrowserAsync(embedUrl);
+      else if (!started) WebBrowser.openBrowserAsync(youtubeUrl);
     } else if (embedUrl) {
       WebBrowser.openBrowserAsync(embedUrl);
     } else {
@@ -389,7 +396,7 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
     }
   };
 
-  const isYouTubeOnly = !track.previewUrl && !embedUrl;
+  const isYouTubeOnly = !track.deezerId && !track.appleId && !track.spotifyId && !embedUrl;
 
   return (
     <View style={[styles.track, isLast && styles.trackLast]}>
