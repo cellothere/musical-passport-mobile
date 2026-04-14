@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Animated,
   Modal, Image, Share, Linking, Alert, Platform,
@@ -143,7 +143,7 @@ async function openServiceUrl(url: string) {
 
 // ── Full Player Modal ─────────────────────────────────────────────────────────
 
-function PlayerModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+function PlayerModal({ onClose }: { onClose: () => void }) {
   const {
     currentTrackTitle, currentTrackArtist, currentArtworkUrl, currentTrackMeta,
     isPlaying, isLoading, togglePlay, stop, currentTime, duration,
@@ -158,19 +158,13 @@ function PlayerModal({ visible, onClose }: { visible: boolean; onClose: () => vo
   const dragY = useSharedValue(0);
 
   useEffect(() => {
-    if (visible) {
-      dragY.value = 0;
-      slideY.value = withSpring(0, { damping: 20, stiffness: 200 });
-      Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }).start();
-    } else {
-      slideY.value = 40;
-      fadeAnim.setValue(0);
-    }
-  }, [visible]);
+    slideY.value = withSpring(0, { damping: 20, stiffness: 200 });
+    Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+  }, []);
 
-  const panGesture = Gesture.Pan()
-    .activeOffsetY(10)          // only activate on clear downward move
-    .failOffsetY(-5)            // cancel if user moves up
+  const panGesture = useMemo(() => Gesture.Pan()
+    .activeOffsetY(10)
+    .failOffsetY(-5)
     .onUpdate((e) => {
       if (e.translationY > 0) dragY.value = e.translationY;
     })
@@ -180,23 +174,19 @@ function PlayerModal({ visible, onClose }: { visible: boolean; onClose: () => vo
       } else {
         dragY.value = withSpring(0, { damping: 20, stiffness: 200 });
       }
-    })
-    .onFinalize(() => {
-      // guard: if not dismissed, always snap back
-      if (dragY.value < 700) dragY.value = withSpring(0, { damping: 20, stiffness: 200 });
-    });
+    }), [onClose]);
 
   const sheetAnimStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: slideY.value + dragY.value }],
   }));
 
-  const serviceOptions = currentTrackMeta
+  const serviceOptions = useMemo(() => currentTrackMeta
     ? SERVICE_OPTIONS.map(s => ({ ...s, url: s.getUrl(currentTrackMeta) })).filter(s => s.url != null) as (typeof SERVICE_OPTIONS[number] & { url: string })[]
-    : [];
+    : [], [currentTrackMeta]);
 
-  const openUrl = currentTrackMeta
+  const openUrl = useMemo(() => currentTrackMeta
     ? (currentTrackMeta.deezerUrl ?? currentTrackMeta.spotifyUrl ?? (currentTrackMeta.spotifyId ? `https://open.spotify.com/track/${currentTrackMeta.spotifyId}` : null) ?? (currentTrackMeta.appleId ? `https://music.apple.com/us/song/${currentTrackMeta.appleId}` : null))
-    : null;
+    : null, [currentTrackMeta]);
 
   async function handleShare() {
     haptics.light();
@@ -211,7 +201,7 @@ function PlayerModal({ visible, onClose }: { visible: boolean; onClose: () => vo
   }
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <Animated.View style={[modalStyles.overlay, { opacity: fadeAnim }]}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
 
@@ -228,9 +218,6 @@ function PlayerModal({ visible, onClose }: { visible: boolean; onClose: () => vo
 
           {/* Close row */}
           <View style={modalStyles.topRow}>
-            {/* <TouchableOpacity style={modalStyles.closeBtn} onPress={onClose} hitSlop={12}>
-              <Ionicons name="chevron-down" size={22} color={Colors.text2} />
-            </TouchableOpacity> */}
             <Text style={modalStyles.nowPlayingLabel}>NOW PLAYING</Text>
             <TouchableOpacity style={modalStyles.stopBtn} onPress={handleStop} hitSlop={12}>
               <Ionicons name="close" size={20} color={Colors.text3} />
@@ -345,12 +332,6 @@ const modalStyles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 28,
   },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   stopBtn: {
     width: 36,
     height: 36,
@@ -452,14 +433,6 @@ const modalStyles = StyleSheet.create({
   servicesSection: {
     marginBottom: 16,
   },
-  servicesLabel: {
-    color: Colors.text3,
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 1.2,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
   servicesRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -525,7 +498,7 @@ export function MiniPlayer() {
 
   return (
     <>
-      <PlayerModal visible={modalOpen} onClose={() => setModalOpen(false)} />
+      {modalOpen && <PlayerModal onClose={() => setModalOpen(false)} />}
 
       <Animated.View
         style={[
@@ -566,8 +539,6 @@ export function MiniPlayer() {
             )}
           </View>
 
-          {/* Expand chevron hint */}
-          {/* <Ionicons name="chevron-up" size={14} color={Colors.text3} style={styles.chevron} /> */}
         </TouchableOpacity>
 
         {/* Controls — outside tappable body so they don't open modal */}
@@ -673,9 +644,6 @@ const styles = StyleSheet.create({
     color: Colors.text2,
     fontSize: 11,
     marginTop: 2,
-  },
-  chevron: {
-    marginRight: 2,
   },
   controlsRow: {
     position: 'absolute',

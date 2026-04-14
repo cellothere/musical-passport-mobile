@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { fetchGenreSpotlight, fetchGenreDeeper, findArtist, Track } from '../services/api';
 import { resolveService } from '../utils/defaultService';
-import { useAudioPlayer } from '../contexts/AudioPlayerContext';
+import { useAudioPlayer, buildTrackMeta } from '../contexts/AudioPlayerContext';
 import { TrackOptionsSheet } from '../components/TrackOptionsSheet';
 import type { AuthService, AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
@@ -381,13 +381,7 @@ function SpotlightTrack({ track, index, genre, country, favoritesHook, isTester,
   const handlePlay = () => {
     haptics.light();
     if (track.previewUrl) {
-      play(trackId, track.previewUrl, track.title, track.artist, artworkUrl ?? undefined, {
-        spotifyId: track.spotifyId,
-        appleId: track.appleId,
-        deezerId: track.deezerId,
-        deezerUrl: track.deezerUrl,
-        spotifyUrl: track.spotifyUrl,
-      });
+      play(trackId, track.previewUrl, track.title, track.artist, artworkUrl ?? undefined, buildTrackMeta(track));
     } else if (embedUrl) {
       WebBrowser.openBrowserAsync(embedUrl);
     } else {

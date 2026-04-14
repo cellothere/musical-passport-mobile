@@ -9,6 +9,10 @@ export interface TrackMeta {
   spotifyUrl?: string;
 }
 
+export function buildTrackMeta({ spotifyId, appleId, deezerId, deezerUrl, spotifyUrl }: TrackMeta): TrackMeta {
+  return { spotifyId, appleId, deezerId, deezerUrl, spotifyUrl };
+}
+
 interface AudioPlayerState {
   currentTrackId: string | null;
   currentTrackTitle: string | null;
@@ -79,7 +83,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     switchingRef.current = true;
     currentIdRef.current = trackId;
-    setState({ currentTrackId: trackId, currentTrackTitle: title, currentTrackArtist: artist ?? null, currentArtworkUrl: artworkUrl ?? null, currentTrackMeta: trackMeta ?? null, isPlaying: true, isLoading: true });
+    setState({
+      currentTrackId: trackId,
+      currentTrackTitle: title,
+      currentTrackArtist: artist ?? null,
+      currentArtworkUrl: artworkUrl ?? null,
+      currentTrackMeta: trackMeta ?? null,
+      isPlaying: true,
+      isLoading: true,
+    });
 
     try {
       await setAudioModeAsync({

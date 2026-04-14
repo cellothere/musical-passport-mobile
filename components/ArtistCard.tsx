@@ -11,7 +11,7 @@ import { resolveService } from '../utils/defaultService';
 import type { Artist } from '../services/api';
 import type { AuthService } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
-import { useAudioPlayer } from '../contexts/AudioPlayerContext';
+import { useAudioPlayer, buildTrackMeta } from '../contexts/AudioPlayerContext';
 import { TrackOptionsSheet } from './TrackOptionsSheet';
 import { haptics } from '../utils/haptics';
 
@@ -296,13 +296,7 @@ function TrackRow({ track, index, favoritesHook, country, onNeedAuth, artistGenr
   const handlePlay = () => {
     haptics.light();
     if (track.previewUrl) {
-      play(trackId, track.previewUrl, track.title, track.artist, artworkUrl, {
-        spotifyId: track.spotifyId,
-        appleId: track.appleId,
-        deezerId: track.deezerId,
-        deezerUrl: track.deezerUrl,
-        spotifyUrl: track.spotifyUrl,
-      });
+      play(trackId, track.previewUrl, track.title, track.artist, artworkUrl, buildTrackMeta(track));
     } else if (embedUrl) {
       WebBrowser.openBrowserAsync(embedUrl);
     } else {
