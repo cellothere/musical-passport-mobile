@@ -3,8 +3,8 @@
 
 export const GENRES: string[] = [
   // Global / Universal
-  'Pop', 'Pop Rock', 'Rock', 'Indie Rock', 'Alternative Rock', 'Hard Rock',
-  'Heavy Metal', 'Black Metal', 'Punk', 'Post-Punk', 'Hardcore',
+  'Pop', 'Pop Rock', 'Rock', 'Indie Rock', 'Alternative Rock', 'Alt Rock', 'Hard Rock',
+  'Heavy Metal', 'Black Metal', 'Punk', 'Post-Punk', 'Hardcore', 'Metal',
   'Folk', 'Country', 'Blues', 'Jazz', 'Soul', 'Funk', 'R&B',
   'Gospel', 'Classical', 'Opera', 'Ambient', 'Experimental',
   'Electronic', 'Techno', 'House', 'Deep House', 'Trance',

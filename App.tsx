@@ -182,7 +182,7 @@ function AppNavigator() {
           {props => <SavedScreen {...props} favoritesHook={favoritesHook} auth={auth} />}
         </Stack.Screen>
       </Stack.Navigator>
-      <MiniPlayer />
+      <MiniPlayer favoritesHook={favoritesHook} />
     </NavigationContainer>
   );
 }

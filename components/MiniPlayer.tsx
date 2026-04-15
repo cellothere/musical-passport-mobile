@@ -10,6 +10,7 @@ import Reanimated, {
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import Svg, { Path, G } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { SavedDiscovery } from '../hooks/useFavorites';
 import { Colors } from '../constants/colors';
 import { haptics } from '../utils/haptics';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
@@ -23,6 +24,16 @@ function formatTime(secs: number) {
   const s = Math.floor(secs % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
+
+interface TrackFavoritesHook {
+  isTrackSaved: (trackId: string) => boolean;
+  findSavedTrack: (trackId: string) => SavedDiscovery | undefined;
+  save: (item: Omit<SavedDiscovery, 'id' | 'savedAt'>) => Promise<void>;
+  remove: (id: string) => Promise<void>;
+}
+
+interface MiniPlayerProps { favoritesHook?: TrackFavoritesHook; onNeedAuth?: () => void; }
+
 
 // ── Preview source badge ──────────────────────────────────────────────────────
 
@@ -155,11 +166,35 @@ async function openServiceUrl(url: string) {
 
 // ── Full Player Modal ─────────────────────────────────────────────────────────
 
-function PlayerModal({ onClose }: { onClose: () => void }) {
+function PlayerModal({ onClose, favoritesHook, onNeedAuth }: { onClose: () => void; favoritesHook?: TrackFavoritesHook; onNeedAuth?: () => void }) {
   const {
-    currentTrackTitle, currentTrackArtist, currentArtworkUrl, currentTrackMeta,
+    currentTrackId, currentTrackTitle, currentTrackArtist, currentArtworkUrl, currentTrackMeta,
     currentPreviewSource, isPlaying, isLoading, togglePlay, stop, currentTime, duration,
   } = useAudioPlayer();
+
+  const isSaved = !!(currentTrackId && favoritesHook?.isTrackSaved(currentTrackId));
+
+  const toggleSave = async () => {
+    if (!currentTrackId) return;
+    if (!favoritesHook) { onNeedAuth?.(); return; }
+    if (isSaved) {
+      haptics.error();
+      const entry = favoritesHook.findSavedTrack(currentTrackId);
+      if (entry) await favoritesHook.remove(entry.id);
+    } else {
+      haptics.success();
+      const track = {
+        title: currentTrackTitle ?? '',
+        artist: currentTrackArtist ?? '',
+        ...(currentTrackMeta ?? {}),
+      };
+      await favoritesHook.save({
+        type: 'track',
+        country: '',
+        data: { trackId: currentTrackId, track, genre: '', country: '', artistImageUrl: currentArtworkUrl ?? null },
+      });
+    }
+  };
 
   const insets = useSafeAreaInsets();
   const progress = duration > 0 ? Math.min(currentTime / duration, 1) : 0;
@@ -306,11 +341,22 @@ function PlayerModal({ onClose }: { onClose: () => void }) {
             </View>
           )}
 
-          {/* Share */}
-          <TouchableOpacity style={modalStyles.shareBtn} onPress={handleShare} activeOpacity={0.75}>
-            <Ionicons name="share-outline" size={18} color={Colors.text2} />
-            <Text style={modalStyles.shareBtnText}>Share</Text>
-          </TouchableOpacity>
+          {/* Bottom actions */}
+          <View style={modalStyles.bottomActions}>
+            {favoritesHook && (
+              <TouchableOpacity
+                style={[modalStyles.heartBtn, isSaved && modalStyles.heartBtnActive]}
+                onPress={() => { haptics.light(); toggleSave(); }}
+                activeOpacity={0.75}
+              >
+                <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={22} color={Colors.red} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={modalStyles.shareBtn} onPress={handleShare} activeOpacity={0.75}>
+              <Ionicons name="share-outline" size={18} color={Colors.text2} />
+              <Text style={modalStyles.shareBtnText}>Share</Text>
+            </TouchableOpacity>
+          </View>
           </Reanimated.View>
         </GestureDetector>
       </Animated.View>
@@ -346,6 +392,24 @@ const modalStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 28,
+  },
+  bottomActions: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 10,
+  },
+  heartBtn: {
+    width: 56,
+    borderRadius: 12,
+    backgroundColor: 'rgba(240,101,101,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(240,101,101,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heartBtnActive: {
+    backgroundColor: 'rgba(240,101,101,0.18)',
+    borderColor: 'rgba(240,101,101,0.4)',
   },
   stopBtn: {
     width: 36,
@@ -475,6 +539,7 @@ const modalStyles = StyleSheet.create({
     fontWeight: '600',
   },
   shareBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -494,7 +559,7 @@ const modalStyles = StyleSheet.create({
 
 // ── Mini Player ───────────────────────────────────────────────────────────────
 
-export function MiniPlayer() {
+export function MiniPlayer({ favoritesHook, onNeedAuth }: MiniPlayerProps = {}) {
   const {
     currentTrackTitle, currentTrackArtist, currentArtworkUrl,
     currentPreviewSource, isPlaying, isLoading, togglePlay, stop,
@@ -519,7 +584,7 @@ export function MiniPlayer() {
 
   return (
     <>
-      {modalOpen && <PlayerModal onClose={() => setModalOpen(false)} />}
+      {modalOpen && <PlayerModal onClose={() => setModalOpen(false)} favoritesHook={favoritesHook} onNeedAuth={onNeedAuth} />}
 
       <Animated.View
         style={[
