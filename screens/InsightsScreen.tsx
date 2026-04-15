@@ -12,6 +12,7 @@ import { InsightsPick, StampRecord } from '../services/api';
 import type { AuthState } from '../hooks/useAuth';
 import type { SavedDiscovery } from '../hooks/useFavorites';
 import { FloatingNav } from '../components/FloatingNav';
+import { CountrySavesSheet } from '../components/CountrySavesSheet';
 import { haptics } from '../utils/haptics';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -105,7 +106,10 @@ interface StampDetailData {
 interface Props {
   navigation: any;
   auth: AuthState;
-  favoritesHook: { favorites: SavedDiscovery[] };
+  favoritesHook: {
+    favorites: SavedDiscovery[];
+    remove: (id: string) => Promise<void>;
+  };
   stampsHook: { stamps: Set<string>; stampRecords: StampRecord[]; addStamp: (c: string) => void };
 }
 
@@ -122,6 +126,13 @@ export function InsightsScreen({ navigation, auth, favoritesHook, stampsHook }: 
   const [detailData, setDetailData] = useState<StampDetailData | null>(null);
   const sheetAnim = useRef(new Animated.Value(SCREEN_H)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
+
+  // Country saves sheet (full playable list)
+  const [savesSheetCountry, setSavesSheetCountry] = useState<string | null>(null);
+  const savesForSheet = useMemo(
+    () => (savesSheetCountry ? favorites.filter(f => f.country === savesSheetCountry) : []),
+    [savesSheetCountry, favorites]
+  );
 
   // Per-country stats from favorites
   const countryStats = useMemo(() => {
@@ -175,11 +186,19 @@ export function InsightsScreen({ navigation, auth, favoritesHook, stampsHook }: 
     ]).start();
   };
 
-  const closeDetail = () => {
+  const closeDetail = (onClosed?: () => void) => {
     Animated.parallel([
       Animated.timing(sheetAnim, { toValue: SCREEN_H, duration: 260, useNativeDriver: true }),
       Animated.timing(backdropAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
-    ]).start(() => setDetailData(null));
+    ]).start(() => {
+      setDetailData(null);
+      onClosed?.();
+    });
+  };
+
+  const openCountrySaves = (country: string) => {
+    haptics.light();
+    closeDetail(() => setSavesSheetCountry(country));
   };
 
   const continentData = selectedContinent ? continentStats.find(c => c.name === selectedContinent) : null;
@@ -429,9 +448,9 @@ export function InsightsScreen({ navigation, auth, favoritesHook, stampsHook }: 
 
       {/* Stamp detail sheet */}
       {detailData && (
-        <Modal visible transparent animationType="none" onRequestClose={closeDetail}>
+        <Modal visible transparent animationType="none" onRequestClose={() => closeDetail()}>
           <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, { opacity: backdropAnim }]}>
-            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeDetail} />
+            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => closeDetail()} />
           </Animated.View>
           <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetAnim }], paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.sheetHandle} />
@@ -476,16 +495,25 @@ export function InsightsScreen({ navigation, auth, favoritesHook, stampsHook }: 
               </View>
             )}
 
-            {detailData.savedTracks.length > 0 && (
-              <View style={styles.sheetTracks}>
-                <Text style={styles.sheetTracksLabel}>SAVED TRACKS</Text>
-                {detailData.savedTracks.map((t, i) => (
-                  <View key={i} style={styles.sheetTrackRow}>
-                    <Ionicons name="musical-note" size={14} color={stampColor(detailData.country)} />
-                    <Text style={styles.sheetTrackTitle} numberOfLines={1}>{t}</Text>
-                  </View>
-                ))}
-              </View>
+            {detailData.saveCount > 0 && (
+              <TouchableOpacity
+                style={[styles.viewSavesRow, { borderColor: stampColor(detailData.country) + '55', backgroundColor: stampColor(detailData.country) + '12' }]}
+                onPress={() => openCountrySaves(detailData.country)}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="musical-notes" size={18} color={stampColor(detailData.country)} />
+                <View style={styles.viewSavesBody}>
+                  <Text style={[styles.viewSavesTitle, { color: stampColor(detailData.country) }]}>
+                    View all {detailData.saveCount} {detailData.saveCount === 1 ? 'save' : 'saves'}
+                  </Text>
+                  {detailData.savedTracks.length > 0 && (
+                    <Text style={styles.viewSavesPreview} numberOfLines={1}>
+                      {detailData.savedTracks.slice(0, 3).join(' · ')}
+                    </Text>
+                  )}
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={stampColor(detailData.country)} />
+              </TouchableOpacity>
             )}
 
             <TouchableOpacity
@@ -499,6 +527,14 @@ export function InsightsScreen({ navigation, auth, favoritesHook, stampsHook }: 
           </Animated.View>
         </Modal>
       )}
+
+      <CountrySavesSheet
+        visible={savesSheetCountry !== null}
+        country={savesSheetCountry}
+        saves={savesForSheet}
+        onClose={() => setSavesSheetCountry(null)}
+        onRemove={(id) => favoritesHook.remove(id)}
+      />
 
       <FloatingNav navigation={navigation} auth={auth} favorites={favoritesHook.favorites} currentScreen="Insights" />
     </SafeAreaView>
@@ -644,13 +680,14 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 16,
   },
   sheetGenreText: { fontSize: 13, fontWeight: '600' },
-  sheetTracks: { marginBottom: 16, gap: 8 },
-  sheetTracksLabel: { color: Colors.text3, fontSize: 10, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
-  sheetTrackRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.surface2, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
+  viewSavesRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12,
+    marginBottom: 16,
   },
-  sheetTrackTitle: { color: Colors.text2, fontSize: 14, flex: 1 },
+  viewSavesBody: { flex: 1 },
+  viewSavesTitle: { fontSize: 14, fontWeight: '700', letterSpacing: -0.1 },
+  viewSavesPreview: { color: Colors.text3, fontSize: 12, marginTop: 2 },
   sheetCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingVertical: 15 },
   sheetCtaText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });
