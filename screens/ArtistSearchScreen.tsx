@@ -47,6 +47,14 @@ function formatFollowers(n: number): string {
   return `${n} followers`;
 }
 
+function normalizeName(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
 export function ArtistSearchScreen({ navigation, route, service, favoritesHook, auth }: Props) {
   const insets = useSafeAreaInsets();
   const { currentTrackTitle } = useAudioPlayer();
@@ -108,6 +116,14 @@ export function ArtistSearchScreen({ navigation, route, service, favoritesHook, 
     try {
       const artist = await findArtist(q);
       setFoundArtist(artist);
+      if (normalizeName(artist.name) === normalizeName(q)) {
+        setPhase('loading');
+        const data = await fetchSimilarArtists(artist.name);
+        setMatches(data.artists);
+        setPhase('results');
+        haptics.success();
+        saveToHistory(artist.name);
+      }
     } catch (err: any) {
       setError(err.message || 'Artist not found');
       setPhase('search');
@@ -203,16 +219,12 @@ export function ArtistSearchScreen({ navigation, route, service, favoritesHook, 
         </KeyboardAvoidingView>
       )}
 
-      {/* Confirm artist */}
+      {/* Did-you-mean suggestion (only shown when query didn't exactly match) */}
       {phase === 'confirm' && foundArtist && (
         <View style={styles.confirmCard}>
+          <Text style={styles.confirmQuestion}>Did you mean…</Text>
           <View style={styles.confirmInfo}>
-            <Text style={styles.confirmName}>
-              {foundArtist.name}
-              {query.trim() && foundArtist.name.toLowerCase() !== query.trim().toLowerCase() && (
-                <Text style={styles.confirmNameRomanized}> ({query.trim()})</Text>
-              )}
-            </Text>
+            <Text style={styles.confirmName}>{foundArtist.name}</Text>
             {foundArtist.genres.length > 0 && (
               <Text style={styles.confirmMeta}>
                 {foundArtist.genres.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(' · ')}
@@ -220,7 +232,6 @@ export function ArtistSearchScreen({ navigation, route, service, favoritesHook, 
             )}
             <Text style={styles.confirmFollowers}>{formatFollowers(foundArtist.followers)}</Text>
           </View>
-          <Text style={styles.confirmQuestion}>Is this who you meant?</Text>
           <View style={styles.confirmActions}>
             <TouchableOpacity style={styles.yesBtn} onPress={handleConfirm} activeOpacity={0.8}>
               <Text style={styles.yesBtnText}>Yes, find similar artists</Text>
@@ -387,7 +398,6 @@ const styles = StyleSheet.create({
   },
   confirmInfo: { gap: 4 },
   confirmName: { color: Colors.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
-  confirmNameRomanized: { color: Colors.text2, fontSize: 16, fontWeight: '500', letterSpacing: 0 },
   confirmMeta: { color: Colors.text2, fontSize: 15 },
   confirmFollowers: { color: Colors.text3, fontSize: 13 },
   confirmQuestion: { color: Colors.text2, fontSize: 15 },
