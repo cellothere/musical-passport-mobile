@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 import { Colors } from '../constants/colors';
 import { FLAGS } from '../constants/flags';
 import { MODERN_REGIONS } from '../constants/regions';
@@ -69,7 +71,7 @@ const STAMP_COLORS: Record<string, string> = {
   'Egypt': '#CE1126', 'Morocco': '#C1272D', 'Algeria': '#006233',
   'Tunisia': '#E70013', 'Angola': '#CC0000', 'Congo': '#007FFF',
   'Tanzania': '#1EB53A', 'Ivory Coast': '#F77F00', 'Cameroon': '#007A5E',
-  'Rwanda': '#20603D', 'Uganda': '#000000', 'Mozambique': '#009A44',
+  'Rwanda': '#20603D', 'Uganda': '#FCDC04', 'Mozambique': '#009A44',
   'Zimbabwe': '#006400', 'Burkina Faso': '#EF2B2D',
   'Lebanon': '#CC2529', 'Iran': '#239F40', 'Israel': '#003399',
   'Saudi Arabia': '#006C35', 'UAE': '#00732F', 'Iraq': '#CE1126',
@@ -82,11 +84,26 @@ const STAMP_COLORS: Record<string, string> = {
   'Azerbaijan': '#0092BC', 'Armenia': '#D90012', 'Georgia': '#E30A17',
   'Kazakhstan': '#00AFCA', 'Uzbekistan': '#1EB53A',
   'Australia': '#00008B', 'New Zealand': '#00247D', 'Fiji': '#68BFE5',
-  'Papua New Guinea': '#000000', 'Hong Kong': '#DE2910',
+  'Papua New Guinea': '#CE1126', 'Hong Kong': '#DE2910',
 };
 
+// Minimum perceived brightness (0–255) to keep text legible on the dark surface.
+const MIN_LUMA = 80;
+
+function luma(hex: string): number {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return 255;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  // Rec. 601 luma
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
 function stampColor(country: string): string {
-  return STAMP_COLORS[country] ?? Colors.purple;
+  const c = STAMP_COLORS[country];
+  if (!c) return Colors.purple;
+  return luma(c) < MIN_LUMA ? Colors.purple : c;
 }
 
 function formatDate(ts: number): string {
@@ -133,6 +150,30 @@ export function InsightsScreen({ navigation, auth, favoritesHook, stampsHook }: 
     () => (savesSheetCountry ? favorites.filter(f => f.country === savesSheetCountry) : []),
     [savesSheetCountry, favorites]
   );
+
+  // Share passport card
+  const passportRef = useRef<View>(null);
+  const [sharing, setSharing] = useState(false);
+  const handleSharePassport = async () => {
+    if (sharing) return;
+    setSharing(true);
+    haptics.light();
+    try {
+      const uri = await captureRef(passportRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'My Musical Passport' });
+      }
+    } catch {
+      // swallow — user may cancel
+    } finally {
+      setSharing(false);
+    }
+  };
 
   // Per-country stats from favorites
   const countryStats = useMemo(() => {
@@ -343,14 +384,15 @@ export function InsightsScreen({ navigation, auth, favoritesHook, stampsHook }: 
           showsVerticalScrollIndicator={false}
         >
           {/* Passport cover */}
-          <View style={styles.passportCover}>
-            <View style={styles.passportCoverTop}>
-              <View>
-                <Text style={styles.passportIssuer}>MUSICAL PASSPORT</Text>
-                <Text style={styles.passportName}>World Music Explorer</Text>
+          <View style={styles.passportCoverWrap}>
+            <View ref={passportRef} collapsable={false} style={styles.passportCover}>
+              <View style={styles.passportCoverTop}>
+                <View>
+                  <Text style={styles.passportIssuer}>MUSICAL PASSPORT</Text>
+                  <Text style={styles.passportName}>World Music Explorer</Text>
+                </View>
+                <Image source={require('../assets/passport.png')} style={styles.passportImg} />
               </View>
-              <Image source={require('../assets/passport.png')} style={styles.passportImg} />
-            </View>
             <View style={styles.passportDivider} />
             <View style={styles.passportStats}>
               <View style={styles.passportStat}>
@@ -368,6 +410,22 @@ export function InsightsScreen({ navigation, auth, favoritesHook, stampsHook }: 
                 <Text style={styles.passportStatLabel}>Explored</Text>
               </View>
             </View>
+            </View>
+            <TouchableOpacity
+              style={styles.shareBtn}
+              onPress={handleSharePassport}
+              disabled={sharing}
+              activeOpacity={0.75}
+            >
+              {sharing ? (
+                <ActivityIndicator size="small" color="#e8d5a0" />
+              ) : (
+                <>
+                  <Ionicons name="share-outline" size={14} color="#e8d5a0" />
+                  <Text style={styles.shareBtnText}>Share passport</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
 
           {/* Continent cards */}
@@ -560,11 +618,22 @@ const styles = StyleSheet.create({
   },
 
   // ── Passport cover ──────────────────────────────────────
+  passportCoverWrap: { marginBottom: 24, alignItems: 'flex-end' },
   passportCover: {
-    backgroundColor: '#1a2744', borderRadius: 16, padding: 20, marginBottom: 24,
+    alignSelf: 'stretch',
+    backgroundColor: '#1a2744', borderRadius: 16, padding: 20,
     borderWidth: 1, borderColor: '#2d3d60',
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
+  shareBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginTop: 10,
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 18,
+    backgroundColor: 'rgba(26,39,68,0.9)',
+    borderWidth: 1, borderColor: 'rgba(232,213,160,0.4)',
+  },
+  shareBtnText: { color: '#e8d5a0', fontSize: 12, fontWeight: '700', letterSpacing: 0.2 },
   passportCoverTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   passportIssuer: { color: '#a8b8d8', fontSize: 10, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 },
   passportName: { color: '#e8d5a0', fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
