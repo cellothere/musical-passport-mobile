@@ -10,6 +10,8 @@ import { FLAGS } from '../constants/flags';
 import { getAllCountries, MUSIC_REGIONS } from '../constants/regions';
 import { haptics } from '../utils/haptics';
 import { DiscoverSheet } from '../components/DiscoverSheet';
+import { InfoSheet } from '../components/InfoSheet';
+import { useSettings } from '../hooks/useSettings';
 import { useFocusEffect } from '@react-navigation/native';
 import { fetchCountryOfDay, recordCountryOfDayHit, fetchRecommendations, RecommendationResponse } from '../services/api';
 import { Globe3D, Globe3DHandle } from '../components/Globe3D';
@@ -41,6 +43,8 @@ export function LandingScreen({ navigation, favoritesHook }: Props) {
   const { currentTrackTitle } = useAudioPlayer();
   const miniPlayerOffset = currentTrackTitle ? 72 : 0;
   const [discoverVisible, setDiscoverVisible] = useState(false);
+  const [infoVisible, setInfoVisible] = useState(false);
+  const { reduceMotion } = useSettings();
   const [todayEntry, setTodayEntry] = useState(getFallbackCountry());
   const todayDateRef = useRef(new Date().toISOString().slice(0, 10));
 
@@ -102,6 +106,11 @@ export function LandingScreen({ navigation, favoritesHook }: Props) {
   const triggerSurprise = () => {
     if (isSpinning) return;
     haptics.light();
+    if (reduceMotion) {
+      // Skip the visual spin; handleSpinComplete handles the reduceMotion path.
+      handleSpinComplete();
+      return;
+    }
     setIsSpinning(true);
     globeRef.current?.spinForSurprise();
   };
@@ -114,6 +123,21 @@ export function LandingScreen({ navigation, favoritesHook }: Props) {
     spinMinDoneRef.current = false;
     spinNavFiredRef.current = false;
     setSpinCountry(country);
+
+    if (reduceMotion) {
+      // Skip reveal animations and the 2s min display — navigate as soon as the fetch returns.
+      uiFadeAnim.setValue(0);
+      countryOpacityAnim.setValue(0);
+      spinMinDoneRef.current = true;
+      fetchRecommendations(country)
+        .then(data => { spinDataRef.current = data; })
+        .catch(() => {})
+        .finally(() => {
+          spinFetchDoneRef.current = true;
+          tryNavigateRef.current();
+        });
+      return;
+    }
 
     // Fade UI out + scale globe up
     Animated.parallel([
@@ -190,6 +214,7 @@ export function LandingScreen({ navigation, favoritesHook }: Props) {
               size={280}
               onTap={handleGlobeTap}
               onSpinComplete={handleSpinComplete}
+              reduceMotion={reduceMotion}
             />
           </Animated.View>
           <Animated.View style={{ opacity: uiFadeAnim }}>
@@ -212,14 +237,16 @@ export function LandingScreen({ navigation, favoritesHook }: Props) {
         </View>
       </View>
 
-      {/* Bottom-left: home button */}
+      {/* Bottom-left: info / about button */}
       <Animated.View style={[styles.homeBtn, { bottom: 32 + miniPlayerOffset, opacity: uiFadeAnim }]}>
         <TouchableOpacity
           style={styles.homeBtnInner}
-          onPress={() => { if (isSpinning) return; haptics.light(); navigation.navigate('Home'); }}
+          onPress={() => { if (isSpinning) return; haptics.light(); setInfoVisible(true); }}
           activeOpacity={0.7}
+          accessibilityLabel="About, accessibility settings, and legal info"
+          accessibilityRole="button"
         >
-          <Ionicons name="home-outline" size={22} color={Colors.text2} />
+          <Ionicons name="information-circle-outline" size={26} color={Colors.text2} />
         </TouchableOpacity>
       </Animated.View>
 
@@ -248,6 +275,8 @@ export function LandingScreen({ navigation, favoritesHook }: Props) {
           }
         }}
       />
+
+      <InfoSheet visible={infoVisible} onClose={() => setInfoVisible(false)} />
     </SafeAreaView>
   );
 }

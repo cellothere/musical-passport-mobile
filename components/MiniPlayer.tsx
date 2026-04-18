@@ -47,6 +47,13 @@ function PreviewSourceBadge({ source }: { source: PreviewSource }) {
   return null;
 }
 
+function previewSourceLabel(source: PreviewSource): string | null {
+  if (source === 'spotify') return 'Preview provided by Spotify';
+  if (source === 'apple') return 'Preview provided by Apple Music';
+  if (source === 'deezer') return 'Preview provided by Deezer';
+  return null;
+}
+
 // ── Deezer logo ───────────────────────────────────────────────────────────────
 
 function DeezerLogo({ size, color }: { size: number; color: string }) {
@@ -117,8 +124,7 @@ const SERVICE_OPTIONS = [
   {
     key: 'apple',
     label: 'Apple Music',
-    iconLib: 'fa5' as const,
-    icon: 'apple' as const,
+    iconLib: 'none' as const,
     color: '#fc3c44',
     getUrl: (meta: TrackMeta) =>
       meta.appleId ? `https://music.apple.com/song/${meta.appleId}` : null,
@@ -331,14 +337,22 @@ function PlayerModal({ onClose, favoritesHook, onNeedAuth }: { onClose: () => vo
                     onPress={() => { haptics.light(); openServiceUrl(s.url); onClose(); }}
                     activeOpacity={0.75}
                   >
-                    {s.iconLib === 'deezer'
-                      ? <DeezerLogo size={18} color={s.color} />
-                      : <FontAwesome5 name={s.icon} size={18} color={s.color} brand />}
+                    {s.iconLib === 'deezer' ? (
+                      <DeezerLogo size={18} color={s.color} />
+                    ) : s.iconLib === 'fa5' ? (
+                      <FontAwesome5 name={s.icon} size={18} color={s.color} brand />
+                    ) : null}
                     <Text style={[modalStyles.serviceBtnText, { color: s.color }]}>{s.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
+          )}
+
+          {previewSourceLabel(currentPreviewSource) && (
+            <Text style={modalStyles.attribution}>
+              {previewSourceLabel(currentPreviewSource)} · 30-second sample
+            </Text>
           )}
 
           {/* Bottom actions */}
@@ -554,6 +568,14 @@ const modalStyles = StyleSheet.create({
     color: Colors.text2,
     fontSize: 15,
     fontWeight: '500',
+  },
+  attribution: {
+    color: Colors.text3,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 14,
+    marginBottom: 4,
+    letterSpacing: 0.2,
   },
 });
 

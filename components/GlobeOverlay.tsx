@@ -3,6 +3,7 @@ import { Animated, Dimensions, Modal, StyleSheet, TouchableOpacity, View } from 
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
+import { useSettings } from '../hooks/useSettings';
 
 const MIN_SHOW_MS = 2200;
 const MIN_SHOW_MS_FAST = 900;
@@ -122,6 +123,7 @@ interface Props {
 
 export function GlobeOverlay({ visible, country, decade, onDone, onCancel, dataReady, instant, subtitle }: Props) {
   const insets = useSafeAreaInsets();
+  const { reduceMotion } = useSettings();
   const overlayOpacity = useRef(new Animated.Value(1)).current;
   const labelCountryOpacity = useRef(new Animated.Value(0)).current;
   const labelCountryY = useRef(new Animated.Value(10)).current;
@@ -203,6 +205,16 @@ export function GlobeOverlay({ visible, country, decade, onDone, onCancel, dataR
     }
   }, [dataReady, visible]);
 
+  // Reduce-motion: skip rendering the globe and dismiss as soon as data is ready.
+  useEffect(() => {
+    if (!reduceMotion || !visible) return;
+    closeFired.current = false;
+    if (instant || dataReady) {
+      closeFired.current = true;
+      onDone();
+    }
+  }, [reduceMotion, visible, dataReady, instant]);
+
   // Crossfade subtitle when text changes
   useEffect(() => {
     if (!subtitle) {
@@ -216,6 +228,8 @@ export function GlobeOverlay({ visible, country, decade, onDone, onCancel, dataR
       Animated.timing(subtitleOpacity, { toValue: 1, duration: 350, useNativeDriver: true }).start();
     });
   }, [subtitle]);
+
+  if (reduceMotion) return null;
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>

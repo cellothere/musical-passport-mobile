@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
+import { AppState } from 'react-native';
 import { useAudioPlayer as useExpoAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import { fetchPreviewUrl } from '../services/api';
 
@@ -64,6 +65,26 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const player = useExpoAudioPlayer(undefined);
   const playerStatus = useAudioPlayerStatus(player);
 
+  // Configure audio session once at mount: foreground-only, mix politely.
+  useEffect(() => {
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: false,
+      interruptionMode: 'doNotMix',
+    }).catch(err => console.warn('setAudioModeAsync failed:', err));
+  }, []);
+
+  // When app leaves the foreground, pause and stay paused on return.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', next => {
+      if (next !== 'active' && currentIdRef.current) {
+        player.pause();
+        setState(s => s.isPlaying ? { ...s, isPlaying: false } : s);
+      }
+    });
+    return () => sub.remove();
+  }, [player]);
+
   // Detect natural end of track — reset to start and show play button
   useEffect(() => {
     if (!currentIdRef.current) return;
@@ -80,12 +101,22 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     });
   }, [playerStatus.playing]);
 
+  // Hard 30s cap — preview clips should never exceed 30 seconds, regardless of source.
+  useEffect(() => {
+    if (!currentIdRef.current) return;
+    if (!playerStatus.playing) return;
+    if ((playerStatus.currentTime ?? 0) >= 30) {
+      player.pause();
+      player.seekTo(0);
+      setState(s => s.isPlaying ? { ...s, isPlaying: false } : s);
+    }
+  }, [playerStatus.currentTime, playerStatus.playing]);
+
   const stop = useCallback(() => {
     player.pause();
     switchingRef.current = false;
     currentIdRef.current = null;
     setState(EMPTY);
-    player.clearLockScreenControls();
   }, [player]);
 
   const play = useCallback(async (trackId: string, url: string | undefined, title: string, artist?: string, artworkUrl?: string, trackMeta?: TrackMeta): Promise<boolean> => {
@@ -129,18 +160,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
       setState(s => s.currentTrackId === trackId ? { ...s, currentPreviewSource: getPreviewSource(resolvedUrl) } : s);
 
-      await setAudioModeAsync({
-        playsInSilentMode: true,
-        shouldPlayInBackground: true,
-        interruptionMode: 'doNotMix',
-      });
       player.replace({ uri: resolvedUrl });
       player.play();
-      player.setActiveForLockScreen(true, {
-        title,
-        artist: artist ?? 'Musical Passport',
-        artworkUrl: artworkUrl ?? undefined,
-      }, { showSeekForward: false, showSeekBackward: false });
       setState(s => s.currentTrackId === trackId ? { ...s, isLoading: false } : s);
       return true;
     } catch (err) {

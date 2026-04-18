@@ -10,6 +10,7 @@ interface Props {
   onTap?: () => void;
   onSpinComplete?: () => void;
   size?: number;
+  reduceMotion?: boolean;
 }
 
 const GLOBE_HTML = `<!DOCTYPE html>
@@ -122,7 +123,8 @@ let hadTwoFingers = false;
 let lastX = 0, lastY = 0, startX = 0, startY = 0;
 let velX = 0, velY = 0;
 let lastTwistAngle = 0;
-let autoRotate = true;
+const REDUCE_MOTION = __REDUCE_MOTION__;
+let autoRotate = !REDUCE_MOTION;
 let idleTimer = null;
 
 // Spin-for-surprise state
@@ -204,7 +206,7 @@ canvas.addEventListener('touchend', e => {
     isTwoFinger = false;
     hadTwoFingers = false;
     isDragging = false;
-    idleTimer = setTimeout(() => { autoRotate = true; }, 500);
+    idleTimer = setTimeout(() => { autoRotate = !REDUCE_MOTION; }, 500);
     return;
   }
   hadTwoFingers = false;
@@ -216,17 +218,25 @@ canvas.addEventListener('touchend', e => {
 
   const speed = Math.sqrt(velX * velX + velY * velY);
   if (dist < 8) {
-    idleTimer = setTimeout(() => { autoRotate = true; }, 500);
+    idleTimer = setTimeout(() => { autoRotate = !REDUCE_MOTION; }, 500);
     window.ReactNativeWebView && window.ReactNativeWebView.postMessage('tap');
   } else if (speed > 0.09 && dist > 60) {
-    const sp = Math.sqrt(velX * velX + velY * velY);
-    spinAxis.set(velY / sp, velX / sp, 0).normalize();
-    spinning = true;
-    spinT = 0;
-    autoRotate = false;
-    velX = velY = 0;
+    if (REDUCE_MOTION) {
+      // Skip the spin animation but still trigger the random-country pick.
+      velX = velY = 0;
+      autoRotate = false;
+      window.ReactNativeWebView && window.ReactNativeWebView.postMessage('spinComplete');
+    } else {
+      const sp = Math.sqrt(velX * velX + velY * velY);
+      spinAxis.set(velY / sp, velX / sp, 0).normalize();
+      spinning = true;
+      spinT = 0;
+      autoRotate = false;
+      velX = velY = 0;
+    }
   } else {
-    idleTimer = setTimeout(() => { autoRotate = true; }, 500);
+    if (REDUCE_MOTION) velX = velY = 0;
+    idleTimer = setTimeout(() => { autoRotate = !REDUCE_MOTION; }, 500);
   }
 });
 
@@ -261,7 +271,7 @@ function animate() {
     globe.quaternion.premultiply(_q);
     if (spinT >= 1) {
       spinning = false;
-      idleTimer = setTimeout(() => { autoRotate = true; }, 1200);
+      idleTimer = setTimeout(() => { autoRotate = !REDUCE_MOTION; }, 1200);
       window.ReactNativeWebView && window.ReactNativeWebView.postMessage('spinComplete');
     }
   } else if (!isDragging) {
@@ -286,7 +296,7 @@ animate();
 </html>`;
 
 export const Globe3D = forwardRef<Globe3DHandle, Props>(
-  ({ onTap, onSpinComplete, size = 280 }, ref) => {
+  ({ onTap, onSpinComplete, size = 280, reduceMotion = false }, ref) => {
     const webViewRef = useRef<WebView>(null);
 
     useImperativeHandle(ref, () => ({
@@ -298,13 +308,15 @@ export const Globe3D = forwardRef<Globe3DHandle, Props>(
       },
     }));
 
+    const html = GLOBE_HTML.replace('__REDUCE_MOTION__', reduceMotion ? 'true' : 'false');
 
     return (
       <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden' }}>
         <WebView
+          key={reduceMotion ? 'rm' : 'std'}
           ref={webViewRef}
           style={{ width: size, height: size }}
-          source={{ html: GLOBE_HTML }}
+          source={{ html }}
           originWhitelist={['*']}
           scrollEnabled={false}
           bounces={false}
