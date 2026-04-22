@@ -35,6 +35,7 @@
     "plugins": [
       "expo-font",
       "expo-audio",
+      "./plugins/remove-audio-background-mode",
       "expo-asset",
       "expo-splash-screen"
     ],
