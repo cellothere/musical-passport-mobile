@@ -124,7 +124,8 @@ const SERVICE_OPTIONS = [
   {
     key: 'apple',
     label: 'Apple Music',
-    iconLib: 'none' as const,
+    iconLib: 'fa5' as const,
+    icon: 'apple' as const,
     color: '#fc3c44',
     getUrl: (meta: TrackMeta) =>
       meta.appleId ? `https://music.apple.com/song/${meta.appleId}` : null,
@@ -337,11 +338,9 @@ function PlayerModal({ onClose, favoritesHook, onNeedAuth }: { onClose: () => vo
                     onPress={() => { haptics.light(); openServiceUrl(s.url); onClose(); }}
                     activeOpacity={0.75}
                   >
-                    {s.iconLib === 'deezer' ? (
-                      <DeezerLogo size={18} color={s.color} />
-                    ) : s.iconLib === 'fa5' ? (
-                      <FontAwesome5 name={s.icon} size={18} color={s.color} brand />
-                    ) : null}
+                    {s.iconLib === 'deezer'
+                      ? <DeezerLogo size={18} color={s.color} />
+                      : <FontAwesome5 name={s.icon} size={18} color={s.color} brand />}
                     <Text style={[modalStyles.serviceBtnText, { color: s.color }]}>{s.label}</Text>
                   </TouchableOpacity>
                 ))}
