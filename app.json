@@ -34,8 +34,7 @@
     },
     "plugins": [
       "expo-font",
-      "expo-audio",
-      "./plugins/remove-audio-background-mode",
+      ["expo-audio", { "enableBackgroundPlayback": false }],
       "expo-asset",
       "expo-splash-screen"
     ],
