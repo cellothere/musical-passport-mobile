@@ -46,17 +46,6 @@ export interface TimeMachineResponse {
   tracks: Track[];
 }
 
-export interface UserProfile {
-  displayName?: string;
-  email?: string;
-  id: string;
-}
-
-export interface MeResponse {
-  user: UserProfile;
-  topArtists: string[];
-}
-
 async function apiFetch(path: string, options?: RequestInit) {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -134,61 +123,10 @@ export async function fetchTimeMachine(
   return res.json();
 }
 
-export async function fetchMe(accessToken: string): Promise<MeResponse> {
-  const res = await apiFetch('/api/me', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok) throw new Error('Not authenticated');
-  return res.json();
-}
-
-export async function fetchSpotifyToken(code: string, codeVerifier: string, redirectUri: string): Promise<string> {
-  const res = await apiFetch('/auth/mobile-callback', {
-    method: 'POST',
-    body: JSON.stringify({ code, codeVerifier, redirectUri }),
-  });
-  if (!res.ok) throw new Error('Token exchange failed');
-  const data: any = await res.json();
-  return data.accessToken;
-}
-
-export async function fetchAppleMusicToken(): Promise<string> {
-  const res = await apiFetch('/api/apple-token');
-  if (!res.ok) throw new Error('Apple Music not configured on server');
-  const data: any = await res.json();
-  return data.token;
-}
-
-export async function fetchAppleMe(userToken: string): Promise<{ topArtists: string[] }> {
-  const res = await apiFetch('/api/apple-me', {
-    headers: { Authorization: `Bearer ${userToken}` },
-  });
-  if (!res.ok) throw new Error('Failed to fetch Apple Music library');
-  return res.json();
-}
-
 export interface InsightsPick {
   type: 'country' | 'genre';
   country: string;
   genre?: string;
-}
-
-export interface InsightsDNA {
-  region: string;
-  percentage: number;
-}
-
-export interface InsightsBlindSpot {
-  region: string;
-  percentage: number;
-  gatewayCountry: string;
-}
-
-export interface InsightsResponse {
-  picks: InsightsPick[];
-  dna: InsightsDNA[];
-  topEras: Array<{ decade: string; percentage: number }>;
-  blindSpots: InsightsBlindSpot[];
 }
 
 export interface GenreSpotlightResponse {
@@ -287,65 +225,12 @@ export async function fetchSimilarArtists(artistName: string): Promise<SimilarAr
   return res.json();
 }
 
-export async function fetchInsights(topArtists: string[], accessToken?: string): Promise<InsightsResponse> {
-  const res = await apiFetch('/api/insights', {
-    method: 'POST',
-    body: JSON.stringify({ topArtists }),
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-  });
-  if (!res.ok) throw new Error('Could not load insights');
-  return res.json();
-}
-
 export interface StampRecord {
   country: string;
   stampedAt: string;
   visitCount: number;
   genre: string | null;
   source: string | null;
-}
-
-export interface SyncResult {
-  favorites: import('../hooks/useFavorites').SavedDiscovery[];
-  stamps: StampRecord[];
-  insights: InsightsResponse | null;
-}
-
-export async function syncUser(
-  accessToken: string,
-  payload: { displayName?: string; topArtists: string[] }
-): Promise<SyncResult> {
-  const res = await apiFetch('/api/user/sync', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok) throw new Error('Sync failed');
-  return res.json();
-}
-
-export async function apiFetchFavorites(accessToken: string) {
-  const res = await apiFetch('/api/user/favorites', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  return res.ok ? res.json() : [];
-}
-
-export async function apiSaveFavorite(accessToken: string, item: { type: string; country: string; decade?: string; data: any }) {
-  const res = await apiFetch('/api/user/favorites', {
-    method: 'POST',
-    body: JSON.stringify(item),
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok) throw new Error('Failed to save');
-  return res.json();
-}
-
-export async function apiRemoveFavorite(accessToken: string, id: string) {
-  await apiFetch(`/api/user/favorites/${id}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
 }
 
 export interface GenreArtistsResponse {
@@ -368,18 +253,6 @@ export async function fetchGenreArtists(
     throw new Error((err as any).error || 'Failed to load genre artists');
   }
   return res.json();
-}
-
-export async function apiAddStamp(
-  accessToken: string,
-  country: string,
-  opts?: { source?: string; genre?: string }
-) {
-  await apiFetch('/api/user/stamps', {
-    method: 'POST',
-    body: JSON.stringify({ country, source: opts?.source, genre: opts?.genre }),
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
 }
 
 export interface TrackFlagPayload {

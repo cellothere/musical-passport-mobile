@@ -137,6 +137,10 @@ export function InfoSheet({ visible, onClose }: Props) {
                   ListenBrainz, Discogs, and Last.fm.
                 </Text>
                 <Text style={[styles.bodyText, { marginTop: 8 }]}>
+                  Music video links are provided via the YouTube Data API and open in
+                  YouTube on your device.
+                </Text>
+                <Text style={[styles.bodyText, { marginTop: 8 }]}>
                   Musical Passport is not affiliated with, endorsed by, or sponsored by any
                   of these services. All trademarks belong to their respective owners.
                 </Text>
